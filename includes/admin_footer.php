@@ -1,4 +1,6 @@
-    </main>
-    <script src="../assets/admin.js" defer></script>
+        </div>
+    </div>
+</div>
+<script src="../assets/admin.js" defer></script>
 </body>
 </html>

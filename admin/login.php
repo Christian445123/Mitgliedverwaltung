@@ -34,34 +34,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <title>Login – Mitgliederverwaltung</title>
 <link rel="stylesheet" href="../assets/style.css">
 </head>
-<body class="auth-page">
-    <div class="auth-box">
+<body>
+<div class="split-auth">
+    <div class="split-auth-brand">
+        <span class="brand-mark">U19</span>
         <h1>AFBÖ U19</h1>
-        <h2>Admin-Login</h2>
-
-        <?php if ($justSeeded): ?>
-            <div class="alert alert-info">
-                <strong>Standard-Zugang wurde angelegt.</strong><br>
-                Benutzername: <code><?= h(DEFAULT_ADMIN_USERNAME) ?></code><br>
-                Passwort: <code><?= h(DEFAULT_ADMIN_PASSWORD) ?></code><br>
-                Du wirst nach dem Login aufgefordert, das Passwort zu ändern.
-            </div>
-        <?php endif; ?>
-
-        <?php if ($error): ?>
-            <p class="alert alert-error"><?= h($error) ?></p>
-        <?php endif; ?>
-
-        <form method="post" action="login.php" novalidate>
-            <?= csrf_field() ?>
-            <label for="username">Benutzername</label>
-            <input type="text" id="username" name="username" autocomplete="username" required autofocus>
-
-            <label for="password">Passwort</label>
-            <input type="password" id="password" name="password" autocomplete="current-password" required>
-
-            <button type="submit" class="btn btn-primary btn-block" style="margin-top:20px;">Anmelden</button>
-        </form>
+        <p>Mitgliederverwaltung des Vereins – Stammdaten, Ausrüstung, Dokumente und Zugangslinks an einem Ort.</p>
     </div>
+    <div class="split-auth-form">
+        <div class="split-auth-card">
+            <h2>Admin-Login</h2>
+            <p class="sub">Melde dich mit deinem Verwaltungs-Konto an.</p>
+
+            <?php if ($justSeeded): ?>
+                <div class="alert alert-info">
+                    <strong>Standard-Zugang wurde angelegt.</strong><br>
+                    Benutzername: <code><?= h(DEFAULT_ADMIN_USERNAME) ?></code><br>
+                    Passwort: <code><?= h(DEFAULT_ADMIN_PASSWORD) ?></code><br>
+                    Du wirst nach dem Login aufgefordert, das Passwort zu ändern.
+                </div>
+            <?php endif; ?>
+
+            <?php if ($error): ?>
+                <p class="alert alert-error"><?= h($error) ?></p>
+            <?php endif; ?>
+
+            <form method="post" action="login.php" novalidate>
+                <?= csrf_field() ?>
+                <label for="username">Benutzername</label>
+                <input type="text" id="username" name="username" autocomplete="username" required autofocus>
+
+                <label for="password">Passwort</label>
+                <input type="password" id="password" name="password" autocomplete="current-password" required>
+
+                <button type="submit" class="btn btn-primary btn-block" style="margin-top:20px;">Anmelden</button>
+            </form>
+        </div>
+    </div>
+</div>
 </body>
 </html>

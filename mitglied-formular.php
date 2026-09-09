@@ -73,35 +73,53 @@ if (!$unlocked) {
     }
 
     $pageTitle = 'Zugang zu meinen Daten';
-    require __DIR__ . '/includes/public_header.php';
     ?>
-    <div class="verify-box">
-        <h1>Zugang zu deinen Mitgliedsdaten</h1>
-        <p>Zum Schutz deiner Daten benötigen wir zusätzlich zum Link deine hinterlegte
-           E-Mail-Adresse und den dir per E-Mail mitgeteilten Zugangscode.</p>
+    <!doctype html>
+    <html lang="de">
+    <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title><?= h($pageTitle) ?> – AFBÖ U19</title>
+    <link rel="stylesheet" href="assets/style.css">
+    </head>
+    <body>
+    <div class="split-auth">
+        <div class="split-auth-brand">
+            <span class="brand-mark">U19</span>
+            <h1>AFBÖ U19</h1>
+            <p>Hallo <?= h($member['vorname']) ?>! Bitte bestätige deine Identität, um deine Mitgliedsdaten zu bearbeiten.</p>
+        </div>
+        <div class="split-auth-form">
+            <div class="split-auth-card">
+                <h2>Zugang zu deinen Daten</h2>
+                <p class="sub">Zum Schutz deiner Daten benötigen wir zusätzlich zum Link deine
+                   hinterlegte E-Mail-Adresse und den per E-Mail mitgeteilten Zugangscode.</p>
 
-        <?php if ($unlockError): ?>
-            <p class="alert alert-error"><?= h($unlockError) ?></p>
-        <?php endif; ?>
+                <?php if ($unlockError): ?>
+                    <p class="alert alert-error"><?= h($unlockError) ?></p>
+                <?php endif; ?>
 
-        <form method="post" action="mitglied-formular.php?token=<?= h($token) ?>" novalidate>
-            <?= csrf_field() ?>
-            <input type="hidden" name="stage" value="unlock">
-            <input type="hidden" name="token" value="<?= h($token) ?>">
-            <label for="email">E-Mail-Adresse</label>
-            <input type="email" id="email" name="email" required autofocus>
-            <label for="password">Zugangscode</label>
-            <input type="text" id="password" name="password" required autocomplete="off">
-            <button type="submit" class="btn btn-primary btn-block" style="margin-top:20px;">Zugang prüfen</button>
-        </form>
+                <form method="post" action="mitglied-formular.php?token=<?= h($token) ?>" novalidate>
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="stage" value="unlock">
+                    <input type="hidden" name="token" value="<?= h($token) ?>">
+                    <label for="email">E-Mail-Adresse</label>
+                    <input type="email" id="email" name="email" required autofocus>
+                    <label for="password">Zugangscode</label>
+                    <input type="text" id="password" name="password" required autocomplete="off">
+                    <button type="submit" class="btn btn-primary btn-block" style="margin-top:20px;">Zugang prüfen</button>
+                </form>
 
-        <p class="privacy-note">
-            Hinweis zum Datenschutz: Deine Angaben werden ausschließlich zur Mitgliederverwaltung
-            des Vereins verarbeitet und nicht an Dritte weitergegeben.
-        </p>
+                <p class="privacy-note">
+                    Hinweis zum Datenschutz: Deine Angaben werden ausschließlich zur Mitgliederverwaltung
+                    des Vereins verarbeitet und nicht an Dritte weitergegeben.
+                </p>
+            </div>
+        </div>
     </div>
+    </body>
+    </html>
     <?php
-    require __DIR__ . '/includes/public_footer.php';
     exit;
 }
 
