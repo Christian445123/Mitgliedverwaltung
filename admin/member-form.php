@@ -27,6 +27,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $savedId = member_upsert($data, $id, $status);
 
+        if ($id === null) {
+            // Neues Mitglied: gleich einen Zugangscode für den persönlichen Link erzeugen.
+            $_SESSION['generated_password'] = member_regenerate_access_password($savedId);
+            flash_set('info', 'Mitglied wurde angelegt. Link und Zugangscode können nun verschickt werden.');
+            redirect('member-link.php?id=' . $savedId);
+        }
+
         flash_set('info', 'Mitglied wurde gespeichert.');
         redirect('member-form.php?id=' . $savedId);
     } catch (RuntimeException $e) {
@@ -36,7 +43,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $m = $existing ?: [];
-$emailLocked = false;
 $showAdminFields = true;
 $isNew = $id === null;
 

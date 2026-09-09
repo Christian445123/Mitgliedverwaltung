@@ -7,15 +7,13 @@ declare(strict_types=1);
  * Feldreihenfolge folgt exakt der Original-Tabelle (Spalte für Spalte).
  *
  * Erwartet im Scope:
- *   array $m              Mitgliedsdaten (Schlüssel = Spaltennamen, fehlende Werte werden als '' behandelt)
- *   bool  $emailLocked    true = E-Mail-Feld nur Anzeige (öffentliches Formular)
- *   bool  $showAdminFields true = zusätzliche Felder, die nur der Admin sieht/setzt (Status)
+ *   array $m                Mitgliedsdaten (Schlüssel = Spaltennamen, fehlende Werte werden als '' behandelt)
+ *   bool  $showAdminFields  true = zusätzliche Felder, die nur der Admin sieht/setzt (Status)
  */
 
 if (!isset($m) || !is_array($m)) {
     $m = [];
 }
-$emailLocked = $emailLocked ?? false;
 $showAdminFields = $showAdminFields ?? false;
 
 $v = static fn (string $key) => h((string) ($m[$key] ?? ''));
@@ -105,17 +103,9 @@ $checked = static fn (string $key) => !empty($m[$key]) ? 'checked' : '';
         </div>
         <div class="form-group">
             <label for="email">Mail *</label>
-            <?php if ($emailLocked): ?>
-                <input type="email" value="<?= $v('email') ?>" disabled>
-                <input type="hidden" name="email" value="<?= $v('email') ?>">
-            <?php else: ?>
-                <input type="email" id="email" name="email" value="<?= $v('email') ?>" required maxlength="190">
-            <?php endif; ?>
+            <input type="email" id="email" name="email" value="<?= $v('email') ?>" required maxlength="190">
         </div>
     </div>
-    <?php if ($emailLocked): ?>
-        <p style="font-size:0.82rem;color:var(--color-muted);margin:4px 0 0;">Diese Adresse ist über deinen Link festgelegt und kann hier nicht geändert werden.</p>
-    <?php endif; ?>
 </fieldset>
 
 <fieldset>

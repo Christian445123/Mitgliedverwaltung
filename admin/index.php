@@ -45,12 +45,13 @@ $error = flash_get('error');
             <th>Jersey Nr.</th>
             <th>E-Mail</th>
             <th>Status</th>
+            <th>Bestätigt</th>
             <th></th>
         </tr>
     </thead>
     <tbody>
     <?php if (empty($members)): ?>
-        <tr><td colspan="7" class="empty">Keine Mitglieder gefunden.</td></tr>
+        <tr><td colspan="8" class="empty">Keine Mitglieder gefunden.</td></tr>
     <?php endif; ?>
     <?php foreach ($members as $mRow): ?>
         <tr>
@@ -60,8 +61,16 @@ $error = flash_get('error');
             <td><?= h($mRow['jersey_nr'] ?? '') ?></td>
             <td><?= h($mRow['email']) ?></td>
             <td><span class="badge badge-<?= $mRow['status'] === 'aktiv' ? 'green' : 'gray' ?>"><?= h(ucfirst($mRow['status'])) ?></span></td>
+            <td>
+                <?php if ($mRow['verified_at']): ?>
+                    <span class="badge badge-green" title="Bestätigt am <?= h($mRow['verified_at']) ?>">✓</span>
+                <?php else: ?>
+                    <span class="badge badge-orange">Ausstehend</span>
+                <?php endif; ?>
+            </td>
             <td class="actions">
                 <a href="member-form.php?id=<?= (int) $mRow['id'] ?>">Bearbeiten</a>
+                <a href="member-link.php?id=<?= (int) $mRow['id'] ?>">Link</a>
             </td>
         </tr>
     <?php endforeach; ?>

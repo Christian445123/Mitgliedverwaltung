@@ -1,11 +1,14 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
 :root {
-    --color-bg: #f4f6f8;
+    --color-bg: #f1f4f9;
     --color-surface: #ffffff;
-    --color-border: #dbe1e8;
-    --color-text: #1f2937;
+    --color-border: #e2e6ee;
+    --color-text: #1a1f2b;
     --color-muted: #6b7280;
-    --color-primary: #2563eb;
-    --color-primary-dark: #1d4ed8;
+    --color-primary: #4f46e5;
+    --color-primary-dark: #4338ca;
+    --color-primary-soft: #eef0fe;
     --color-danger: #dc2626;
     --color-success-bg: #ecfdf5;
     --color-success-text: #065f46;
@@ -15,20 +18,27 @@
     --color-warning-text: #92400e;
     --color-info-bg: #eff6ff;
     --color-info-text: #1e40af;
-    --radius: 8px;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow-sm: 0 1px 2px rgba(20, 24, 40, 0.05);
+    --shadow: 0 4px 12px rgba(20, 24, 40, 0.06), 0 1px 2px rgba(20, 24, 40, 0.05);
+    --shadow-lg: 0 12px 32px rgba(20, 24, 40, 0.10), 0 2px 6px rgba(20, 24, 40, 0.06);
 }
 
 * { box-sizing: border-box; }
 
 body {
     margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     background: var(--color-bg);
     color: var(--color-text);
-    line-height: 1.5;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
 }
 
 a { color: var(--color-primary); }
+
+h1, h2 { letter-spacing: -0.01em; }
 
 /* --- Auth-Seite (Login) ------------------------------------------------ */
 .auth-page {
@@ -37,20 +47,22 @@ a { color: var(--color-primary); }
     justify-content: center;
     min-height: 100vh;
     padding: 20px;
+    background: radial-gradient(circle at top, #eef0fe 0%, var(--color-bg) 55%);
 }
 
 .auth-box {
     background: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: var(--radius);
-    padding: 32px;
+    padding: 36px;
     width: 100%;
     max-width: 380px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    box-shadow: var(--shadow-lg);
 }
 
 .auth-box h1 {
-    font-size: 1.25rem;
+    font-size: 1.3rem;
+    font-weight: 800;
     margin: 0 0 4px;
 }
 
@@ -71,6 +83,10 @@ a { color: var(--color-primary); }
     align-items: center;
     flex-wrap: wrap;
     gap: 8px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    box-shadow: var(--shadow-sm);
 }
 
 .topbar-left {
@@ -79,22 +95,26 @@ a { color: var(--color-primary); }
     gap: 24px;
 }
 
-.topbar-title { font-weight: 600; }
+.topbar-title { font-weight: 800; letter-spacing: -0.01em; }
 
 .topbar-nav {
     display: flex;
-    gap: 16px;
+    gap: 18px;
 }
 
 .topbar-nav a {
-    color: var(--color-text);
+    color: var(--color-muted);
     text-decoration: none;
     font-size: 0.9rem;
+    font-weight: 500;
+    transition: color 0.15s;
 }
 
-.topbar-nav a:hover { text-decoration: underline; }
+.topbar-nav a:hover { color: var(--color-primary); text-decoration: none; }
 
 .topbar-user { font-size: 0.9rem; color: var(--color-muted); }
+.topbar-user a { color: var(--color-muted); }
+.topbar-user a:hover { color: var(--color-primary); }
 
 .content, .public-page .content {
     max-width: 960px;
@@ -106,9 +126,10 @@ a { color: var(--color-primary); }
     background: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: var(--radius);
-    padding: 32px;
+    padding: 36px;
     max-width: 640px;
     margin: 0 auto;
+    box-shadow: var(--shadow);
 }
 
 .content-header {
@@ -118,7 +139,7 @@ a { color: var(--color-primary); }
     margin-bottom: 20px;
 }
 
-.content-header h1 { margin: 0; font-size: 1.4rem; }
+.content-header h1 { margin: 0; font-size: 1.45rem; font-weight: 800; }
 
 /* --- Formulare ----------------------------------------------------------- */
 form label {
@@ -127,6 +148,7 @@ form label {
     font-weight: 600;
     margin-bottom: 4px;
     margin-top: 14px;
+    color: var(--color-text);
 }
 
 form input[type=text],
@@ -139,33 +161,39 @@ form input[type=file],
 form select,
 form textarea {
     width: 100%;
-    padding: 9px 10px;
+    padding: 9px 12px;
     border: 1px solid var(--color-border);
-    border-radius: 6px;
+    border-radius: var(--radius-sm);
     font-size: 0.95rem;
     background: var(--color-surface);
     color: var(--color-text);
     font-family: inherit;
+    transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 form input:focus, form select:focus, form textarea:focus {
     outline: none;
     border-color: var(--color-primary);
-    box-shadow: 0 0 0 3px rgba(37,99,235,0.15);
+    box-shadow: 0 0 0 3px var(--color-primary-soft);
 }
 
 fieldset {
     border: 1px solid var(--color-border);
     border-radius: var(--radius);
-    padding: 16px 20px 20px;
+    padding: 18px 22px 22px;
     margin: 0 0 20px;
+    background: #fafbfd;
 }
 
 legend {
-    padding: 0 6px;
-    font-weight: 600;
-    font-size: 0.9rem;
-    color: var(--color-muted);
+    padding: 2px 10px;
+    font-weight: 700;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-primary-dark);
+    background: var(--color-primary-soft);
+    border-radius: 999px;
 }
 
 .form-row {
@@ -180,24 +208,29 @@ legend {
 /* --- Buttons -------------------------------------------------------------- */
 .btn {
     display: inline-block;
-    padding: 9px 16px;
-    border-radius: 6px;
+    padding: 9px 18px;
+    border-radius: var(--radius-sm);
     border: 1px solid var(--color-border);
     background: var(--color-surface);
     color: var(--color-text);
     font-size: 0.9rem;
+    font-weight: 500;
     cursor: pointer;
     text-decoration: none;
+    transition: background 0.15s, border-color 0.15s, transform 0.05s, box-shadow 0.15s;
 }
 
 .btn:hover { background: var(--color-bg); }
+.btn:active { transform: translateY(1px); }
 
 .btn-primary {
     background: var(--color-primary);
     border-color: var(--color-primary);
     color: #fff;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(79, 70, 229, 0.25);
 }
-.btn-primary:hover { background: var(--color-primary-dark); }
+.btn-primary:hover { background: var(--color-primary-dark); border-color: var(--color-primary-dark); }
 
 .btn-secondary { margin-top: 20px; }
 
@@ -208,6 +241,7 @@ legend {
     border: none;
     color: var(--color-primary);
     padding: 9px 4px;
+    font-weight: 500;
 }
 
 form.member-form button[type=submit] { margin-top: 24px; }
@@ -234,32 +268,38 @@ form.member-form button[type=submit] { margin-top: 24px; }
     border: 1px solid var(--color-border);
     border-radius: var(--radius);
     overflow: hidden;
+    box-shadow: var(--shadow-sm);
 }
 
 .table th, .table td {
-    padding: 10px 14px;
+    padding: 11px 16px;
     text-align: left;
     border-bottom: 1px solid var(--color-border);
     font-size: 0.9rem;
 }
 
 .table th {
-    background: #f9fafb;
-    font-weight: 600;
+    background: #f8f9fc;
+    font-weight: 700;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
     color: var(--color-muted);
 }
 
+.table tbody tr { transition: background 0.1s; }
+.table tbody tr:hover { background: #fafbff; }
 .table tr:last-child td { border-bottom: none; }
-.table .empty { text-align: center; color: var(--color-muted); padding: 24px; }
+.table .empty { text-align: center; color: var(--color-muted); padding: 28px; }
 .table .actions a, .table .actions .link-button { margin-right: 12px; font-size: 0.88rem; }
 
 /* --- Badges & Alerts -------------------------------------------------------- */
 .badge {
     display: inline-block;
-    padding: 2px 10px;
+    padding: 3px 11px;
     border-radius: 999px;
-    font-size: 0.78rem;
-    font-weight: 600;
+    font-size: 0.75rem;
+    font-weight: 700;
 }
 .badge-green { background: var(--color-success-bg); color: var(--color-success-text); }
 .badge-gray { background: #f3f4f6; color: var(--color-muted); }
@@ -269,15 +309,16 @@ form.member-form button[type=submit] { margin-top: 24px; }
 
 .alert {
     padding: 12px 16px;
-    border-radius: 6px;
+    border-radius: var(--radius-sm);
     margin-bottom: 16px;
     font-size: 0.9rem;
+    border: 1px solid transparent;
 }
 .alert ul { margin: 0; padding-left: 20px; }
-.alert-success { background: var(--color-success-bg); color: var(--color-success-text); }
-.alert-error { background: var(--color-error-bg); color: var(--color-error-text); }
-.alert-warning { background: var(--color-warning-bg); color: var(--color-warning-text); }
-.alert-info { background: var(--color-info-bg); color: var(--color-info-text); }
+.alert-success { background: var(--color-success-bg); color: var(--color-success-text); border-color: #bbf0d4; }
+.alert-error { background: var(--color-error-bg); color: var(--color-error-text); border-color: #fac5c5; }
+.alert-warning { background: var(--color-warning-bg); color: var(--color-warning-text); border-color: #fde3ab; }
+.alert-info { background: var(--color-info-bg); color: var(--color-info-text); border-color: #bfdbfe; }
 .alert code {
     background: rgba(0,0,0,0.06);
     padding: 1px 5px;
@@ -310,8 +351,8 @@ form.member-form button[type=submit] { margin-top: 24px; }
     flex: 1;
     padding: 9px 10px;
     border: 1px solid var(--color-border);
-    border-radius: 6px;
-    font-family: monospace;
+    border-radius: var(--radius-sm);
+    font-family: 'SF Mono', Menlo, Consolas, monospace;
     font-size: 0.85rem;
     background: var(--color-bg);
 }
