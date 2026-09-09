@@ -5,10 +5,17 @@ CREATE TABLE IF NOT EXISTS admins (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(60) NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
+    role ENUM('administrator', 'editor') NOT NULL DEFAULT 'administrator',
     must_change_password TINYINT(1) NOT NULL DEFAULT 0,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY uniq_username (username)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Idempotente Migration für bereits bestehende Installationen (falls die
+-- Tabelle "admins" schon ohne die Spalte "role" existiert). Benötigt
+-- MariaDB (unterstützt "ADD COLUMN IF NOT EXISTS"); auf reinem MySQL bei
+-- Bedarf manuell prüfen/anpassen.
+ALTER TABLE admins ADD COLUMN IF NOT EXISTS role ENUM('administrator', 'editor') NOT NULL DEFAULT 'administrator' AFTER password_hash;
 
 -- Kern-Tabelle: Stammdaten + Felder, die für Liste/Suche im Admin-Dashboard
 -- gebraucht werden. Alles andere ist in Teiltabellen ausgelagert (1:1 über

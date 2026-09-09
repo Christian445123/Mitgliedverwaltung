@@ -6,7 +6,7 @@ require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/updater.php';
 
-require_admin();
+require_administrator();
 
 $result = null;
 

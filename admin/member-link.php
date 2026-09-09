@@ -25,6 +25,7 @@ if (!empty($_SESSION['generated_password'])) {
 }
 
 $mailNotice = null;
+$info = flash_get('info');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
@@ -76,6 +77,8 @@ require __DIR__ . '/../includes/admin_header.php';
     <h1>Zugangslink</h1>
     <a href="index.php" class="btn btn-link">&larr; Zurück zur Liste</a>
 </div>
+
+<?php if ($info): ?><p class="alert alert-success"><?= h($info) ?></p><?php endif; ?>
 
 <p>Für <strong><?= h($member['vorname'] . ' ' . $member['nachname']) ?></strong> (<?= h($member['email']) ?>).</p>
 

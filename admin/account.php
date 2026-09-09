@@ -9,58 +9,34 @@ require_admin();
 
 $passwordError = null;
 $passwordSuccess = null;
-$newAdminError = null;
-$newAdminSuccess = null;
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'change_password') {
     verify_csrf();
 
-    if ($_POST['action'] === 'change_password') {
-        $current = (string) ($_POST['current_password'] ?? '');
-        $new = (string) ($_POST['new_password'] ?? '');
-        $repeat = (string) ($_POST['new_password_repeat'] ?? '');
+    $current = (string) ($_POST['current_password'] ?? '');
+    $new = (string) ($_POST['new_password'] ?? '');
+    $repeat = (string) ($_POST['new_password_repeat'] ?? '');
 
-        $stmt = db()->prepare('SELECT password_hash FROM admins WHERE id = ?');
-        $stmt->execute([current_admin_id()]);
-        $row = $stmt->fetch();
+    $stmt = db()->prepare('SELECT password_hash FROM admins WHERE id = ?');
+    $stmt->execute([current_admin_id()]);
+    $row = $stmt->fetch();
 
-        if ($row === false || !password_verify($current, $row['password_hash'])) {
-            $passwordError = 'Aktuelles Passwort ist falsch.';
-        } elseif (strlen($new) < 8) {
-            $passwordError = 'Neues Passwort muss mindestens 8 Zeichen haben.';
-        } elseif ($new !== $repeat) {
-            $passwordError = 'Die Passwörter stimmen nicht überein.';
-        } else {
-            $update = db()->prepare('UPDATE admins SET password_hash = ?, must_change_password = 0 WHERE id = ?');
-            $update->execute([password_hash($new, PASSWORD_DEFAULT), current_admin_id()]);
-            $_SESSION['must_change_password'] = false;
-            $passwordSuccess = 'Passwort wurde geändert.';
-        }
-    }
-
-    if ($_POST['action'] === 'add_admin') {
-        $username = post_str('new_username');
-        $password = (string) ($_POST['new_admin_password'] ?? '');
-
-        if ($username === null || strlen($username) < 3) {
-            $newAdminError = 'Benutzername muss mindestens 3 Zeichen haben.';
-        } elseif (strlen($password) < 8) {
-            $newAdminError = 'Passwort muss mindestens 8 Zeichen haben.';
-        } else {
-            try {
-                $insert = db()->prepare('INSERT INTO admins (username, password_hash, must_change_password) VALUES (?, ?, 1)');
-                $insert->execute([$username, password_hash($password, PASSWORD_DEFAULT)]);
-                $newAdminSuccess = "Admin-Konto „{$username}“ wurde angelegt.";
-            } catch (PDOException $e) {
-                $newAdminError = (int) $e->errorInfo[1] === 1062
-                    ? 'Dieser Benutzername existiert bereits.'
-                    : 'Fehler beim Anlegen des Kontos.';
-            }
-        }
+    if ($row === false || !password_verify($current, $row['password_hash'])) {
+        $passwordError = 'Aktuelles Passwort ist falsch.';
+    } elseif (strlen($new) < 8) {
+        $passwordError = 'Neues Passwort muss mindestens 8 Zeichen haben.';
+    } elseif ($new !== $repeat) {
+        $passwordError = 'Die Passwörter stimmen nicht überein.';
+    } else {
+        $update = db()->prepare('UPDATE admins SET password_hash = ?, must_change_password = 0 WHERE id = ?');
+        $update->execute([password_hash($new, PASSWORD_DEFAULT), current_admin_id()]);
+        $_SESSION['must_change_password'] = false;
+        $passwordSuccess = 'Passwort wurde geändert.';
     }
 }
 
 $mustChange = !empty($_SESSION['must_change_password']);
+$redirectInfo = flash_get('info');
 $pageTitle = 'Mein Konto';
 require __DIR__ . '/../includes/admin_header.php';
 ?>
@@ -68,8 +44,15 @@ require __DIR__ . '/../includes/admin_header.php';
     <h1>Mein Konto</h1>
 </div>
 
+<p class="muted" style="margin-top:-8px;color:var(--color-muted);">
+    Angemeldet als <strong><?= h(current_admin_username() ?? '') ?></strong>
+    &middot; Rolle: <span class="badge <?= is_administrator() ? 'badge-green' : 'badge-gray' ?>"><?= is_administrator() ? 'Administrator' : 'Bearbeiter' ?></span>
+</p>
+
 <?php if ($mustChange): ?>
     <p class="alert alert-error">Es ist noch das Standard-Passwort aktiv. Bitte jetzt ein eigenes Passwort setzen.</p>
+<?php elseif ($redirectInfo): ?>
+    <p class="alert alert-success"><?= h($redirectInfo) ?></p>
 <?php endif; ?>
 
 <fieldset>
@@ -98,26 +81,8 @@ require __DIR__ . '/../includes/admin_header.php';
     </form>
 </fieldset>
 
-<fieldset>
-    <legend>Weiteren Admin anlegen</legend>
-    <?php if ($newAdminError): ?><p class="alert alert-error"><?= h($newAdminError) ?></p><?php endif; ?>
-    <?php if ($newAdminSuccess): ?><p class="alert alert-success"><?= h($newAdminSuccess) ?></p><?php endif; ?>
-
-    <form method="post">
-        <?= csrf_field() ?>
-        <input type="hidden" name="action" value="add_admin">
-        <div class="form-row">
-            <div class="form-group">
-                <label for="new_username">Benutzername</label>
-                <input type="text" id="new_username" name="new_username" required minlength="3" maxlength="60">
-            </div>
-            <div class="form-group">
-                <label for="new_admin_password">Passwort</label>
-                <input type="password" id="new_admin_password" name="new_admin_password" required minlength="8">
-            </div>
-        </div>
-        <button type="submit" class="btn">Admin-Konto anlegen</button>
-    </form>
-</fieldset>
+<?php if (is_administrator()): ?>
+<p class="muted" style="color:var(--color-muted);">Weitere Benutzer verwaltest du unter <a href="users.php">Benutzer</a>.</p>
+<?php endif; ?>
 
 <?php require __DIR__ . '/../includes/admin_footer.php'; ?>
