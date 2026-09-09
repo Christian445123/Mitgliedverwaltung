@@ -1,0 +1,5 @@
+.env
+/uploads/ecard/*
+/uploads/pass/*
+!/uploads/ecard/.gitkeep
+!/uploads/pass/.gitkeep
