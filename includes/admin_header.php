@@ -20,7 +20,8 @@
             </nav>
         </div>
         <div class="topbar-user">
-            Angemeldet als <strong><?= h(current_admin_username() ?? '') ?></strong>
+            <span class="avatar-bubble"><?= h(strtoupper(mb_substr(current_admin_username() ?? '?', 0, 1))) ?></span>
+            <span><?= h(current_admin_username() ?? '') ?></span>
             &middot; <a href="logout.php">Abmelden</a>
         </div>
     </header>
