@@ -31,6 +31,7 @@ function env_load(string $path): void
 
 env_load(__DIR__ . '/.env');
 
+define('APP_ROOT', __DIR__);
 define('APP_DEBUG', (getenv('DEBUG') ?: 'false') === 'true');
 define('APP_BASE_URL', rtrim((string) (getenv('BASE_URL') ?: ''), '/'));
 define('APP_FORCE_HTTPS_COOKIE', (getenv('FORCE_HTTPS_COOKIE') ?: 'false') === 'true');

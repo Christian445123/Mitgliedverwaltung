@@ -11,7 +11,7 @@ $adminInitial = h(strtoupper(mb_substr(current_admin_username() ?? '?', 0, 1)));
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title><?= h($pageTitle ?? 'Verwaltung') ?> – Mitgliederverwaltung</title>
-<link rel="stylesheet" href="../assets/style.css">
+<link rel="stylesheet" href="../assets/style.css?v=<?= asset_version('style.css') ?>">
 </head>
 <body>
 <div class="app-shell">

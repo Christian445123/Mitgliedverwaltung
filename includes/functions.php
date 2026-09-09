@@ -61,6 +61,18 @@ function is_valid_email(string $email): bool
 }
 
 /**
+ * Cache-Busting für statische Assets: hängt die letzte Änderungszeit der
+ * Datei als Query-Parameter an, damit Browser/CDN nach einem Deployment
+ * automatisch die neue Version laden statt eine alte CSS/JS-Datei zu
+ * cachen (Dateiname bleibt sonst bei jedem Update identisch).
+ */
+function asset_version(string $relativeToAssets): string
+{
+    $path = APP_ROOT . '/assets/' . $relativeToAssets;
+    return (string) (is_file($path) ? filemtime($path) : time());
+}
+
+/**
  * Liest einen POST-Wert als getrimmten String, oder null falls leer.
  */
 function post_str(string $key): ?string
