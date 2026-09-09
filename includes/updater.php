@@ -36,10 +36,16 @@ function run_shell_command(string $command, string $cwd): array
 }
 
 /**
- * Führt das Update durch: prüft auf lokale Änderungen und macht dann
- * `git pull --ff-only`. Bricht kontrolliert ab (success = false), statt
- * irgendetwas zu überschreiben, falls der Arbeitsbaum nicht sauber ist
- * oder der Pull nicht als reines Fast-Forward möglich ist.
+ * Führt das Update durch: prüft auf lokale Änderungen an bereits
+ * versionierten Dateien und macht dann `git pull --ff-only`. Bricht
+ * kontrolliert ab (success = false), statt irgendetwas zu überschreiben,
+ * falls solche Änderungen vorliegen oder der Pull nicht als reines
+ * Fast-Forward möglich ist.
+ *
+ * Rein unversionierte Dateien (z. B. hochgeladene Uploads, alte manuell
+ * kopierte Dateien) blockieren den Pull NICHT - das entspricht dem
+ * Verhalten von `git pull` selbst, das nur bei einer echten Kollision mit
+ * einer eingehenden Datei abbricht. Sie werden lediglich im Log aufgelistet.
  *
  * @return array{success: bool, log: string}
  */
@@ -50,11 +56,30 @@ function perform_update(string $projectRoot): array
     if ($code !== 0) {
         return ['success' => false, 'log' => $log . "Fehler beim Prüfen des Git-Status (ist das Projektverzeichnis ein Git-Checkout?).\n{$err}"];
     }
-    if (trim($out) !== '') {
-        return ['success' => false, 'log' => $log . "Abgebrochen: nicht committete Änderungen im Projektverzeichnis:\n{$out}\n"
+
+    $lines = array_filter(explode("\n", trim($out)), static fn (string $line) => $line !== '');
+    $trackedChanges = [];
+    $untracked = [];
+    foreach ($lines as $line) {
+        if (str_starts_with($line, '??')) {
+            $untracked[] = $line;
+        } else {
+            $trackedChanges[] = $line;
+        }
+    }
+
+    if ($trackedChanges !== []) {
+        return ['success' => false, 'log' => $log . "Abgebrochen: nicht committete Änderungen an versionierten Dateien:\n"
+            . implode("\n", $trackedChanges) . "\n\n"
             . "Bitte zuerst sichern/committen oder verwerfen, dann erneut versuchen.\n"];
     }
-    $log .= "OK, keine lokalen Änderungen.\n\n";
+
+    if ($untracked !== []) {
+        $log .= "Unversionierte Dateien (blockieren den Pull nicht, werden ignoriert):\n"
+            . implode("\n", $untracked) . "\n\n";
+    } else {
+        $log .= "OK, keine lokalen Änderungen.\n\n";
+    }
 
     $log .= "== git pull --ff-only ==\n";
     [$code, $out, $err] = run_shell_command('git pull --ff-only', $projectRoot);
