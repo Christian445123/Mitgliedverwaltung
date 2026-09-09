@@ -16,6 +16,7 @@
             <nav class="topbar-nav">
                 <a href="index.php">Mitglieder</a>
                 <a href="account.php">Konto</a>
+                <a href="update.php">Update</a>
             </nav>
         </div>
         <div class="topbar-user">
