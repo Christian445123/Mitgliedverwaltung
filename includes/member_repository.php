@@ -166,9 +166,10 @@ function member_collect_input(array $existing = []): array
     $nachname = post_str('nachname');
     $vorname = post_str('vorname');
     $email = post_str('email');
+    $telefon = post_str('telefon');
 
-    if ($nachname === null || $vorname === null || $email === null) {
-        throw new RuntimeException('Nachname, Vorname und E-Mail-Adresse sind Pflichtfelder.');
+    if ($nachname === null || $vorname === null || $email === null || $telefon === null) {
+        throw new RuntimeException('Nachname, Vorname, Telefon und E-Mail-Adresse sind Pflichtfelder.');
     }
 
     if (!is_valid_email($email)) {
@@ -199,7 +200,7 @@ function member_collect_input(array $existing = []): array
         'verein' => post_str('verein'),
         'groesse_cm' => post_int('groesse_cm'),
         'gewicht_kg' => post_int('gewicht_kg'),
-        'telefon' => post_str('telefon'),
+        'telefon' => $telefon,
         'email' => $email,
 
         'erz_name' => post_str('erz_name'),

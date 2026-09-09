@@ -18,6 +18,18 @@ $showAdminFields = $showAdminFields ?? false;
 
 $v = static fn (string $key) => h((string) ($m[$key] ?? ''));
 $checked = static fn (string $key) => !empty($m[$key]) ? 'checked' : '';
+
+// Erziehungsberechtigte-Angaben: im öffentlichen Formular nur bei
+// Minderjährigen einblenden (Admin sieht/bearbeitet sie immer).
+$isMinor = true; // solange kein Geburtsdatum bekannt ist, sicherheitshalber anzeigen
+if (!empty($m['geburtsdatum'])) {
+    try {
+        $isMinor = (new DateTime($m['geburtsdatum']))->diff(new DateTime())->y < 18;
+    } catch (Exception $e) {
+        $isMinor = true;
+    }
+}
+$showGuardianSection = $showAdminFields || $isMinor;
 ?>
 <fieldset>
     <legend>Nummer &amp; Camps</legend>
@@ -98,8 +110,8 @@ $checked = static fn (string $key) => !empty($m[$key]) ? 'checked' : '';
 
     <div class="form-row">
         <div class="form-group">
-            <label for="telefon">Telefon</label>
-            <input type="tel" id="telefon" name="telefon" value="<?= $v('telefon') ?>" maxlength="50">
+            <label for="telefon">Telefon *</label>
+            <input type="tel" id="telefon" name="telefon" value="<?= $v('telefon') ?>" required maxlength="50">
         </div>
         <div class="form-group">
             <label for="email">Mail *</label>
@@ -108,7 +120,7 @@ $checked = static fn (string $key) => !empty($m[$key]) ? 'checked' : '';
     </div>
 </fieldset>
 
-<fieldset>
+<fieldset id="guardian-fieldset" <?= $showGuardianSection ? '' : 'hidden' ?>>
     <legend>Erziehungsberechtigte (falls minderjährig)</legend>
 
     <div class="form-group">
@@ -126,6 +138,43 @@ $checked = static fn (string $key) => !empty($m[$key]) ? 'checked' : '';
         </div>
     </div>
 </fieldset>
+
+<?php if (!$showAdminFields): ?>
+<script>
+(function () {
+    var dateInput = document.getElementById('geburtsdatum');
+    var fieldset = document.getElementById('guardian-fieldset');
+    if (!dateInput || !fieldset) {
+        return;
+    }
+
+    function isMinor(value) {
+        if (!value) {
+            return true; // Geburtsdatum unbekannt -> sicherheitshalber anzeigen
+        }
+        var birthDate = new Date(value);
+        if (isNaN(birthDate.getTime())) {
+            return true;
+        }
+        var today = new Date();
+        var age = today.getFullYear() - birthDate.getFullYear();
+        var monthDiff = today.getMonth() - birthDate.getMonth();
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+            age--;
+        }
+        return age < 18;
+    }
+
+    function update() {
+        fieldset.hidden = !isMinor(dateInput.value);
+    }
+
+    dateInput.addEventListener('change', update);
+    dateInput.addEventListener('input', update);
+    update();
+})();
+</script>
+<?php endif; ?>
 
 <fieldset>
     <legend>Rechte &amp; Pflicht</legend>
