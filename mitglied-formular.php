@@ -69,37 +69,23 @@ $m = $existing ?: ['email' => $email];
 $emailLocked = true;
 $showAdminFields = false;
 $isNew = $existing === false;
+
+$pageTitle = $isNew ? 'Mitgliedsdaten neu anlegen' : 'Mitgliedsdaten bearbeiten';
+require __DIR__ . '/includes/public_header.php';
 ?>
-<!doctype html>
-<html lang="de">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AFBÖ U19 – Meine Daten</title>
-<link rel="stylesheet" href="assets/style.css">
-</head>
-<body>
-<div class="wrap">
-<main class="card wide">
-    <div class="brand">
-        <span class="brand-badge">🏈</span>
-        <h1><?= $isNew ? 'Mitgliedsdaten neu anlegen' : 'Mitgliedsdaten bearbeiten' ?></h1>
-        <p class="muted">Angemeldet als <strong><?= h($email) ?></strong></p>
-    </div>
+<div class="verify-box">
+    <h1><?= $isNew ? 'Mitgliedsdaten neu anlegen' : 'Mitgliedsdaten bearbeiten' ?></h1>
+    <p>Angemeldet als <strong><?= h($email) ?></strong></p>
 
     <?php if ($error): ?><p class="alert alert-error"><?= h($error) ?></p><?php endif; ?>
 
-    <form method="post" action="mitglied-formular.php?token=<?= h($token) ?>" enctype="multipart/form-data">
+    <form method="post" action="mitglied-formular.php?token=<?= h($token) ?>" class="member-form" enctype="multipart/form-data" novalidate>
         <?= csrf_field() ?>
         <input type="hidden" name="token" value="<?= h($token) ?>">
 
         <?php require __DIR__ . '/includes/member_fields.php'; ?>
 
-        <div class="form-actions">
-            <button type="submit">Speichern</button>
-        </div>
+        <button type="submit" class="btn btn-primary">Speichern</button>
     </form>
-</main>
 </div>
-</body>
-</html>
+<?php require __DIR__ . '/includes/public_footer.php'; ?>

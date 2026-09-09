@@ -22,21 +22,21 @@ require __DIR__ . '/../includes/admin_header.php';
 $info = flash_get('info');
 $error = flash_get('error');
 ?>
-<h1>Mitglieder (<?= (int) $total ?>)</h1>
+<div class="content-header">
+    <h1>Mitglieder (<?= (int) $total ?>)</h1>
+    <a href="member-form.php" class="btn btn-primary">+ Neues Mitglied</a>
+</div>
 
 <?php if ($info): ?><p class="alert alert-success"><?= h($info) ?></p><?php endif; ?>
 <?php if ($error): ?><p class="alert alert-error"><?= h($error) ?></p><?php endif; ?>
 
-<div class="actions-row">
-    <form class="search-form" method="get">
-        <input type="text" name="q" value="<?= h($query) ?>" placeholder="Suche nach Name, E-Mail, Verein, Jersey Nr.">
-        <button type="submit" class="btn-small">Suchen</button>
-        <?php if ($query !== ''): ?><a class="btn btn-secondary btn-small" href="index.php">Zurücksetzen</a><?php endif; ?>
-    </form>
-    <a class="btn" href="member-form.php">+ Neues Mitglied</a>
-</div>
+<form method="get" action="index.php" class="filter-bar">
+    <input type="text" name="q" placeholder="Suche: Name, E-Mail, Verein, Jersey Nr." value="<?= h($query) ?>">
+    <button type="submit" class="btn">Suchen</button>
+    <?php if ($query !== ''): ?><a href="index.php" class="btn btn-link">Zurücksetzen</a><?php endif; ?>
+</form>
 
-<table>
+<table class="table">
     <thead>
         <tr>
             <th>Name</th>
@@ -50,7 +50,7 @@ $error = flash_get('error');
     </thead>
     <tbody>
     <?php if (empty($members)): ?>
-        <tr><td colspan="7" class="muted">Keine Mitglieder gefunden.</td></tr>
+        <tr><td colspan="7" class="empty">Keine Mitglieder gefunden.</td></tr>
     <?php endif; ?>
     <?php foreach ($members as $mRow): ?>
         <tr>
@@ -59,9 +59,9 @@ $error = flash_get('error');
             <td><?= h($mRow['position'] ?? '') ?></td>
             <td><?= h($mRow['jersey_nr'] ?? '') ?></td>
             <td><?= h($mRow['email']) ?></td>
-            <td><span class="badge badge-<?= h($mRow['status']) ?>"><?= h($mRow['status']) ?></span></td>
-            <td>
-                <a class="btn btn-small" href="member-form.php?id=<?= (int) $mRow['id'] ?>">Bearbeiten</a>
+            <td><span class="badge badge-<?= $mRow['status'] === 'aktiv' ? 'green' : 'gray' ?>"><?= h(ucfirst($mRow['status'])) ?></span></td>
+            <td class="actions">
+                <a href="member-form.php?id=<?= (int) $mRow['id'] ?>">Bearbeiten</a>
             </td>
         </tr>
     <?php endforeach; ?>
@@ -69,9 +69,9 @@ $error = flash_get('error');
 </table>
 
 <?php if ($totalPages > 1): ?>
-<div class="pagination">
+<div class="filter-bar" style="margin-top:16px;">
     <?php for ($p = 1; $p <= $totalPages; $p++): ?>
-        <a class="btn btn-small <?= $p === $page ? '' : 'btn-secondary' ?>"
+        <a class="btn <?= $p === $page ? 'btn-primary' : '' ?>"
            href="index.php?q=<?= urlencode($query) ?>&page=<?= $p ?>"><?= $p ?></a>
     <?php endfor; ?>
 </div>

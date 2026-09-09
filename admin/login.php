@@ -31,42 +31,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Admin-Login – AFBÖ U19</title>
+<title>Login – Mitgliederverwaltung</title>
 <link rel="stylesheet" href="../assets/style.css">
 </head>
-<body class="auth-body">
-<main class="card auth-card">
-    <div class="brand">
-        <span class="brand-badge">🏈</span>
-        <h1>Admin-Login</h1>
-        <p class="muted">AFBÖ U19 Mitgliederverwaltung</p>
-    </div>
+<body class="auth-page">
+    <div class="auth-box">
+        <h1>AFBÖ U19</h1>
+        <h2>Admin-Login</h2>
 
-    <?php if ($justSeeded): ?>
-        <div class="alert alert-info">
-            <strong>Standard-Zugang wurde angelegt.</strong><br>
-            Benutzername: <code><?= h(DEFAULT_ADMIN_USERNAME) ?></code><br>
-            Passwort: <code><?= h(DEFAULT_ADMIN_PASSWORD) ?></code><br>
-            <span class="hint">Du wirst nach dem Login aufgefordert, das Passwort zu ändern.</span>
-        </div>
-    <?php endif; ?>
+        <?php if ($justSeeded): ?>
+            <div class="alert alert-info">
+                <strong>Standard-Zugang wurde angelegt.</strong><br>
+                Benutzername: <code><?= h(DEFAULT_ADMIN_USERNAME) ?></code><br>
+                Passwort: <code><?= h(DEFAULT_ADMIN_PASSWORD) ?></code><br>
+                Du wirst nach dem Login aufgefordert, das Passwort zu ändern.
+            </div>
+        <?php endif; ?>
 
-    <?php if ($error): ?><p class="alert alert-error"><?= h($error) ?></p><?php endif; ?>
+        <?php if ($error): ?>
+            <p class="alert alert-error"><?= h($error) ?></p>
+        <?php endif; ?>
 
-    <form method="post">
-        <?= csrf_field() ?>
-        <div class="field">
+        <form method="post" action="login.php" novalidate>
+            <?= csrf_field() ?>
             <label for="username">Benutzername</label>
-            <input type="text" id="username" name="username" required autofocus autocomplete="username">
-        </div>
-        <div class="field">
-            <label for="password">Passwort</label>
-            <input type="password" id="password" name="password" required autocomplete="current-password">
-        </div>
-        <button type="submit" class="btn-block">Anmelden</button>
-    </form>
+            <input type="text" id="username" name="username" autocomplete="username" required autofocus>
 
-    <p class="muted center" style="margin-top:1.5rem;"><a href="../index.php">&larr; Zurück zur Mitgliederseite</a></p>
-</main>
+            <label for="password">Passwort</label>
+            <input type="password" id="password" name="password" autocomplete="current-password" required>
+
+            <button type="submit" class="btn btn-primary btn-block" style="margin-top:20px;">Anmelden</button>
+        </form>
+    </div>
 </body>
 </html>

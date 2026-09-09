@@ -45,27 +45,27 @@ require __DIR__ . '/../includes/admin_header.php';
 
 $info = flash_get('info');
 ?>
-<h1><?= $isNew ? 'Neues Mitglied anlegen' : 'Mitglied bearbeiten' ?></h1>
-<p><a class="muted" href="index.php">&larr; Zurück zur Übersicht</a></p>
+<div class="content-header">
+    <h1><?= $isNew ? 'Neues Mitglied' : 'Mitglied bearbeiten' ?></h1>
+    <a href="index.php" class="btn btn-link">&larr; Zurück zur Liste</a>
+</div>
 
 <?php if ($info): ?><p class="alert alert-success"><?= h($info) ?></p><?php endif; ?>
 <?php if ($error): ?><p class="alert alert-error"><?= h($error) ?></p><?php endif; ?>
 
-<form method="post" action="member-form.php<?= $id !== null ? '?id=' . (int) $id : '' ?>" enctype="multipart/form-data">
+<form method="post" action="member-form.php<?= $id !== null ? '?id=' . (int) $id : '' ?>" class="member-form" enctype="multipart/form-data" novalidate>
     <?= csrf_field() ?>
 
     <?php require __DIR__ . '/../includes/member_fields.php'; ?>
 
-    <div class="form-actions">
-        <button type="submit">Speichern</button>
-    </div>
+    <button type="submit" class="btn btn-primary"><?= $isNew ? 'Mitglied anlegen' : 'Änderungen speichern' ?></button>
 </form>
 
 <?php if (!$isNew): ?>
-<form method="post" action="member-delete.php" onsubmit="return confirm('Mitglied wirklich unwiderruflich löschen?');" style="margin-top:0.5rem;">
+<form method="post" action="member-delete.php" class="inline-form" data-confirm="Mitglied &quot;<?= h(($m['vorname'] ?? '') . ' ' . ($m['nachname'] ?? '')) ?>&quot; wirklich unwiderruflich löschen?" style="margin-top:12px;">
     <?= csrf_field() ?>
     <input type="hidden" name="id" value="<?= (int) $id ?>">
-    <button type="submit" class="btn btn-danger">Mitglied löschen</button>
+    <button type="submit" class="link-button danger">Mitglied löschen</button>
 </form>
 <?php endif; ?>
 

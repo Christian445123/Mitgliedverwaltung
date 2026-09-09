@@ -64,58 +64,60 @@ $mustChange = !empty($_SESSION['must_change_password']);
 $pageTitle = 'Mein Konto';
 require __DIR__ . '/../includes/admin_header.php';
 ?>
-<h1>Mein Konto</h1>
+<div class="content-header">
+    <h1>Mein Konto</h1>
+</div>
 
 <?php if ($mustChange): ?>
     <p class="alert alert-error">Es ist noch das Standard-Passwort aktiv. Bitte jetzt ein eigenes Passwort setzen.</p>
 <?php endif; ?>
 
-<section class="panel">
-    <h2>Passwort ändern</h2>
+<fieldset>
+    <legend>Passwort ändern</legend>
     <?php if ($passwordError): ?><p class="alert alert-error"><?= h($passwordError) ?></p><?php endif; ?>
     <?php if ($passwordSuccess): ?><p class="alert alert-success"><?= h($passwordSuccess) ?></p><?php endif; ?>
 
     <form method="post">
         <?= csrf_field() ?>
         <input type="hidden" name="action" value="change_password">
-        <div class="field">
+        <div class="form-group">
             <label for="current_password">Aktuelles Passwort</label>
             <input type="password" id="current_password" name="current_password" required autocomplete="current-password">
         </div>
-        <div class="grid grid-2">
-            <div class="field">
+        <div class="form-row">
+            <div class="form-group">
                 <label for="new_password">Neues Passwort</label>
                 <input type="password" id="new_password" name="new_password" required minlength="8" autocomplete="new-password">
             </div>
-            <div class="field">
+            <div class="form-group">
                 <label for="new_password_repeat">Neues Passwort wiederholen</label>
                 <input type="password" id="new_password_repeat" name="new_password_repeat" required minlength="8" autocomplete="new-password">
             </div>
         </div>
-        <button type="submit">Passwort ändern</button>
+        <button type="submit" class="btn btn-primary">Passwort ändern</button>
     </form>
-</section>
+</fieldset>
 
-<section class="panel">
-    <h2>Weiteren Admin anlegen</h2>
+<fieldset>
+    <legend>Weiteren Admin anlegen</legend>
     <?php if ($newAdminError): ?><p class="alert alert-error"><?= h($newAdminError) ?></p><?php endif; ?>
     <?php if ($newAdminSuccess): ?><p class="alert alert-success"><?= h($newAdminSuccess) ?></p><?php endif; ?>
 
     <form method="post">
         <?= csrf_field() ?>
         <input type="hidden" name="action" value="add_admin">
-        <div class="grid grid-2">
-            <div class="field">
+        <div class="form-row">
+            <div class="form-group">
                 <label for="new_username">Benutzername</label>
                 <input type="text" id="new_username" name="new_username" required minlength="3" maxlength="60">
             </div>
-            <div class="field">
+            <div class="form-group">
                 <label for="new_admin_password">Passwort</label>
                 <input type="password" id="new_admin_password" name="new_admin_password" required minlength="8">
             </div>
         </div>
-        <button type="submit" class="btn-secondary">Admin-Konto anlegen</button>
+        <button type="submit" class="btn">Admin-Konto anlegen</button>
     </form>
-</section>
+</fieldset>
 
 <?php require __DIR__ . '/../includes/admin_footer.php'; ?>

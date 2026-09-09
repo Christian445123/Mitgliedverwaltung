@@ -1,22 +1,26 @@
 <?php
-/** Erwartet: string $pageTitle */
+/** Erwartet: string $pageTitle (require_admin() muss bereits gelaufen sein) */
 ?>
 <!doctype html>
 <html lang="de">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title><?= h($pageTitle ?? 'Admin') ?> – AFBÖ U19</title>
+<title><?= h($pageTitle ?? 'Verwaltung') ?> – Mitgliederverwaltung</title>
 <link rel="stylesheet" href="../assets/style.css">
 </head>
 <body>
-<div class="topbar">
-    <a class="topbar-brand" href="index.php"><span class="brand-badge small">🏈</span> AFBÖ U19 – Admin</a>
-    <nav>
-        <a href="index.php">Mitglieder</a>
-        <a href="account.php">Konto</a>
-        <span class="topbar-user">Angemeldet als <?= h(current_admin_username() ?? '') ?></span>
-        <a href="logout.php" class="btn btn-small btn-secondary">Abmelden</a>
-    </nav>
-</div>
-<div class="wrap">
+    <header class="topbar">
+        <div class="topbar-left">
+            <span class="topbar-title">AFBÖ U19 – Mitgliederverwaltung</span>
+            <nav class="topbar-nav">
+                <a href="index.php">Mitglieder</a>
+                <a href="account.php">Konto</a>
+            </nav>
+        </div>
+        <div class="topbar-user">
+            Angemeldet als <strong><?= h(current_admin_username() ?? '') ?></strong>
+            &middot; <a href="logout.php">Abmelden</a>
+        </div>
+    </header>
+    <main class="content">
