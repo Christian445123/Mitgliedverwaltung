@@ -5,6 +5,8 @@ declare(strict_types=1);
 /**
  * REST-API für PC-Anwendungen (Excel Power Query, PowerShell, eigene Tools).
  *
+ * Ohne Umleitung erreichbar über /api/index.php?path=members (statt /api/members).
+ *
  * Authentifizierung: "Authorization: Bearer <token>" (oder Header "X-API-Key").
  * Tokens werden im Admin-Bereich unter "API-Zugang" erstellt.
  *
@@ -86,6 +88,10 @@ if ($base !== '' && str_starts_with($path, $base)) {
     $path = substr($path, strlen($base));
 }
 $path = trim((string) preg_replace('#^/?index\.php#', '', $path), '/');
+// Ohne Server-Umleitung (z.B. nginx): /api/index.php?path=members/12
+if (isset($_GET['path']) && is_string($_GET['path'])) {
+    $path = trim($_GET['path'], '/');
+}
 $method = strtoupper((string) $_SERVER['REQUEST_METHOD']);
 
 if ($path === '' || $path === 'ping') {
