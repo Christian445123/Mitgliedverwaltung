@@ -171,8 +171,7 @@ function user_permissions(int $userId): array
             return $cache[$userId] = [];
         }
 
-        // Administratoren dürfen immer alles
-        if ($user['role_key'] === 'administrator' || ($user['role_key'] === null && $user['legacy_role'] === 'administrator')) {
+// Administratoren dürfen IMMER alles - egal, welche Rolle zugeordnet ist oder welche Einzelrechte gesetzt sind        if ($user['role_key'] === 'administrator' || $user['legacy_role'] === 'administrator') {
             return $cache[$userId] = $all;
         }
 
