@@ -111,6 +111,13 @@ function post_date(string $key): ?string
     return $date->format('Y-m-d');
 }
 
+/** Maximale Größe eines Dokument-Uploads in Bytes (.env: UPLOAD_MAX_MB, Standard 15). */
+function upload_max_bytes(): int
+{
+    $mb = (int) (getenv('UPLOAD_MAX_MB') ?: 15);
+    return max(1, $mb) * 1024 * 1024;
+}
+
 /**
  * Verarbeitet einen Datei-Upload (Bild/PDF), validiert Typ & Größe
  * und speichert die Datei in $targetDir. Gibt den relativen Pfad zurück
@@ -126,13 +133,16 @@ function handle_upload(string $inputName, string $targetDir, string $publicPrefi
 
     $file = $_FILES[$inputName];
 
+    $maxMb = intdiv(upload_max_bytes(), 1024 * 1024);
+    if ($file['error'] === UPLOAD_ERR_INI_SIZE || $file['error'] === UPLOAD_ERR_FORM_SIZE) {
+        throw new RuntimeException('Die Datei ist zu groß für den Server (PHP-Grenze upload_max_filesize = ' . ini_get('upload_max_filesize') . '). Bitte verkleinern oder die Server-Grenze erhöhen.');
+    }
     if ($file['error'] !== UPLOAD_ERR_OK) {
         throw new RuntimeException('Fehler beim Datei-Upload (Code ' . $file['error'] . ').');
     }
 
-    $maxBytes = 5 * 1024 * 1024;
-    if ($file['size'] > $maxBytes) {
-        throw new RuntimeException('Die Datei ist zu groß (maximal 5 MB erlaubt).');
+    if ($file['size'] > upload_max_bytes()) {
+        throw new RuntimeException('Die Datei ist zu groß (maximal ' . $maxMb . ' MB erlaubt).');
     }
 
     $finfo = new finfo(FILEINFO_MIME_TYPE);
