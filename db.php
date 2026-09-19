@@ -40,6 +40,9 @@ function db(): PDO
 function db_ensure_columns(PDO $pdo): void
 {
     $needed = [
+        'members' => [
+            'kader' => "ENUM('kader','nicht_im_kader') NOT NULL DEFAULT 'kader'",
+        ],
         'member_equipment' => [
             'zimmer_nr' => 'VARCHAR(20) DEFAULT NULL',
             'pract_jersey_nr' => 'VARCHAR(10) DEFAULT NULL',

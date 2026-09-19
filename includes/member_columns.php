@@ -6,7 +6,7 @@ declare(strict_types=1);
  * Zentrale Spaltendefinition für Import (CSV/Excel), Export und REST-API.
  * Reihenfolge = Spaltenreihenfolge im Export.
  *
- * Typen: str | int | date | bool | status
+ * Typen: str | int | date | bool | status | kader
  */
 const MEMBER_IO_COLUMNS = [
     'jersey_nr' => ['Jersey Nr.', 'str'],
@@ -23,7 +23,7 @@ const MEMBER_IO_COLUMNS = [
     'verein' => ['Verein', 'str'],
     'groesse_cm' => ['Größe (cm)', 'int'],
     'gewicht_kg' => ['Gewicht (KG)', 'int'],
-    'telefon' => ['Telefon', 'str'],
+    'telefon' => ['Telefon Spieler', 'str'],
     'email' => ['Mail', 'str'],
     'erz_name' => ['Name Erziehungsberechtigter', 'str'],
     'erz_telefon' => ['Telefon Erzieh', 'str'],
@@ -54,6 +54,7 @@ const MEMBER_IO_COLUMNS = [
     'pract_jersey_nr' => ['Pract. Jersey Nr.', 'str'],
     'pract_hose_groesse' => ['Pract. Hose Größe', 'str'],
     'status' => ['Status', 'status'],
+    'kader' => ['Kader', 'kader'],
 ];
 
 /** Maximale Länge je Textfeld (entspricht dem Schema), um SQL-Fehler früh abzufangen. */
@@ -95,6 +96,8 @@ function io_map_headers(array $headers): array
     }
     // Schreibweisen aus der bisherigen Excel-Liste und häufige Varianten
     $extra = [
+        'Telefon' => 'telefon', 'Tel' => 'telefon', 'Telefon Spieler' => 'telefon', 'Handy' => 'telefon',
+        'Kaderstatus' => 'kader', 'Im Kader' => 'kader',
         'Jersy Nr.' => 'jersey_nr', 'Jersey Nr' => 'jersey_nr', 'Trikotnummer' => 'jersey_nr',
         'Email' => 'email', 'E-Mail' => 'email', 'Mail' => 'email', 'E-Mail-Adresse' => 'email',
         'Bez.' => 'bezirk', 'Pos' => 'position', 'Pos.' => 'position',
@@ -199,6 +202,19 @@ function io_parse_value(string $type, $raw, string $key = '', bool $lenient = fa
             }
             throw new InvalidArgumentException("Ungültiges Datum \"{$raw}\" (erwartet TT.MM.JJJJ)");
 
+        case 'kader':
+            $v = mb_strtolower($raw);
+            if (in_array($v, ['kader', 'im kader', 'ja', 'j', '1', 'x', 'true', 'aktiv'], true)) {
+                return 'kader';
+            }
+            if (in_array($v, ['nicht im kader', 'spieler nicht im kader', 'nicht_im_kader', 'nein', 'n', '0', 'false', 'kein kader'], true)) {
+                return 'nicht_im_kader';
+            }
+            if ($lenient) {
+                return str_contains($v, 'nicht') || str_contains($v, 'kein') ? 'nicht_im_kader' : 'kader';
+            }
+            throw new InvalidArgumentException("Ungültiger Kader-Wert \"{$raw}\" (Im Kader / Spieler nicht im Kader)");
+
         case 'status':
             $v = mb_strtolower($raw);
             if (in_array($v, ['aktiv', 'active', '1', 'ja'], true)) {
@@ -267,7 +283,7 @@ function io_convert_row(array $raw, bool $clearEmpty = false, bool $lenient = fa
                 $errors[] = $label . ' darf nicht leer sein';
             } elseif ($type === 'bool' && $key !== 'helm_eigener') {
                 $data[$key] = 0;
-            } elseif ($type !== 'status') {
+            } elseif (!in_array($type, ['status', 'kader'], true)) {
                 $data[$key] = null;
             }
         } elseif ($parsed !== null) {
@@ -315,6 +331,9 @@ function io_export_value(string $key, array $row): string
     }
     if ($type === 'bool') {
         return (int) $value === 1 ? 'Ja' : 'Nein';
+    }
+    if ($type === 'kader') {
+        return $value === 'nicht_im_kader' ? 'Spieler nicht im Kader' : 'Im Kader';
     }
     if ($type === 'date') {
         $ts = strtotime((string) $value);

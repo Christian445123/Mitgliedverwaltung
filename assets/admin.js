@@ -27,3 +27,14 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 });
+
+// Filter-Auswahlfelder senden das Formular sofort ab (ohne Inline-Skript wegen CSP)
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('select[data-autosubmit]').forEach(function (select) {
+        select.addEventListener('change', function () {
+            if (select.form) {
+                select.form.submit();
+            }
+        });
+    });
+});

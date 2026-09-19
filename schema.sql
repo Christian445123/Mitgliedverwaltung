@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS members (
     email VARCHAR(190) NOT NULL,
 
     status ENUM('aktiv', 'inaktiv') NOT NULL DEFAULT 'aktiv',
+    kader ENUM('kader', 'nicht_im_kader') NOT NULL DEFAULT 'kader',
 
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

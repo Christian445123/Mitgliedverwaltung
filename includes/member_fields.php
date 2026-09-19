@@ -121,7 +121,7 @@ $showGuardianSection = $showAdminFields || $isMinor;
 
     <div class="form-row">
         <div class="form-group">
-            <label for="telefon">Telefon *</label>
+            <label for="telefon">Telefon Spieler *</label>
             <input type="tel" id="telefon" name="telefon" value="<?= $v('telefon') ?>" required maxlength="50">
         </div>
         <div class="form-group">
@@ -358,6 +358,13 @@ $showGuardianSection = $showAdminFields || $isMinor;
         <select id="status" name="status">
             <option value="aktiv" <?= ($m['status'] ?? 'aktiv') === 'aktiv' ? 'selected' : '' ?>>Aktiv</option>
             <option value="inaktiv" <?= ($m['status'] ?? '') === 'inaktiv' ? 'selected' : '' ?>>Inaktiv</option>
+        </select>
+    </div>
+    <div class="form-group">
+        <label for="kader">Kader</label>
+        <select id="kader" name="kader">
+            <option value="kader" <?= ($m['kader'] ?? 'kader') !== 'nicht_im_kader' ? 'selected' : '' ?>>Im Kader</option>
+            <option value="nicht_im_kader" <?= ($m['kader'] ?? '') === 'nicht_im_kader' ? 'selected' : '' ?>>Spieler nicht im Kader</option>
         </select>
     </div>
     <div class="form-row">

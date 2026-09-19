@@ -31,7 +31,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $updateExisting = post_checkbox('update_existing');
             $table = spreadsheet_read($file['tmp_name'], (string) $file['name']);
-            $preview = member_import_analyze($table, $updateExisting);
+            $kaderDefault = in_array($_POST['kader_default'] ?? '', ['kader', 'nicht_im_kader'], true) ? $_POST['kader_default'] : null;
+            $preview = member_import_analyze($table, $updateExisting, $kaderDefault);
             $preview['filename'] = (string) $file['name'];
             $preview['update_existing'] = $updateExisting;
 
@@ -178,6 +179,15 @@ $actionBadges = ['create' => 'green', 'update' => 'blue', 'skip' => 'gray', 'err
                 <div class="form-group">
                     <label><input type="checkbox" name="update_existing" value="1" checked>
                         Vorhandene Mitglieder (gleiche E-Mail) aktualisieren – leere Zellen überschreiben nichts</label>
+                </div>
+                <div class="form-group">
+                    <label for="kader_default">Kader-Status der importierten Spieler</label>
+                    <select id="kader_default" name="kader_default">
+                        <option value="">Aus der Datei (Spalte „Kader“), sonst „Im Kader“</option>
+                        <option value="kader">Alle als „Im Kader“ importieren</option>
+                        <option value="nicht_im_kader">Alle als „Spieler nicht im Kader“ importieren</option>
+                    </select>
+                    <p class="muted">Gilt für alle Zeilen, die keinen eigenen Wert in einer Spalte „Kader“ haben – auch für bereits vorhandene Spieler, die aktualisiert werden.</p>
                 </div>
                 <button type="submit" class="btn btn-primary">Vorschau anzeigen</button>
             </form>

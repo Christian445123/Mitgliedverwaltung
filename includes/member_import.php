@@ -38,13 +38,15 @@ function member_import_find_header(array $table): ?int
  * Alle Spalten mit erkannter Überschrift werden übernommen; Spalten, die nicht
  * zugeordnet werden können, aber Werte enthalten, werden ausdrücklich gemeldet.
  *
+ * $kaderDefault: 'kader' oder 'nicht_im_kader' (Auswahl im Import-Dialog), null = nichts erzwingen.
+ *
  * Zeilen-Aktionen: create | update | skip | error
  *
  * @param array<int, array<int, string>> $table Zeilennummer (wie in Excel) => Zellen
  * @return array{rows: array<int, array<string, mixed>>, columns: array<int, array<string, mixed>>, unknown: array<int, string>, counts: array<string, int>, header_row: int}
  * @throws RuntimeException wenn die Datei grundsätzlich nicht verwendbar ist
  */
-function member_import_analyze(array $table, bool $updateExisting): array
+function member_import_analyze(array $table, bool $updateExisting, ?string $kaderDefault = null): array
 {
     $headerRow = member_import_find_header($table);
     if ($headerRow === null) {
@@ -109,6 +111,11 @@ function member_import_analyze(array $table, bool $updateExisting): array
         }
 
         ['data' => $data, 'errors' => $errors, 'warnings' => $warnings] = io_convert_row($raw, false, true);
+
+        // Gewählter Kader-Status gilt für alle Zeilen, die keinen eigenen Wert in der Datei haben
+        if ($kaderDefault !== null && !isset($data['kader'])) {
+            $data['kader'] = $kaderDefault;
+        }
 
         foreach (['nachname', 'vorname', 'email'] as $required) {
             if (!isset($data[$required])) {

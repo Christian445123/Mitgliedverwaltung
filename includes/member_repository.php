@@ -12,7 +12,7 @@ const MEMBER_UPLOAD_PUBLIC_PREFIX = '/uploads';
  * Spalten je Teiltabelle. Die Kern-Tabelle "members" führt nur Stamm- und
  * Suchfelder, alles andere ist 1:1 über member_id ausgelagert.
  */
-const MEMBERS_COLUMNS = ['jersey_nr', 'nachname', 'vorname', 'sz', 'bezirk', 'position', 'geburtsdatum', 'verein', 'groesse_cm', 'gewicht_kg', 'telefon', 'email'];
+const MEMBERS_COLUMNS = ['jersey_nr', 'nachname', 'vorname', 'sz', 'bezirk', 'position', 'geburtsdatum', 'verein', 'groesse_cm', 'gewicht_kg', 'telefon', 'email', 'kader'];
 const CAMPS_COLUMNS = ['camp_1', 'spanien', 'camp_2', 'tschechien'];
 const GUARDIAN_COLUMNS = ['erz_name', 'erz_telefon', 'erz_email'];
 const CONSENT_COLUMNS = ['rechte_pflichten_akzeptiert', 'rechte_pflichten_am'];
@@ -282,6 +282,9 @@ function member_collect_admin_equipment(): array
             $data[$key] = post_str($key);
         }
     }
+    if (in_array($_POST['kader'] ?? null, ['kader', 'nicht_im_kader'], true)) {
+        $data['kader'] = $_POST['kader'];
+    }
     return $data;
 }
 
@@ -392,7 +395,7 @@ function member_delete(int $id): void
  *
  * @return array{0: string, 1: array<string, string>}
  */
-function member_where(string $query, ?string $status): array
+function member_where(string $query, ?string $status, ?string $kader = null): array
 {
     $conditions = [];
     $params = [];
@@ -408,15 +411,20 @@ function member_where(string $query, ?string $status): array
         $params['status'] = $status;
     }
 
+    if ($kader === 'kader' || $kader === 'nicht_im_kader') {
+        $conditions[] = 'm.kader = :kader';
+        $params['kader'] = $kader;
+    }
+
     return [$conditions === [] ? '' : ' WHERE ' . implode(' AND ', $conditions), $params];
 }
 
 /**
  * @return array<int, array<string, mixed>>
  */
-function member_search(string $query, int $limit, int $offset, ?string $status = null): array
+function member_search(string $query, int $limit, int $offset, ?string $status = null, ?string $kader = null): array
 {
-    [$where, $params] = member_where($query, $status);
+    [$where, $params] = member_where($query, $status, $kader);
     $stmt = db()->prepare(MEMBER_JOIN_SQL . $where . ' ORDER BY m.nachname, m.vorname LIMIT :limit OFFSET :offset');
     foreach ($params as $name => $value) {
         $stmt->bindValue($name, $value, PDO::PARAM_STR);
@@ -427,9 +435,9 @@ function member_search(string $query, int $limit, int $offset, ?string $status =
     return $stmt->fetchAll();
 }
 
-function member_count(string $query, ?string $status = null): int
+function member_count(string $query, ?string $status = null, ?string $kader = null): int
 {
-    [$where, $params] = member_where($query, $status);
+    [$where, $params] = member_where($query, $status, $kader);
     $stmt = db()->prepare('SELECT COUNT(*) FROM members m' . $where);
     foreach ($params as $name => $value) {
         $stmt->bindValue($name, $value, PDO::PARAM_STR);
@@ -466,9 +474,9 @@ function member_stats(): array
  *
  * @return array<int, array<string, mixed>>
  */
-function member_all(?string $status = null): array
+function member_all(?string $status = null, ?string $kader = null): array
 {
-    return member_search('', PHP_INT_MAX >> 1, 0, $status);
+    return member_search('', PHP_INT_MAX >> 1, 0, $status, $kader);
 }
 
 /**

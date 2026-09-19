@@ -10,12 +10,13 @@ require_admin();
 
 $query = trim((string) ($_GET['q'] ?? ''));
 $status = in_array($_GET['status'] ?? '', ['aktiv', 'inaktiv'], true) ? $_GET['status'] : null;
+$kader = in_array($_GET['kader'] ?? '', ['kader', 'nicht_im_kader'], true) ? $_GET['kader'] : null;
 $page = max(1, (int) ($_GET['page'] ?? 1));
 $perPage = 25;
-$total = member_count($query, $status);
+$total = member_count($query, $status, $kader);
 $totalPages = max(1, (int) ceil($total / $perPage));
 $page = min($page, $totalPages);
-$members = member_search($query, $perPage, ($page - 1) * $perPage, $status);
+$members = member_search($query, $perPage, ($page - 1) * $perPage, $status, $kader);
 $stats = member_stats();
 
 $pageTitle = 'Mitgliederübersicht';
@@ -24,7 +25,7 @@ require __DIR__ . '/../includes/admin_header.php';
 $info = flash_get('info');
 $error = flash_get('error');
 $listUrl = static fn (array $extra = []) => 'index.php?' . http_build_query(array_filter(
-    array_merge(['q' => $_GET['q'] ?? '', 'status' => $status], $extra),
+    array_merge(['q' => $_GET['q'] ?? '', 'status' => $status, 'kader' => $kader], $extra),
     static fn ($v) => $v !== null && $v !== ''
 ));
 ?>
@@ -49,6 +50,11 @@ $listUrl = static fn (array $extra = []) => 'index.php?' . http_build_query(arra
 
 <form method="get" action="index.php" class="filter-bar">
     <input type="text" name="q" placeholder="Suche: Name, E-Mail, Verein, Jersey Nr." value="<?= h($query) ?>">
+    <select name="kader" data-autosubmit aria-label="Kader">
+        <option value="">Alle Spieler</option>
+        <option value="kader" <?= $kader === 'kader' ? 'selected' : '' ?>>Im Kader</option>
+        <option value="nicht_im_kader" <?= $kader === 'nicht_im_kader' ? 'selected' : '' ?>>Spieler nicht im Kader</option>
+    </select>
     <?php if ($status): ?><input type="hidden" name="status" value="<?= h($status) ?>"><?php endif; ?>
     <button type="submit" class="btn">Suchen</button>
     <?php if ($query !== ''): ?><a href="<?= h($listUrl(['q' => ''])) ?>" class="btn btn-link">Zurücksetzen</a><?php endif; ?>
@@ -79,7 +85,7 @@ $listUrl = static fn (array $extra = []) => 'index.php?' . http_build_query(arra
     <?php endif; ?>
     <?php foreach ($members as $mRow): ?>
         <tr>
-            <td><?= h($mRow['nachname']) ?>, <?= h($mRow['vorname']) ?></td>
+            <td><?= h($mRow['nachname']) ?>, <?= h($mRow['vorname']) ?><?php if (($mRow['kader'] ?? 'kader') === 'nicht_im_kader'): ?> <span class="badge badge-gray">nicht im Kader</span><?php endif; ?></td>
             <td><?= h($mRow['verein'] ?? '') ?></td>
             <td><?= h($mRow['position'] ?? '') ?></td>
             <td><?= h($mRow['jersey_nr'] ?? '') ?></td>

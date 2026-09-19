@@ -99,6 +99,7 @@ if (isset($_GET['path']) && is_string($_GET['path'])) {
     $path = trim($_GET['path'], '/');
 }
 $method = strtoupper((string) $_SERVER['REQUEST_METHOD']);
+$kaderFilter = in_array($_GET['kader'] ?? '', ['kader', 'nicht_im_kader'], true) ? $_GET['kader'] : null;
 
 if ($path === '' || $path === 'ping') {
     api_json(200, ['ok' => true, 'token' => $auth['name'], 'write' => $canWrite]);
@@ -110,7 +111,7 @@ if ($path === 'members.csv' && $method === 'GET') {
     header('Content-Disposition: attachment; filename="mitglieder-' . date('Y-m-d') . '.csv"');
     header('Cache-Control: no-store');
     $out = fopen('php://output', 'w');
-    member_export_csv($out, member_all($status));
+    member_export_csv($out, member_all($status, $kaderFilter));
     fclose($out);
     exit;
 }
@@ -144,7 +145,8 @@ if ($path === 'import' && $method === 'POST') {
     $commit = ($_POST['commit'] ?? '0') === '1';
 
     try {
-        $analysis = member_import_analyze(spreadsheet_read($file['tmp_name'], (string) $file['name']), $update);
+        $kaderDefault = in_array($_POST['kader_default'] ?? '', ['kader', 'nicht_im_kader'], true) ? $_POST['kader_default'] : null;
+        $analysis = member_import_analyze(spreadsheet_read($file['tmp_name'], (string) $file['name']), $update, $kaderDefault);
         $response = [
             'counts' => $analysis['counts'],
             'unknown_columns' => $analysis['unknown'],
@@ -229,10 +231,10 @@ try {
         $limit = min(500, max(1, (int) ($_GET['limit'] ?? 100)));
         $offset = max(0, (int) ($_GET['offset'] ?? 0));
         api_json(200, [
-            'total' => member_count($q, $status),
+            'total' => member_count($q, $status, $kaderFilter),
             'limit' => $limit,
             'offset' => $offset,
-            'data' => array_map('api_member', member_search($q, $limit, $offset, $status)),
+            'data' => array_map('api_member', member_search($q, $limit, $offset, $status, $kaderFilter)),
         ]);
     }
 
