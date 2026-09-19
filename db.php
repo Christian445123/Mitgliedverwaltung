@@ -94,4 +94,12 @@ function db_ensure_columns(PDO $pdo): void
     } catch (Throwable $e) {
         error_log('permissions_ensure_tables: ' . $e->getMessage());
     }
+
+    // Staff-Tabelle (Trainer, Betreuer)
+    try {
+        require_once __DIR__ . '/includes/staff.php';
+        staff_ensure_table($pdo);
+    } catch (Throwable $e) {
+        error_log('staff_ensure_table: ' . $e->getMessage());
+    }
 }

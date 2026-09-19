@@ -20,6 +20,7 @@ declare(strict_types=1);
  *   POST   /api/import                              CSV/XLSX-Import (Schreib-Token; commit=1 speichert)
  *   POST   /api/update                              Server-Update per git pull --ff-only (Schreib-Token)
  *   GET    /api/template.csv                        Import-Vorlage
+ *   GET    /api/roster.pdf|xlsx                     Alphabetischer Roster;  /api/roster-ifaf.pdf|xlsx?competition=&game=&team= IFAF-Roster
  *   GET    /api/members/{id}/documents/{typ}        Dokument laden (typ: ecard, pass, nada, rechte)
  *   POST   /api/members/{id}/documents/{typ}        Dokument hochladen (multipart, Feld "file"; Schreib-Token)
  *   DELETE /api/members/{id}/documents/{typ}        Dokument entfernen (Schreib-Token)
@@ -136,6 +137,34 @@ if ($path === 'template.csv' && $method === 'GET') {
     $out = fopen('php://output', 'w');
     member_export_csv($out, []);
     fclose($out);
+    exit;
+}
+
+// Roster als Datei: GET /roster.pdf|xlsx (alphabetisch) und /roster-ifaf.pdf|xlsx?competition=&game=&team=
+if (preg_match('#^roster(-ifaf)?\.(pdf|xlsx)$#', $path, $rm) === 1 && $method === 'GET') {
+    require_once __DIR__ . '/../includes/roster.php';
+    try {
+        if ($rm[1] === '-ifaf') {
+            $opt = [
+                'competition' => mb_substr(trim((string) ($_GET['competition'] ?? 'IFAF European Championship 2026/27')), 0, 120),
+                'game' => mb_substr(trim((string) ($_GET['game'] ?? '')), 0, 120),
+                'team' => mb_substr(trim((string) ($_GET['team'] ?? 'Austria')), 0, 120),
+            ];
+            [$contentType, $filename, $binary] = roster_generate_ifaf($rm[2], $opt);
+        } else {
+            $kader = in_array($_GET['kader'] ?? 'kader', ['kader', 'nicht_im_kader'], true) ? (string) ($_GET['kader'] ?? 'kader') : null;
+            $status = ($_GET['status'] ?? 'aktiv') === 'alle' ? null : 'aktiv';
+            [$contentType, $filename, $binary] = roster_generate_alphabetical($rm[2], $kader, $status);
+        }
+    } catch (RuntimeException $e) {
+        api_error(500, $e->getMessage());
+    }
+    app_log('export.roster', 'Roster per API erstellt (' . $rm[0] . ')', []);
+    header('Content-Type: ' . $contentType);
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    header('Content-Length: ' . strlen($binary));
+    header('Cache-Control: no-store');
+    echo $binary;
     exit;
 }
 

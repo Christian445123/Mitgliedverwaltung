@@ -65,7 +65,7 @@ function member_import_analyze(array $table, bool $updateExisting, ?string $kade
 
     $mapped = array_values($map);
     $missing = [];
-    foreach (['nachname', 'vorname', 'email'] as $required) {
+    foreach (io_required_keys() as $required) {
         if (!in_array($required, $mapped, true)) {
             $missing[] = member_io_columns()[$required][0];
         }
@@ -123,11 +123,11 @@ function member_import_analyze(array $table, bool $updateExisting, ?string $kade
         ['data' => $data, 'errors' => $errors, 'warnings' => $warnings] = io_convert_row($raw, false, true);
 
         // Gewählter Kader-Status gilt für alle Zeilen, die keinen eigenen Wert in der Datei haben
-        if ($kaderDefault !== null && !isset($data['kader'])) {
+        if ($kaderDefault !== null && io_entity() === 'members' && !isset($data['kader'])) {
             $data['kader'] = $kaderDefault;
         }
 
-        foreach (['nachname', 'vorname', 'email'] as $required) {
+        foreach (io_required_keys() as $required) {
             if (!isset($data[$required])) {
                 $errors[] = member_io_columns()[$required][0] . ' fehlt';
             }
@@ -135,12 +135,12 @@ function member_import_analyze(array $table, bool $updateExisting, ?string $kade
 
         $action = 'error';
         if ($errors === []) {
-            $email = mb_strtolower((string) $data['email']);
-            if (isset($seenEmails[$email])) {
-                $errors[] = 'E-Mail-Adresse kommt in Zeile ' . $seenEmails[$email] . ' bereits vor';
+            $identity = io_identity_key($data);
+            if (isset($seenEmails[$identity])) {
+                $errors[] = (io_entity() === 'staff' ? 'Diese Person' : 'E-Mail-Adresse') . ' kommt in Zeile ' . $seenEmails[$identity] . ' bereits vor';
             } else {
-                $seenEmails[$email] = $line;
-                $action = member_find_by_email((string) $data['email']) !== false
+                $seenEmails[$identity] = $line;
+                $action = io_exists($data)
                     ? ($updateExisting ? 'update' : 'skip')
                     : 'create';
             }
@@ -183,7 +183,7 @@ function member_import_commit(array $rows, bool $updateExisting): array
             continue;
         }
         try {
-            $outcome = member_import_save($row['data'], $updateExisting);
+            $outcome = io_import_save($row['data'], $updateExisting);
             $result[$outcome === 'created' ? 'created' : 'updated']++;
         } catch (Throwable $e) {
             $result['failed'][] = 'Zeile ' . $row['line'] . ': ' . ($e instanceof RuntimeException ? $e->getMessage() : 'Datenbankfehler');
@@ -232,4 +232,39 @@ function member_export_csv($out, array $rows, array $excludeKeys = []): void
         }
         spreadsheet_write_csv_row($out, $line);
     }
+}
+
+/**
+ * Schlüssel, der eine Person eindeutig kennzeichnet (Doppelte innerhalb der Datei erkennen):
+ * Spieler über die Mail, Staff über Mail oder - ohne Mail - über Nachname + Vorname.
+ *
+ * @param array<string, mixed> $data
+ */
+function io_identity_key(array $data): string
+{
+    if (io_entity() === 'staff' && empty($data['email'])) {
+        return 'name:' . mb_strtolower(trim((string) $data['nachname']) . '|' . trim((string) $data['vorname']));
+    }
+    return 'mail:' . mb_strtolower((string) ($data['email'] ?? ''));
+}
+
+/** Gibt es diese Person schon? (Spieler: per Mail, Staff: per Mail oder Name) */
+function io_exists(array $data): bool
+{
+    return io_entity() === 'staff'
+        ? staff_find_existing($data) !== false
+        : member_find_by_email((string) $data['email']) !== false;
+}
+
+/**
+ * Speichert eine Importzeile für die aktuelle Datenart.
+ *
+ * @param array<string, mixed> $data
+ * @return string 'created' | 'updated'
+ */
+function io_import_save(array $data, bool $updateExisting): string
+{
+    return io_entity() === 'staff'
+        ? staff_import_save($data, $updateExisting)
+        : member_import_save($data, $updateExisting);
 }

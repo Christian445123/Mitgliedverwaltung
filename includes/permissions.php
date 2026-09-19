@@ -36,6 +36,11 @@ function permissions_registry(): array
         'members.links' => ['Persönliche Links & Zugangscodes verwalten, per E-Mail senden', 'Mitglieder'],
         'documents.view' => ['Hochgeladene Dokumente ansehen (E-Card, Pass, NADA, Rechte & Pflichten)', 'Mitglieder'],
 
+        // Staff (Trainer, Betreuer): eigener Bereich
+        'staff.view' => ['Staff ansehen', 'Staff'],
+        'staff.edit' => ['Staff anlegen, bearbeiten und importieren', 'Staff'],
+        'staff.delete' => ['Staff löschen', 'Staff'],
+
         'members.import' => ['Import aus CSV/Excel', 'Daten'],
         'members.export' => ['Export als CSV', 'Daten'],
 
@@ -61,8 +66,8 @@ function permissions_role_defaults(string $roleKey): array
     return match ($roleKey) {
         'administrator' => array_keys(permissions_registry()),
         'editor' => ['members.view', 'members.create', 'members.edit', 'members.delete', 'members.links',
-            'documents.view', 'members.import', 'members.export', 'camps.manage'],
-        'viewer' => ['members.view', 'documents.view', 'members.export'],
+            'documents.view', 'members.import', 'members.export', 'camps.manage', 'staff.view', 'staff.edit', 'staff.delete'],
+        'viewer' => ['members.view', 'documents.view', 'members.export', 'staff.view'],
         default => [],
     };
 }
@@ -136,6 +141,24 @@ function permissions_ensure_tables(PDO $pdo): void
             $insert = $pdo->prepare('INSERT IGNORE INTO role_permissions (role_id, permission) VALUES (?, ?)');
             foreach (permissions_role_defaults($key) as $permission) {
                 $insert->execute([$roleId, $permission]);
+            }
+        }
+    }
+
+    // Neue Staff-Rechte für bereits bestehende eingebaute Rollen einmalig nachtragen
+    // (Marker "_migrated_staff", damit später bewusst entzogene Rechte nicht wiederkommen)
+    if ((int) $pdo->query("SELECT COUNT(*) FROM role_permissions WHERE permission = '_migrated_staff'")->fetchColumn() < 2) {
+        $staffDefaults = ['editor' => ['staff.view', 'staff.edit', 'staff.delete'], 'viewer' => ['staff.view']];
+        foreach ($staffDefaults as $key => $permissions) {
+            $roleStmt = $pdo->prepare('SELECT id FROM roles WHERE role_key = ?');
+            $roleStmt->execute([$key]);
+            $roleId = $roleStmt->fetchColumn();
+            if ($roleId === false) {
+                continue;
+            }
+            $insert = $pdo->prepare('INSERT IGNORE INTO role_permissions (role_id, permission) VALUES (?, ?)');
+            foreach (array_merge($permissions, ['_migrated_staff']) as $permission) {
+                $insert->execute([(int) $roleId, $permission]);
             }
         }
     }

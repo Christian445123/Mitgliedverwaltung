@@ -37,6 +37,7 @@ $listUrl = static fn (array $extra = []) => 'index.php?' . http_build_query(arra
     <div class="header-actions">
         <?php if (user_can('members.import')): ?><a href="import.php" class="btn">Import</a><?php endif; ?>
         <?php if (user_can('members.export')): ?><a href="<?= h('export.php' . ($status ? '?status=' . $status : '')) ?>" class="btn">Export CSV</a><?php endif; ?>
+        <?php if (user_can('members.export')): ?><a href="roster.php" class="btn">Roster</a><?php endif; ?>
         <?php if (user_can('members.create')): ?><a href="member-form.php" class="btn btn-primary">+ Neues Mitglied</a><?php endif; ?>
     </div>
 </div>
@@ -52,14 +53,14 @@ $listUrl = static fn (array $extra = []) => 'index.php?' . http_build_query(arra
 <section class="panel expiry-panel">
     <h2 class="section-title">⚠ Ablaufende Dokumente (<?= (int) $expiry['counts']['total'] ?>)</h2>
     <div class="expiry-columns">
-        <?php foreach (['nada' => 'NADA-Zertifikat (gelb ab ' . expiry_nada_months() . ' Monat vorher, blau ab ' . expiry_nada_urgent_days() . ' Tagen, rot am Ablauftag)', 'pass' => 'Reisepass (Hinweis ' . expiry_pass_months() . ' Monate vorher)'] as $type => $title): ?>
+        <?php foreach (['nada' => 'NADA-Zertifikat (gelb ab ' . expiry_nada_months() . ' Monat vorher, blau ab ' . expiry_nada_urgent_days() . ' Tagen, rot am Ablauftag)', 'pass' => 'Reisepass (Hinweis ' . expiry_pass_months() . ' Monate vorher)', 'staff_pass' => 'Staff: Reisepass (Hinweis ' . expiry_pass_months() . ' Monate vorher)'] as $type => $title): ?>
             <?php if (!empty($expiry[$type])): ?>
             <div>
                 <h3><?= h($title) ?></h3>
                 <ul class="expiry-list">
                     <?php foreach ($expiry[$type] as $item): ?>
                         <li class="expiry-<?= h($item['state']) ?>">
-                            <a href="member-form.php?id=<?= (int) $item['id'] ?>"><?= h($item['name']) ?></a>
+                            <a href="<?= $type === 'staff_pass' ? 'staff-form.php' : 'member-form.php' ?>?id=<?= (int) $item['id'] ?>"><?= h($item['name']) ?></a>
                             <span class="badge badge-<?= expiry_badge_class($item['state']) ?>"><?= h(expiry_badge_label($item)) ?></span>
                             <span class="muted"><?= h(date('d.m.Y', strtotime($item['date']))) ?> – <?= h(expiry_text($item)) ?></span>
                         </li>

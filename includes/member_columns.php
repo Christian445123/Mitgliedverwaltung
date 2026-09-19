@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/camps.php';
+require_once __DIR__ . '/staff.php';
 
 /**
  * Zentrale Spaltendefinition für Import (CSV/Excel), Export und REST-API.
@@ -70,7 +71,38 @@ const MEMBER_IO_MAXLEN = [
     'game_jersey_groesse' => 10, 'game_hosen_groesse' => 10, 'helm_groesse' => 10,
     'tshirt_polo_groesse' => 10, 'hoodie_groesse' => 10, 'mesh_shorts_groesse' => 10, 'socken_groesse' => 10,
     'zimmer_nr' => 20, 'pract_jersey_nr' => 10, 'pract_hose_groesse' => 10,
+    'nada' => 100, 'telefon_angehoeriger' => 50, 'jacken_groesse' => 10, 'short_groesse' => 10,
+    'shorts_anzahl' => 20, 'coaching_hosen_lang_groesse' => 10,
 ];
+
+/**
+ * Aktuelle Datenart für Import/Export: 'members' (Spieler, Standard) oder 'staff'.
+ * Mit Argument setzen, ohne Argument abfragen.
+ */
+function io_entity(?string $set = null): string
+{
+    static $entity = 'members';
+    if ($set !== null) {
+        $entity = $set === 'staff' ? 'staff' : 'members';
+    }
+    return $entity;
+}
+
+/**
+ * Pflichtfelder je Datenart. Spieler brauchen eine Mail (eindeutig), Staff nur Nachname und Vorname.
+ *
+ * @return array<int, string>
+ */
+function io_required_keys(): array
+{
+    return io_entity() === 'staff' ? ['nachname', 'vorname'] : ['nachname', 'vorname', 'email'];
+}
+
+/** Felder, die als Telefonnummer vereinheitlicht werden. */
+function io_phone_keys(): array
+{
+    return ['telefon', 'erz_telefon', 'telefon_angehoeriger'];
+}
 
 /**
  * Alle Import-/Export-Felder: die festen Felder plus je ein Ja/Nein-Feld pro weiterem Camp
@@ -80,6 +112,11 @@ const MEMBER_IO_MAXLEN = [
  */
 function member_io_columns(): array
 {
+    // Staff hat eigene Felder (siehe includes/staff.php)
+    if (io_entity() === 'staff') {
+        return STAFF_IO_COLUMNS;
+    }
+
     static $cache = null;
     if ($cache !== null) {
         return $cache;
@@ -128,7 +165,7 @@ function io_map_headers(array $headers, array $overrides = []): array
         $aliases[io_normalize_header($label)] = $key;
     }
     // Schreibweisen aus der bisherigen Excel-Liste und häufige Varianten
-    $extra = [
+    $extra = io_entity() === 'staff' ? io_staff_aliases() : [
         'Telefon' => 'telefon', 'Tel' => 'telefon', 'Telefon Spieler' => 'telefon', 'Handy' => 'telefon',
         'Kaderstatus' => 'kader', 'Im Kader' => 'kader',
         'SZ' => 'sz', 'Selbst zahler' => 'sz',
@@ -143,6 +180,9 @@ function io_map_headers(array $headers, array $overrides = []): array
         'Game Jersey Grösse' => 'game_jersey_groesse', 'Game Hosen Grösse' => 'game_hosen_groesse',
     ];
     foreach ($extra as $alias => $key) {
+        if (!isset(member_io_columns()[$key])) {
+            continue; // Alias gehört zu einem Feld, das diese Datenart nicht hat
+        }
         $aliases[io_normalize_header($alias)] = $aliases[io_normalize_header($alias)] ?? $key;
     }
 
@@ -314,7 +354,7 @@ function io_convert_row(array $raw, bool $clearEmpty = false, bool $lenient = fa
     $data = [];
     $errors = [];
     $warnings = [];
-    $required = ['nachname', 'vorname', 'email'];
+    $required = io_required_keys();
 
     foreach ($raw as $key => $value) {
         if (!isset(member_io_columns()[$key])) {
@@ -350,7 +390,7 @@ function io_convert_row(array $raw, bool $clearEmpty = false, bool $lenient = fa
                 $data[$key] = null;
             }
         } elseif ($parsed !== null) {
-            if ($key === 'telefon' || $key === 'erz_telefon') {
+            if (in_array($key, io_phone_keys(), true)) {
                 try {
                     $parsed = normalize_phone((string) $parsed);
                 } catch (InvalidArgumentException $e) {
@@ -403,4 +443,23 @@ function io_export_value(string $key, array $row): string
         return $ts === false ? (string) $value : date('d.m.Y', $ts);
     }
     return (string) $value;
+}
+
+/**
+ * Zusätzliche Überschriften-Schreibweisen für die Staff-Liste (Excel-Spalten des Vereins).
+ *
+ * @return array<string, string>
+ */
+function io_staff_aliases(): array
+{
+    return [
+        'Telefon Angehoeriger' => 'telefon_angehoeriger', 'Tel. Angehöriger' => 'telefon_angehoeriger', 'Notfallkontakt' => 'telefon_angehoeriger',
+        'Email' => 'email', 'E-Mail' => 'email', 'Handy' => 'telefon', 'Tel' => 'telefon',
+        'Funktion' => 'position', 'Pos' => 'position', 'Rolle' => 'position',
+        'NADA' => 'nada', 'Straße' => 'strasse', 'Strasse' => 'strasse', 'Ort' => 'ort',
+        'T-Shirt / Polo Grösse' => 'tshirt_polo_groesse', 'T-Shirt & Polo Größe' => 'tshirt_polo_groesse',
+        'Hoodie Grösse' => 'hoodie_groesse', 'Jacken Grösse' => 'jacken_groesse', 'Short Grösse' => 'short_groesse',
+        'Wie viele Shorts besitzt du' => 'shorts_anzahl', 'Anzahl Shorts' => 'shorts_anzahl',
+        'Coaching Hosen (lang) Grösse' => 'coaching_hosen_lang_groesse', 'Coaching Hosen lang Grösse' => 'coaching_hosen_lang_groesse',
+    ];
 }

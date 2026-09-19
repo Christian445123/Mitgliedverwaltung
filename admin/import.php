@@ -7,6 +7,11 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/member_import.php';
 
 require_permission('members.import');
+$entity = (($_POST['entity'] ?? $_GET['entity'] ?? '') === 'staff') ? 'staff' : 'members';
+if ($entity === 'staff') {
+    require_permission('staff.edit');
+}
+io_entity($entity); // Spieler oder Staff: bestimmt Spalten, Pflichtfelder und Speicherziel
 
 $error = null;
 $preview = null;
@@ -96,7 +101,12 @@ $actionBadges = ['create' => 'green', 'update' => 'blue', 'skip' => 'gray', 'err
 ?>
 <div class="content-header">
     <h1>Import &amp; Export</h1>
-    <a href="index.php" class="btn btn-link">&larr; Zurück zur Liste</a>
+    <a href="<?= $entity === 'staff' ? 'staff.php' : 'index.php' ?>" class="btn btn-link">&larr; Zurück zur Liste</a>
+</div>
+
+<div class="chip-group tab-chips">
+    <a class="chip <?= $entity === 'members' ? 'active' : '' ?>" href="import.php">Spieler</a>
+    <?php if (user_can('staff.edit')): ?><a class="chip <?= $entity === 'staff' ? 'active' : '' ?>" href="import.php?entity=staff">Staff (Trainer &amp; Betreuer)</a><?php endif; ?>
 </div>
 
 <?php if ($error): ?><p class="alert alert-error"><?= h($error) ?></p><?php endif; ?>
@@ -143,6 +153,7 @@ $actionBadges = ['create' => 'green', 'update' => 'blue', 'skip' => 'gray', 'err
     <form method="post" action="import.php">
         <?= csrf_field() ?>
         <input type="hidden" name="action" value="remap">
+        <input type="hidden" name="entity" value="<?= h($entity) ?>">
         <details class="panel" style="margin-bottom:16px;" <?= ($preview['unknown'] || $preview['missing_required']) ? 'open' : '' ?>>
             <summary><strong>Spaltenzuordnung</strong> – jede Spalte der Datei einem Feld zuordnen (Überschriftenzeile: <?= (int) $preview['header_row'] ?>)</summary>
             <div class="table-scroll">
@@ -203,12 +214,14 @@ $actionBadges = ['create' => 'green', 'update' => 'blue', 'skip' => 'gray', 'err
         <form method="post" action="import.php" class="inline-form">
             <?= csrf_field() ?>
             <input type="hidden" name="action" value="commit">
+            <input type="hidden" name="entity" value="<?= h($entity) ?>">
             <button type="submit" class="btn btn-primary"><?= (int) $importable ?> Zeile(n) importieren</button>
         </form>
         <?php endif; ?>
         <form method="post" action="import.php" class="inline-form">
             <?= csrf_field() ?>
             <input type="hidden" name="action" value="cancel">
+            <input type="hidden" name="entity" value="<?= h($entity) ?>">
             <button type="submit" class="btn">Abbrechen</button>
         </form>
     </div>
@@ -219,19 +232,22 @@ $actionBadges = ['create' => 'green', 'update' => 'blue', 'skip' => 'gray', 'err
             <h2 class="section-title">Import aus CSV / Excel</h2>
             <p>Unterstützt <strong>.xlsx</strong> und <strong>.csv</strong> (Excel-CSV mit Semikolon oder Komma).
                Die Überschriftenzeile wird automatisch gefunden (Titelzeilen darüber stören nicht); Pflichtspalten sind
-               <em>Nachname</em>, <em>Vorname</em> und <em>Mail</em>. Vor dem Speichern gibt es eine Vorschau.</p>
+               <?= $entity === 'staff' ? '<em>Nachname</em> und <em>Vorname</em> (Mail ist beim Staff freiwillig)' : '<em>Nachname</em>, <em>Vorname</em> und <em>Mail</em>' ?>.
+               Vor dem Speichern gibt es eine Vorschau.</p>
 
             <form method="post" action="import.php" enctype="multipart/form-data">
                 <?= csrf_field() ?>
                 <input type="hidden" name="action" value="preview">
+                <input type="hidden" name="entity" value="<?= h($entity) ?>">
                 <div class="form-group">
                     <label for="file">Datei</label>
                     <input type="file" id="file" name="file" accept=".csv,.xlsx,.txt" required>
                 </div>
                 <div class="form-group">
                     <label><input type="checkbox" name="update_existing" value="1" checked>
-                        Vorhandene Mitglieder (gleiche E-Mail) aktualisieren – leere Zellen überschreiben nichts</label>
+                        <?= $entity === 'staff' ? 'Vorhandene Personen (gleiche Mail oder gleicher Name) aktualisieren' : 'Vorhandene Mitglieder (gleiche E-Mail) aktualisieren' ?> – leere Zellen überschreiben nichts</label>
                 </div>
+                <?php if ($entity === 'members'): ?>
                 <div class="form-group">
                     <label>Kader-Status der importierten Spieler</label>
                     <div class="radio-group">
@@ -244,18 +260,25 @@ $actionBadges = ['create' => 'green', 'update' => 'blue', 'skip' => 'gray', 'err
                     </div>
                     <p class="muted">Gilt für alle Zeilen ohne eigenen Wert in einer Spalte „Kader“ – auch für bereits vorhandene Spieler, die aktualisiert werden.</p>
                 </div>
+                <?php endif; ?>
                 <button type="submit" class="btn btn-primary">Vorschau anzeigen</button>
             </form>
         </section>
 
         <section class="panel">
             <h2 class="section-title">Export &amp; Vorlage</h2>
-            <p>Der Export enthält alle Mitgliedsdaten und lässt sich direkt in Excel öffnen –
+            <p>Der Export enthält alle <?= $entity === 'staff' ? 'Staff-Daten' : 'Mitgliedsdaten' ?> und lässt sich direkt in Excel öffnen –
                und nach dem Bearbeiten wieder importieren.</p>
+            <?php $q = $entity === 'staff' ? 'entity=staff&' : ''; ?>
             <div class="stack">
-                <a class="btn" href="export.php">Alle Mitglieder (CSV)</a>
-                <a class="btn" href="export.php?status=aktiv">Nur aktive (CSV)</a>
-                <a class="btn" href="export.php?template=1">Leere Import-Vorlage (CSV)</a>
+                <?php if (user_can('members.export')): ?>
+                <a class="btn" href="export.php<?= $entity === 'staff' ? '?entity=staff' : '' ?>"><?= $entity === 'staff' ? 'Alle Personen (CSV)' : 'Alle Mitglieder (CSV)' ?></a>
+                <a class="btn" href="export.php?<?= $q ?>status=aktiv">Nur aktive (CSV)</a>
+                <?php endif; ?>
+                <a class="btn" href="export.php?<?= $q ?>template=1">Leere Import-Vorlage (CSV)</a>
+                <?php if ($entity === 'members'): ?>
+                <a class="btn btn-primary" href="roster.php">Roster (PDF / Excel) …</a>
+                <?php endif; ?>
             </div>
         </section>
     </div>

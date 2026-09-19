@@ -218,3 +218,36 @@ CREATE TABLE IF NOT EXISTS user_permissions (
     PRIMARY KEY (user_id, permission),
     CONSTRAINT fk_user_permissions_user FOREIGN KEY (user_id) REFERENCES admins (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Staff (Trainer, Betreuer, Funktionäre) - getrennt von den Spielern
+CREATE TABLE IF NOT EXISTS staff (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    nachname VARCHAR(100) NOT NULL,
+    vorname VARCHAR(100) NOT NULL,
+    name_vorname VARCHAR(255) GENERATED ALWAYS AS (CONCAT(nachname, ' ', vorname)) STORED,
+    position VARCHAR(100) DEFAULT NULL,
+    nada VARCHAR(100) DEFAULT NULL,
+    geburtsdatum DATE DEFAULT NULL,
+    telefon VARCHAR(50) DEFAULT NULL,
+    email VARCHAR(190) DEFAULT NULL,
+    telefon_angehoeriger VARCHAR(50) DEFAULT NULL,
+    reisepass_nr VARCHAR(50) DEFAULT NULL,
+    reisepass_ausgestellt_am DATE DEFAULT NULL,
+    reisepass_gueltig_bis DATE DEFAULT NULL,
+    geburtsland VARCHAR(100) DEFAULT NULL,
+    ausstellungsbehoerde VARCHAR(150) DEFAULT NULL,
+    plz VARCHAR(10) DEFAULT NULL,
+    ort VARCHAR(100) DEFAULT NULL,
+    strasse VARCHAR(150) DEFAULT NULL,
+    essen VARCHAR(255) DEFAULT NULL,
+    tshirt_polo_groesse VARCHAR(10) DEFAULT NULL,
+    hoodie_groesse VARCHAR(10) DEFAULT NULL,
+    jacken_groesse VARCHAR(10) DEFAULT NULL,
+    short_groesse VARCHAR(10) DEFAULT NULL,
+    shorts_anzahl VARCHAR(20) DEFAULT NULL,
+    coaching_hosen_lang_groesse VARCHAR(10) DEFAULT NULL,
+    status ENUM('aktiv', 'inaktiv') NOT NULL DEFAULT 'aktiv',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_staff_email (email)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
