@@ -533,6 +533,42 @@ function roster_generate_clothing(string $format, ?string $kader, ?string $statu
     return ['application/pdf', $base . '.pdf', roster_build_pdf($table, $title, $subtitle)];
 }
 
+/** Spalten des Vereins-Rosters. */
+function roster_columns_clubs(): array
+{
+    return [
+        ['key' => 'id', 'label' => 'ID', 'width' => 16.0, 'align' => 'C', 'xl' => 8.0],
+        ['key' => 'nachname', 'label' => 'Nachname', 'width' => 50.0, 'align' => 'L', 'xl' => 26.0],
+        ['key' => 'vorname', 'label' => 'Vorname', 'width' => 50.0, 'align' => 'L', 'xl' => 26.0],
+        ['key' => 'verein', 'label' => 'Verein', 'width' => 60.0, 'align' => 'L', 'xl' => 30.0],
+    ];
+}
+
+/**
+ * Erzeugt den Vereins-Roster (nach Verein, dann Nachname) und liefert [Inhaltstyp, Dateiname, Binärdaten].
+ *
+ * @param array<int, string> $excludeKeys Spalten, die nicht ausgegeben werden dürfen
+ * @return array{0: string, 1: string, 2: string}
+ */
+function roster_generate_clubs(string $format, ?string $kader, ?string $status, array $excludeKeys = []): array
+{
+    require_once __DIR__ . '/member_repository.php';
+
+    $members = member_all($status, $kader);
+    usort($members, static fn (array $a, array $b): int => [mb_strtolower(trim((string) ($a['verein'] ?? ''))), mb_strtolower((string) $a['nachname']), mb_strtolower((string) $a['vorname'])]
+        <=> [mb_strtolower(trim((string) ($b['verein'] ?? ''))), mb_strtolower((string) $b['nachname']), mb_strtolower((string) $b['vorname'])]);
+    $table = roster_table($members, $excludeKeys, roster_columns_clubs());
+    $title = 'Roster Vereine ' . roster_team_name();
+    $scope = $kader === 'kader' ? 'Spieler im Kader' : ($kader === 'nicht_im_kader' ? 'Spieler nicht im Kader' : 'Alle Spieler');
+    $subtitle = 'Nach Verein, dann Nachname · ' . $scope . ' · ' . count($members) . ' Spieler';
+    $base = 'roster-vereine-' . date('Y-m-d');
+
+    if ($format === 'xlsx') {
+        return ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', $base . '.xlsx', roster_build_xlsx($table, $title, $subtitle, 'Vereine')];
+    }
+    return ['application/pdf', $base . '.pdf', roster_build_pdf($table, $title, $subtitle)];
+}
+
 // ══════════════════════════════════════════════════════════════════════════
 // Allgemeiner PDF-Baukasten (A4 hochkant, Standardschrift Helvetica) und IFAF-Roster
 // ══════════════════════════════════════════════════════════════════════════

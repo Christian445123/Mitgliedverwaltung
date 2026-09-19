@@ -10,7 +10,7 @@ require_once __DIR__ . '/../includes/field_access.php';
 
 require_permission('members.export');
 
-$type = in_array($_GET['type'] ?? '', ['ifaf', 'clothing'], true) ? (string) $_GET['type'] : 'alpha';
+$type = in_array($_GET['type'] ?? '', ['ifaf', 'clothing', 'clubs'], true) ? (string) $_GET['type'] : 'alpha';
 $format = in_array($_GET['format'] ?? '', ['pdf', 'xlsx'], true) ? (string) $_GET['format'] : null;
 $error = null;
 
@@ -36,9 +36,9 @@ if ($format !== null) {
             $status = ($_GET['status'] ?? 'aktiv') === 'alle' ? null : 'aktiv';
             // Bearbeiter erhalten nur die Spalten, die für sie freigegeben sind (Feld-Rechte)
             $exclude = field_access_admin_audience() === 'admin' ? [] : field_access_hidden_export_keys('editor');
-            $generate = $type === 'clothing' ? 'roster_generate_clothing' : 'roster_generate_alphabetical';
+            $generate = ['clothing' => 'roster_generate_clothing', 'clubs' => 'roster_generate_clubs'][$type] ?? 'roster_generate_alphabetical';
             [$contentType, $filename, $binary] = $generate($format, $kader, $status, $exclude);
-            app_log('export.roster', ($type === 'clothing' ? 'Bekleidungs-Roster' : 'Alphabetischer Roster') . ' erstellt (' . $format . ')', ['kader' => $kader, 'status' => $status]);
+            app_log('export.roster', (['clothing' => 'Bekleidungs-Roster', 'clubs' => 'Vereins-Roster'][$type] ?? 'Alphabetischer Roster') . ' erstellt (' . $format . ')', ['kader' => $kader, 'status' => $status]);
         }
 
         header('Content-Type: ' . $contentType);
@@ -100,6 +100,26 @@ require __DIR__ . '/../includes/admin_header.php';
             <div class="form-group">
                 <label for="kader_c">Welche Spieler?</label>
                 <select id="kader_c" name="kader">
+                    <option value="kader">Nur Spieler im Kader</option>
+                    <option value="alle">Alle Spieler</option>
+                    <option value="nicht_im_kader">Nur Spieler nicht im Kader</option>
+                </select>
+            </div>
+            <div class="filter-bar">
+                <button type="submit" name="format" value="pdf" class="btn btn-primary">PDF erstellen</button>
+                <button type="submit" name="format" value="xlsx" class="btn">Excel erstellen</button>
+            </div>
+        </form>
+    </section>
+
+    <section class="panel">
+        <h2 class="section-title">Roster Vereine</h2>
+        <p class="muted">Liste nach Verein sortiert (dann Nachname): ID, Nachname, Vorname, Verein.</p>
+        <form method="get" action="roster.php">
+            <input type="hidden" name="type" value="clubs">
+            <div class="form-group">
+                <label for="kader_v">Welche Spieler?</label>
+                <select id="kader_v" name="kader">
                     <option value="kader">Nur Spieler im Kader</option>
                     <option value="alle">Alle Spieler</option>
                     <option value="nicht_im_kader">Nur Spieler nicht im Kader</option>
