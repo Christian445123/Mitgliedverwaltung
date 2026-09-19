@@ -29,6 +29,11 @@ if ($target === false) {
     redirect('users.php');
 }
 
+if ($target['role'] === 'administrator' && !is_administrator()) {
+    flash_set('error', 'Administratoren können nur von einem Administrator gelöscht werden.');
+    redirect('users.php');
+}
+
 if ($target['role'] === 'administrator') {
     $countStmt = db()->prepare("SELECT COUNT(*) FROM admins WHERE role = 'administrator' AND id != ?");
     $countStmt->execute([$id]);

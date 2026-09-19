@@ -25,6 +25,16 @@ $isNew = $id === null;
 $error = null;
 $registry = permissions_registry();
 $roles = roles_all();
+
+// Nur Administratoren dürfen Administratoren bearbeiten, die Administrator-Rolle vergeben und eigene Rechte ändern.
+// So kann sich niemand über "Benutzer verwalten" mehr Rechte verschaffen, als er selbst hat.
+if (!is_administrator()) {
+    if (!$isNew && ($existing['role'] === 'administrator' || (int) $id === current_admin_id())) {
+        flash_set('error', 'Administratoren und das eigene Konto können nur von einem Administrator geändert werden.');
+        redirect('users.php');
+    }
+    $roles = array_values(array_filter($roles, static fn (array $r) => $r['role_key'] !== 'administrator'));
+}
 $rolePermissions = [];
 foreach ($roles as $r) {
     $rolePermissions[(int) $r['id']] = $r['role_key'] === 'administrator' ? array_keys($registry) : role_permissions((int) $r['id']);
@@ -73,6 +83,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Benutzername muss mindestens 3 Zeichen haben.';
     } elseif ($roleRow === null) {
         $error = 'Bitte eine Rolle auswählen.';
+    } elseif (!is_administrator() && count(array_filter(array_keys(array_filter($choices, static fn (string $c) => $c === 'allow')), static fn (string $p) => !user_can($p))) > 0) {
+        $error = 'Sie können nur Rechte erlauben, die Sie selbst haben.';
+    } elseif (!is_administrator() && count(array_diff(role_permissions((int) $roleRow['id']), array_keys(user_permissions((int) current_admin_id())))) > 0) {
+        $error = 'Diese Rolle enthält Rechte, die Sie selbst nicht haben. Sie können sie nicht vergeben.';
     } elseif ($isNew && strlen($password) < 8) {
         $error = 'Passwort muss mindestens 8 Zeichen haben.';
     } elseif ($password !== '' && strlen($password) < 8) {

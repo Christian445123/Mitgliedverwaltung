@@ -31,6 +31,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $description = trim((string) ($_POST['description'] ?? ''));
             $selected = array_values(array_intersect(array_keys($registry), array_keys((array) ($_POST['perm'] ?? []))));
 
+            if (!is_administrator()) {
+                $own = array_keys(user_permissions((int) current_admin_id()));
+                $before = $roleId > 0 ? role_permissions($roleId) : [];
+                if (count(array_diff(array_diff($selected, $before), $own)) > 0) {
+                    throw new RuntimeException('Sie können einer Rolle nur Rechte hinzufügen, die Sie selbst haben.');
+                }
+            }
+
             if ($name === '' || mb_strlen($name) > 60) {
                 throw new RuntimeException('Bitte einen Namen für die Rolle angeben (max. 60 Zeichen).');
             }
