@@ -74,7 +74,7 @@ require __DIR__ . '/../includes/admin_header.php';
 <?php if ($check !== null): ?>
 <section class="panel">
     <h2 class="section-title">Prüfung: <?= h($check['title']) ?> (<?= (int) $check['total'] ?> Spieler)</h2>
-    <p class="muted">So wird der Roster befüllt. <span style="background:#fde2e2;padding:0 6px;border-radius:4px">Rot</span> = Feld leer.
+    <p class="muted">So wird der Roster befüllt. <span class="cell-empty" style="padding:0 6px;border-radius:4px">Rot</span> = Feld leer.
         Fehlende Werte trägst du beim jeweiligen Spieler nach.</p>
     <div style="overflow-x:auto">
     <table class="table">
@@ -89,7 +89,7 @@ require __DIR__ . '/../includes/admin_header.php';
             <?php foreach ($check['table']['rows'] as $row): ?>
                 <tr>
                     <?php foreach ($row as $value): ?>
-                        <td<?= trim($value) === '' ? ' style="background:#fde2e2"' : '' ?>><?= h($value) ?></td>
+                        <td<?= trim($value) === '' ? ' class="cell-empty"' : '' ?>><?= h($value) ?></td>
                     <?php endforeach; ?>
                 </tr>
             <?php endforeach; ?>
