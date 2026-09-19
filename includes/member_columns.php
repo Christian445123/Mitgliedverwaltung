@@ -178,6 +178,13 @@ function io_map_headers(array $headers, array $overrides = []): array
         'Sozial Ver. Nr.' => 'sozialversicherungsnummer', 'SV-Nr' => 'sozialversicherungsnummer',
         'Helm verwendest du' => 'helm_eigener', 'Helm verwendest du (eigenen Helm)' => 'helm_eigener',
         'Game Jersey Grösse' => 'game_jersey_groesse', 'Game Hosen Grösse' => 'game_hosen_groesse',
+        // Schreibweisen der Bekleidungs-Liste
+        'Practice Hose' => 'pract_hose_groesse', 'Practise Hose' => 'pract_hose_groesse', 'Practice Hose Größe' => 'pract_hose_groesse',
+        'Practise Hose Größe' => 'pract_hose_groesse', 'Pract Hose' => 'pract_hose_groesse', 'Pract. Hose' => 'pract_hose_groesse',
+        'Practice Jersey Nr.' => 'pract_jersey_nr', 'Practise Jersey Nr.' => 'pract_jersey_nr', 'Practice Jersey Nr' => 'pract_jersey_nr',
+        'Practice Jersey' => 'pract_jersey_nr', 'Pract Jersey Nr' => 'pract_jersey_nr',
+        'Jersey Größe' => 'game_jersey_groesse', 'Shirt' => 'tshirt_polo_groesse', 'Short' => 'mesh_shorts_groesse',
+        'Shorts' => 'mesh_shorts_groesse', 'Socken' => 'socken_groesse',
     ];
     foreach ($extra as $alias => $key) {
         if (!isset(member_io_columns()[$key])) {

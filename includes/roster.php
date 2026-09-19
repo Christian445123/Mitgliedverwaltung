@@ -569,6 +569,38 @@ function roster_generate_clubs(string $format, ?string $kader, ?string $status, 
     return ['application/pdf', $base . '.pdf', roster_build_pdf($table, $title, $subtitle)];
 }
 
+/**
+ * Vorschau/Prüfung eines Rosters: liefert die Tabelle (wie im PDF/Excel) und je Spalte,
+ * wie viele Zeilen befüllt sind. Für die Seiten-Vorschau mit Markierung leerer Felder.
+ *
+ * @param 'alpha'|'clothing'|'clubs' $type
+ * @param array<int, string> $excludeKeys
+ * @return array{title: string, table: array<string, mixed>, filled: array<int, int>, total: int}
+ */
+function roster_check(string $type, ?string $kader, ?string $status, array $excludeKeys = []): array
+{
+    require_once __DIR__ . '/member_repository.php';
+
+    $members = member_all($status, $kader);
+    if ($type === 'clubs') {
+        $key = static fn (array $m): array => [mb_strtolower(trim((string) ($m['verein'] ?? ''))), mb_strtolower((string) $m['nachname']), mb_strtolower((string) $m['vorname'])];
+        usort($members, static fn (array $a, array $b): int => $key($a) <=> $key($b));
+    }
+    $columns = $type === 'clubs' ? roster_columns_clubs() : ($type === 'clothing' ? roster_columns_clothing() : null);
+    $table = roster_table($members, $excludeKeys, $columns);
+
+    $filled = array_fill(0, count($table['columns']), 0);
+    foreach ($table['rows'] as $row) {
+        foreach ($row as $i => $value) {
+            if (trim($value) !== '') {
+                $filled[$i]++;
+            }
+        }
+    }
+    $titles = ['clubs' => 'Roster Vereine', 'clothing' => 'Rosterbekleidung', 'alpha' => 'Alphabetischer Roster'];
+    return ['title' => $titles[$type] ?? 'Roster', 'table' => $table, 'filled' => $filled, 'total' => count($table['rows'])];
+}
+
 // ══════════════════════════════════════════════════════════════════════════
 // Allgemeiner PDF-Baukasten (A4 hochkant, Standardschrift Helvetica) und IFAF-Roster
 // ══════════════════════════════════════════════════════════════════════════

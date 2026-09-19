@@ -14,6 +14,15 @@ $type = in_array($_GET['type'] ?? '', ['ifaf', 'clothing', 'clubs'], true) ? (st
 $format = in_array($_GET['format'] ?? '', ['pdf', 'xlsx'], true) ? (string) $_GET['format'] : null;
 $error = null;
 
+// Prüfen (Vorschau): zeigt den Roster als Tabelle, leere Felder sind markiert
+$check = null;
+if (($_GET['format'] ?? '') === 'check' && $type !== 'ifaf') {
+    $kaderCheck = in_array($_GET['kader'] ?? 'kader', ['kader', 'nicht_im_kader'], true) ? (string) ($_GET['kader'] ?? 'kader') : null;
+    $statusCheck = ($_GET['status'] ?? 'aktiv') === 'alle' ? null : 'aktiv';
+    $excludeCheck = field_access_admin_audience() === 'admin' ? [] : field_access_hidden_export_keys('editor');
+    $check = roster_check($type, $kaderCheck, $statusCheck, $excludeCheck);
+}
+
 // IFAF-Angaben: zuletzt verwendete Werte merken
 $ifaf = [
     'competition' => trim((string) ($_GET['competition'] ?? app_setting_get('ifaf_competition', 'IFAF European Championship 2026/27'))),
@@ -62,6 +71,34 @@ require __DIR__ . '/../includes/admin_header.php';
 
 <?php if ($error): ?><p class="alert alert-error"><?= h($error) ?></p><?php endif; ?>
 
+<?php if ($check !== null): ?>
+<section class="panel">
+    <h2 class="section-title">Prüfung: <?= h($check['title']) ?> (<?= (int) $check['total'] ?> Spieler)</h2>
+    <p class="muted">So wird der Roster befüllt. <span style="background:#fde2e2;padding:0 6px;border-radius:4px">Rot</span> = Feld leer.
+        Fehlende Werte trägst du beim jeweiligen Spieler nach.</p>
+    <div style="overflow-x:auto">
+    <table class="table">
+        <thead>
+            <tr>
+                <?php foreach ($check['table']['columns'] as $i => $c): ?>
+                    <th><?= h((string) $c['label']) ?><br><small class="muted"><?= (int) $check['filled'][$i] ?> / <?= (int) $check['total'] ?> befüllt</small></th>
+                <?php endforeach; ?>
+            </tr>
+        </thead>
+        <tbody>
+            <?php foreach ($check['table']['rows'] as $row): ?>
+                <tr>
+                    <?php foreach ($row as $value): ?>
+                        <td<?= trim($value) === '' ? ' style="background:#fde2e2"' : '' ?>><?= h($value) ?></td>
+                    <?php endforeach; ?>
+                </tr>
+            <?php endforeach; ?>
+        </tbody>
+    </table>
+    </div>
+</section>
+<?php endif; ?>
+
 <div class="panel-grid">
     <section class="panel">
         <h2 class="section-title">Alphabetischer Roster</h2>
@@ -87,6 +124,7 @@ require __DIR__ . '/../includes/admin_header.php';
             <div class="filter-bar">
                 <button type="submit" name="format" value="pdf" class="btn btn-primary">PDF erstellen</button>
                 <button type="submit" name="format" value="xlsx" class="btn">Excel erstellen</button>
+                <button type="submit" name="format" value="check" class="btn">Prüfen (Vorschau)</button>
             </div>
         </form>
     </section>
@@ -108,6 +146,7 @@ require __DIR__ . '/../includes/admin_header.php';
             <div class="filter-bar">
                 <button type="submit" name="format" value="pdf" class="btn btn-primary">PDF erstellen</button>
                 <button type="submit" name="format" value="xlsx" class="btn">Excel erstellen</button>
+                <button type="submit" name="format" value="check" class="btn">Prüfen (Vorschau)</button>
             </div>
         </form>
     </section>
@@ -128,6 +167,7 @@ require __DIR__ . '/../includes/admin_header.php';
             <div class="filter-bar">
                 <button type="submit" name="format" value="pdf" class="btn btn-primary">PDF erstellen</button>
                 <button type="submit" name="format" value="xlsx" class="btn">Excel erstellen</button>
+                <button type="submit" name="format" value="check" class="btn">Prüfen (Vorschau)</button>
             </div>
         </form>
     </section>
