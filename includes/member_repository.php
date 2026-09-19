@@ -18,7 +18,7 @@ const MEMBERS_COLUMNS = ['jersey_nr', 'nachname', 'vorname', 'sz', 'bezirk', 'po
 const CAMPS_COLUMNS = ['camp_1', 'spanien', 'camp_2', 'tschechien'];
 const GUARDIAN_COLUMNS = ['erz_name', 'erz_telefon', 'erz_email'];
 const CONSENT_COLUMNS = ['rechte_pflichten_akzeptiert', 'rechte_pflichten_am'];
-const DOCUMENT_COLUMNS = ['bild_ecard_pfad', 'sozialversicherungsnummer', 'nada_zertifikat', 'nada_gueltig_bis', 'pass_foto_pfad', 'reisepass_nr', 'reisepass_ausgestellt_am', 'reisepass_gueltig_bis', 'geburtsland', 'geburtsort', 'ausstellungsbehoerde', 'nada_dokument_pfad', 'rechte_pflichten_dokument_pfad'];
+const DOCUMENT_COLUMNS = ['bild_ecard_pfad', 'sozialversicherungsnummer', 'nada_zertifikat', 'nada_gueltig_bis', 'pass_foto_pfad', 'reisepass_nr', 'reisepass_ausgestellt_am', 'reisepass_gueltig_bis', 'geburtsland', 'geburtsort', 'ausstellungsbehoerde', 'nada_dokument_pfad', 'rechte_pflichten_dokument_pfad', 'bild_ecard_hinten_pfad', 'pass_foto_hinten_pfad'];
 const ADDRESS_COLUMNS = ['plz', 'ort', 'strasse'];
 const EQUIPMENT_COLUMNS = ['essen', 'game_jersey_groesse', 'game_hosen_groesse', 'helm_groesse', 'helm_eigener', 'tshirt_polo_groesse', 'hoodie_groesse', 'mesh_shorts_groesse', 'socken_groesse', 'zimmer_nr', 'pract_jersey_nr', 'pract_hose_groesse'];
 
@@ -26,8 +26,10 @@ const EQUIPMENT_COLUMNS = ['essen', 'game_jersey_groesse', 'game_hosen_groesse',
  * Dokumenttypen: Schlüssel (API/URL) => Spalte, Upload-Unterordner, Beschriftung.
  */
 const MEMBER_DOCUMENT_TYPES = [
-    'ecard' => ['column' => 'bild_ecard_pfad', 'dir' => 'ecard', 'label' => 'E-Card'],
-    'pass' => ['column' => 'pass_foto_pfad', 'dir' => 'pass', 'label' => 'Reisepass'],
+    'ecard' => ['column' => 'bild_ecard_pfad', 'dir' => 'ecard', 'label' => 'E-Card Vorderseite'],
+    'ecard_back' => ['column' => 'bild_ecard_hinten_pfad', 'dir' => 'ecard', 'label' => 'E-Card Rückseite'],
+    'pass' => ['column' => 'pass_foto_pfad', 'dir' => 'pass', 'label' => 'Reisepass Vorderseite'],
+    'pass_back' => ['column' => 'pass_foto_hinten_pfad', 'dir' => 'pass', 'label' => 'Reisepass Rückseite'],
     'nada' => ['column' => 'nada_dokument_pfad', 'dir' => 'nada', 'label' => 'NADA-Zertifikat'],
     'rechte' => ['column' => 'rechte_pflichten_dokument_pfad', 'dir' => 'rechte', 'label' => 'Rechte & Pflichten'],
 ];
@@ -39,7 +41,7 @@ const MEMBER_JOIN_SQL = '
         co.rechte_pflichten_akzeptiert, co.rechte_pflichten_am,
         d.bild_ecard_pfad, d.sozialversicherungsnummer, d.nada_zertifikat, d.nada_gueltig_bis,
         d.pass_foto_pfad, d.reisepass_nr, d.reisepass_ausgestellt_am, d.reisepass_gueltig_bis,
-        d.geburtsland, d.geburtsort, d.ausstellungsbehoerde, d.nada_dokument_pfad, d.rechte_pflichten_dokument_pfad,
+        d.geburtsland, d.geburtsort, d.ausstellungsbehoerde, d.nada_dokument_pfad, d.rechte_pflichten_dokument_pfad, d.bild_ecard_hinten_pfad, d.pass_foto_hinten_pfad,
         a.plz, a.ort, a.strasse,
         e.essen, e.game_jersey_groesse, e.game_hosen_groesse, e.helm_groesse, e.helm_eigener,
         e.tshirt_polo_groesse, e.hoodie_groesse, e.mesh_shorts_groesse, e.socken_groesse, e.zimmer_nr, e.pract_jersey_nr, e.pract_hose_groesse,
@@ -207,6 +209,12 @@ function member_collect_input(array $existing = [], string $audience = 'admin'):
     $passFotoPfad = handle_upload('pass_foto', MEMBER_UPLOAD_DIR . '/pass', MEMBER_UPLOAD_PUBLIC_PREFIX . '/pass')
         ?? ($existing['pass_foto_pfad'] ?? null);
 
+    $bildEcardHintenPfad = handle_upload('bild_ecard_hinten', MEMBER_UPLOAD_DIR . '/ecard', MEMBER_UPLOAD_PUBLIC_PREFIX . '/ecard')
+        ?? ($existing['bild_ecard_hinten_pfad'] ?? null);
+
+    $passFotoHintenPfad = handle_upload('pass_foto_hinten', MEMBER_UPLOAD_DIR . '/pass', MEMBER_UPLOAD_PUBLIC_PREFIX . '/pass')
+        ?? ($existing['pass_foto_hinten_pfad'] ?? null);
+
     $nadaDokumentPfad = handle_upload('nada_dokument', MEMBER_UPLOAD_DIR . '/nada', MEMBER_UPLOAD_PUBLIC_PREFIX . '/nada')
         ?? ($existing['nada_dokument_pfad'] ?? null);
 
@@ -250,6 +258,8 @@ function member_collect_input(array $existing = [], string $audience = 'admin'):
         'nada_gueltig_bis' => post_date('nada_gueltig_bis'),
 
         'pass_foto_pfad' => $passFotoPfad,
+        'bild_ecard_hinten_pfad' => $bildEcardHintenPfad,
+        'pass_foto_hinten_pfad' => $passFotoHintenPfad,
         'nada_dokument_pfad' => $nadaDokumentPfad,
         'rechte_pflichten_dokument_pfad' => $rechteDokumentPfad,
         'reisepass_nr' => post_str('reisepass_nr'),

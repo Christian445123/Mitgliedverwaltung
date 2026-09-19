@@ -86,6 +86,8 @@ CREATE TABLE IF NOT EXISTS member_documents (
     ausstellungsbehoerde VARCHAR(150) DEFAULT NULL,
     nada_dokument_pfad VARCHAR(255) DEFAULT NULL,
     rechte_pflichten_dokument_pfad VARCHAR(255) DEFAULT NULL,
+    bild_ecard_hinten_pfad VARCHAR(255) DEFAULT NULL,
+    pass_foto_hinten_pfad VARCHAR(255) DEFAULT NULL,
     CONSTRAINT fk_member_documents_member FOREIGN KEY (member_id) REFERENCES members (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

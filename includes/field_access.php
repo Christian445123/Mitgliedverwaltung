@@ -54,14 +54,16 @@ function field_access_registry(): array
         'rechte_pflichten_akzeptiert' => ['Rechte & Pflichten akzeptiert', 'Rechte & Pflicht', ['rechte_pflichten_akzeptiert']],
         'rechte_pflichten_dokument' => ['Rechte & Pflichten (Dokument)', 'Rechte & Pflicht', ['rechte_pflichten_dokument']],
 
-        'bild_ecard' => ['Bild E-Card (Dokument)', 'E-Card & Sozialversicherung', ['bild_ecard']],
+        'bild_ecard' => ['E-Card Vorderseite (Dokument)', 'E-Card & Sozialversicherung', ['bild_ecard']],
+        'bild_ecard_hinten' => ['E-Card Rückseite (Dokument)', 'E-Card & Sozialversicherung', ['bild_ecard_hinten']],
         'sozialversicherungsnummer' => ['Sozialversicherungsnummer', 'E-Card & Sozialversicherung', ['sozialversicherungsnummer']],
 
         'nada_zertifikat' => ['NADA Zertifikat', 'NADA', ['nada_zertifikat']],
         'nada_gueltig_bis' => ['NADA gültig bis', 'NADA', ['nada_gueltig_bis']],
         'nada_dokument' => ['NADA-Zertifikat (Dokument)', 'NADA', ['nada_dokument']],
 
-        'pass_foto' => ['Pass Foto (Dokument)', 'Reisepass', ['pass_foto']],
+        'pass_foto' => ['Reisepass Vorderseite (Dokument)', 'Reisepass', ['pass_foto']],
+        'pass_foto_hinten' => ['Reisepass Rückseite (Dokument)', 'Reisepass', ['pass_foto_hinten']],
         'reisepass_nr' => ['Reisepass Nr', 'Reisepass', ['reisepass_nr']],
         'reisepass_ausgestellt_am' => ['Reisepass ausgestellt am', 'Reisepass', ['reisepass_ausgestellt_am']],
         'reisepass_gueltig_bis' => ['Reisepass gültig bis', 'Reisepass', ['reisepass_gueltig_bis']],
@@ -93,7 +95,7 @@ function field_access_registry(): array
 }
 
 /** Formularfelder, die Dateien hochladen (werden über $_FILES gesperrt). */
-const FIELD_ACCESS_FILE_INPUTS = ['bild_ecard', 'pass_foto', 'nada_dokument', 'rechte_pflichten_dokument'];
+const FIELD_ACCESS_FILE_INPUTS = ['bild_ecard', 'bild_ecard_hinten', 'pass_foto', 'pass_foto_hinten', 'nada_dokument', 'rechte_pflichten_dokument'];
 /** Ja/Nein-Felder (Checkboxen): fehlender Wert bedeutet "nein". */
 const FIELD_ACCESS_BOOL_INPUTS = ['camp_1', 'spanien', 'camp_2', 'tschechien', 'rechte_pflichten_akzeptiert', 'helm_eigener'];
 

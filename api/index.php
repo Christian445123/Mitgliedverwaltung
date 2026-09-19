@@ -22,7 +22,7 @@ declare(strict_types=1);
  *   GET    /api/template.csv                        Import-Vorlage
  *   GET/POST/PUT/DELETE /api/staff[/{id}]           Staff (Coaches/Betreuer) lesen, anlegen, ändern, löschen
  *   GET    /api/roster.pdf|xlsx                     Alphabetischer Roster;  /api/roster-ifaf.pdf|xlsx?competition=&game=&team= IFAF-Roster
- *   GET    /api/members/{id}/documents/{typ}        Dokument laden (typ: ecard, pass, nada, rechte)
+ *   GET    /api/members/{id}/documents/{typ}        Dokument laden (typ: ecard, ecard_back, pass, pass_back, nada, rechte)
  *   POST   /api/members/{id}/documents/{typ}        Dokument hochladen (multipart, Feld "file"; Schreib-Token)
  *   DELETE /api/members/{id}/documents/{typ}        Dokument entfernen (Schreib-Token)
  */
@@ -231,7 +231,7 @@ if ($path === 'update' && $method === 'POST') {
 }
 
 // Dokumente eines Mitglieds (E-Card, Pass, NADA, Rechte & Pflichten)
-if (preg_match('#^members/(\d+)/documents/(ecard|pass|nada|rechte)$#', $path, $dm)) {
+if (preg_match('#^members/(\d+)/documents/(ecard|ecard_back|pass|pass_back|nada|rechte)$#', $path, $dm)) {
     $docId = (int) $dm[1];
     $docType = $dm[2];
     $docMember = member_find_by_id($docId);
