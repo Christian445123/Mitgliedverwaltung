@@ -41,6 +41,10 @@ if (!empty($m['geburtsdatum'])) {
     }
 }
 $showGuardianSection = $showAdminFields || $isMinor;
+
+require_once __DIR__ . '/field_access.php';
+$faAudience = $showAdminFields ? field_access_admin_audience() : 'player';
+ob_start(); // Formular puffern, damit gesperrte Felder (Feld-Rechte) am Ende entfernt werden können
 ?>
 <fieldset>
     <legend>Nummer &amp; Camps</legend>
@@ -80,9 +84,16 @@ $showGuardianSection = $showAdminFields || $isMinor;
         </div>
     </div>
 
+    <?php if ($showAdminFields && !empty($m['id'])): ?>
+    <div class="form-group">
+        <label for="name_vorname_auto">Name &amp; Vorname (automatisch)</label>
+        <input type="text" id="name_vorname_auto" value="<?= h(member_full_name($m)) ?>" readonly tabindex="-1">
+    </div>
+    <?php endif; ?>
+
     <div class="form-row">
         <div class="form-group form-group-small">
-            <label for="sz">SZ</label>
+            <label for="sz">Selbstzahler</label>
             <input type="text" id="sz" name="sz" value="<?= $v('sz') ?>" maxlength="50">
         </div>
         <div class="form-group form-group-small">
@@ -383,3 +394,5 @@ $showGuardianSection = $showAdminFields || $isMinor;
     </div>
 </fieldset>
 <?php endif; ?>
+
+<?php echo field_access_apply_html((string) ob_get_clean(), $faAudience); ?>

@@ -133,7 +133,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['stage'] ?? '') !== 'unlock
     verify_csrf();
 
     try {
-        $data = member_collect_input($member);
+        $data = member_collect_input($member, 'player');
         member_upsert($data, $memberId);
         app_log('member.self_update', 'Mitglied hat seine Daten selbst geändert', ['actor' => 'member:' . $memberId, 'target_type' => 'member', 'target_id' => $memberId]);
         $member = member_find_by_id($memberId);

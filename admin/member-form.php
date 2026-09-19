@@ -22,7 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
 
     try {
-        $data = member_collect_input($existing ?: []);
+        $data = member_collect_input($existing ?: [], field_access_admin_audience());
         $status = ($_POST['status'] ?? 'aktiv') === 'inaktiv' ? 'inaktiv' : 'aktiv';
 
         $savedId = member_upsert($data, $id, $status);

@@ -16,7 +16,7 @@ const MEMBER_IO_COLUMNS = [
     'tschechien' => ['Tschechien', 'bool'],
     'nachname' => ['Nachname', 'str'],
     'vorname' => ['Vorname', 'str'],
-    'sz' => ['SZ', 'str'],
+    'sz' => ['Selbstzahler', 'str'],
     'bezirk' => ['Bez.', 'str'],
     'position' => ['Position', 'str'],
     'geburtsdatum' => ['Geburtsdatum', 'date'],
@@ -104,6 +104,7 @@ function io_map_headers(array $headers, array $overrides = []): array
     $extra = [
         'Telefon' => 'telefon', 'Tel' => 'telefon', 'Telefon Spieler' => 'telefon', 'Handy' => 'telefon',
         'Kaderstatus' => 'kader', 'Im Kader' => 'kader',
+        'SZ' => 'sz', 'Selbst zahler' => 'sz',
         'Jersy Nr.' => 'jersey_nr', 'Jersey Nr' => 'jersey_nr', 'Trikotnummer' => 'jersey_nr',
         'Email' => 'email', 'E-Mail' => 'email', 'Mail' => 'email', 'E-Mail-Adresse' => 'email',
         'Bez.' => 'bezirk', 'Pos' => 'position', 'Pos.' => 'position',

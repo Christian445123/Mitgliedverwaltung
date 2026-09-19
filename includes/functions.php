@@ -203,3 +203,13 @@ function normalize_phone(string $raw): string
 
     return '+' . $digits;
 }
+
+/**
+ * Automatisch gebildeter Name: "Nachname Vorname" (z. B. "Walch Jakob").
+ *
+ * @param array<string, mixed> $row
+ */
+function member_full_name(array $row): string
+{
+    return trim(((string) ($row['nachname'] ?? '')) . ' ' . ((string) ($row['vorname'] ?? '')));
+}

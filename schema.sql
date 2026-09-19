@@ -33,6 +33,8 @@ CREATE TABLE IF NOT EXISTS members (
 
     status ENUM('aktiv', 'inaktiv') NOT NULL DEFAULT 'aktiv',
     kader ENUM('kader', 'nicht_im_kader') NOT NULL DEFAULT 'kader',
+    -- Wird von der Datenbank automatisch gepflegt: "Nachname Vorname" (z. B. "Walch Jakob")
+    name_vorname VARCHAR(255) GENERATED ALWAYS AS (CONCAT(nachname, ' ', vorname)) STORED,
 
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -160,4 +162,13 @@ CREATE TABLE IF NOT EXISTS activity_log (
     KEY idx_level (level),
     KEY idx_actor (actor),
     KEY idx_action (action)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Feld-Rechte: welche Felder Spieler (persönlicher Link) und Bearbeiter sehen/ändern dürfen
+CREATE TABLE IF NOT EXISTS field_permissions (
+    field_key VARCHAR(60) NOT NULL PRIMARY KEY,
+    player_access ENUM('edit', 'view', 'hidden') NOT NULL DEFAULT 'edit',
+    editor_visible TINYINT(1) NOT NULL DEFAULT 1,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_by VARCHAR(100) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -72,6 +72,7 @@ function api_member(array $row): array
         }
         $out[$key] = $value;
     }
+    $out['name_vorname'] = member_full_name($row); // automatisch: "Nachname Vorname"
     $out['dokumente'] = member_documents_present($row);
     $out['bestaetigt_am'] = $row['verified_at'] ?? null;
     $out['angelegt_am'] = $row['created_at'] ?? null;

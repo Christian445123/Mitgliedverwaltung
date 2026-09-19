@@ -87,3 +87,14 @@ document.addEventListener('DOMContentLoaded', function () {
         toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
     });
 });
+
+// Feld-Rechte: Schnellwahl für alle Spieler-Felder
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('[data-bulk-player]').forEach(function (button) {
+        button.addEventListener('click', function () {
+            document.querySelectorAll('select[data-player-select]').forEach(function (select) {
+                select.value = button.dataset.bulkPlayer;
+            });
+        });
+    });
+});

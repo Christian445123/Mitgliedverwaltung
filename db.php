@@ -68,4 +68,14 @@ function db_ensure_columns(PDO $pdo): void
             // die Anwendung läuft weiter, neue Felder sind dann erst nach schema.sql-Import nutzbar.
         }
     }
+
+    // Automatisch gepflegtes Feld "Name & Vorname" (Nachname + Vorname) - von der Datenbank berechnet
+    try {
+        $memberColumns = $pdo->query('SHOW COLUMNS FROM members')->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array('name_vorname', $memberColumns, true)) {
+            $pdo->exec("ALTER TABLE members ADD COLUMN name_vorname VARCHAR(255) GENERATED ALWAYS AS (CONCAT(nachname, ' ', vorname)) STORED");
+        }
+    } catch (PDOException $e) {
+        // Nicht kritisch: die Anwendung berechnet den Namen zusätzlich selbst (member_full_name()).
+    }
 }

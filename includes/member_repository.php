@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../db.php';
 require_once __DIR__ . '/functions.php';
+require_once __DIR__ . '/field_access.php';
 
 const MEMBER_UPLOAD_DIR = __DIR__ . '/../uploads';
 const MEMBER_UPLOAD_PUBLIC_PREFIX = '/uploads';
@@ -171,8 +172,11 @@ function member_record_verify_failure(int $id, int $currentAttempts, int $maxAtt
  * @return array<string, mixed>
  * @throws RuntimeException bei ungültigen Pflichtfeldern oder Upload-Fehlern
  */
-function member_collect_input(array $existing = []): array
+function member_collect_input(array $existing = [], string $audience = 'admin'): array
 {
+    // Gesperrte Felder (Feld-Rechte) auf den bisherigen Wert zurücksetzen, auch bei manipulierten Formulardaten
+    field_access_overlay_post($existing, $audience);
+
     $nachname = post_str('nachname');
     $vorname = post_str('vorname');
     $email = post_str('email');

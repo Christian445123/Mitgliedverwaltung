@@ -196,19 +196,39 @@ function member_import_commit(array $rows, bool $updateExisting): array
 /**
  * Schreibt Mitglieder als Excel-taugliche CSV (Semikolon, UTF-8 mit BOM).
  * Ohne $rows wird nur die Kopfzeile geschrieben (Import-Vorlage).
+ * $excludeKeys: Felder, die nicht ausgegeben werden (Feld-Rechte für Bearbeiter).
  *
  * @param resource $out
  * @param array<int, array<string, mixed>> $rows
  */
-function member_export_csv($out, array $rows): void
+function member_export_csv($out, array $rows, array $excludeKeys = []): void
 {
     fwrite($out, "\xEF\xBB\xBF");
-    // "ID" steht wie in der bisherigen Excel-Liste vorn; beim Import wird die Spalte ignoriert.
-    spreadsheet_write_csv_row($out, array_merge(['ID'], array_map(static fn (array $c) => $c[0], array_values(MEMBER_IO_COLUMNS))));
+
+    // Kopfzeile: "ID" steht wie in der bisherigen Excel-Liste vorn, "Name & Vorname" (automatisch
+    // gebildet) direkt nach "Vorname". Beide Spalten werden beim Import ignoriert.
+    $header = ['ID'];
+    foreach (MEMBER_IO_COLUMNS as $key => [$label]) {
+        if (in_array($key, $excludeKeys, true)) {
+            continue;
+        }
+        $header[] = $label;
+        if ($key === 'vorname') {
+            $header[] = 'Name & Vorname';
+        }
+    }
+    spreadsheet_write_csv_row($out, $header);
+
     foreach ($rows as $row) {
         $line = [(string) ($row['id'] ?? '')];
         foreach (array_keys(MEMBER_IO_COLUMNS) as $key) {
+            if (in_array($key, $excludeKeys, true)) {
+                continue;
+            }
             $line[] = io_export_value($key, $row);
+            if ($key === 'vorname') {
+                $line[] = member_full_name($row);
+            }
         }
         spreadsheet_write_csv_row($out, $line);
     }

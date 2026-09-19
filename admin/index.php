@@ -79,7 +79,7 @@ $listUrl = static fn (array $extra = []) => 'index.php?' . http_build_query(arra
     <thead>
         <tr>
             <th class="check-col"><input type="checkbox" data-select-all aria-label="Alle auf dieser Seite auswählen"></th>
-            <th>Name</th>
+            <th>Name &amp; Vorname</th>
             <th>Verein</th>
             <th>Position</th>
             <th>Jersey Nr.</th>
@@ -96,7 +96,7 @@ $listUrl = static fn (array $extra = []) => 'index.php?' . http_build_query(arra
     <?php foreach ($members as $mRow): ?>
         <tr>
             <td class="check-col" data-label="Auswahl"><input type="checkbox" name="ids[]" value="<?= (int) $mRow['id'] ?>" data-row-check aria-label="Mitglied auswählen"></td>
-            <td data-label="Name"><?= h($mRow['nachname']) ?>, <?= h($mRow['vorname']) ?><?php if (($mRow['kader'] ?? 'kader') === 'nicht_im_kader'): ?> <span class="badge badge-gray">nicht im Kader</span><?php endif; ?></td>
+            <td data-label="Name & Vorname"><?= h(member_full_name($mRow)) ?><?php if (($mRow['kader'] ?? 'kader') === 'nicht_im_kader'): ?> <span class="badge badge-gray">nicht im Kader</span><?php endif; ?></td>
             <td data-label="Verein"><?= h($mRow['verein'] ?? '') ?></td>
             <td data-label="Position"><?= h($mRow['position'] ?? '') ?></td>
             <td data-label="Jersey Nr."><?= h($mRow['jersey_nr'] ?? '') ?></td>
