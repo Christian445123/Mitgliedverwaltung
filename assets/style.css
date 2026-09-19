@@ -827,3 +827,8 @@ form.member-form button[type=submit] { margin-top: 24px; }
 .expiry-list a { font-weight: 600; text-decoration: none; }
 .expiry-expired a { color: var(--color-danger); }
 .nav-badge { margin-left: auto; background: var(--color-danger); color: #fff; font-size: 0.72rem; font-weight: 700; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; }
+
+/* Ablauf-Stufen: gelb / blau / orange / rot */
+.badge-yellow { background: #fef9c3; color: #854d0e; }
+.badge-blue { background: #dbeafe; color: #1e40af; }
+.expiry-urgent a { color: #1d4ed8; }

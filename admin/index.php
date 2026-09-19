@@ -51,7 +51,7 @@ $listUrl = static fn (array $extra = []) => 'index.php?' . http_build_query(arra
 <section class="panel expiry-panel">
     <h2 class="section-title">⚠ Ablaufende Dokumente (<?= (int) $expiry['counts']['total'] ?>)</h2>
     <div class="expiry-columns">
-        <?php foreach (['nada' => 'NADA-Zertifikat (Hinweis ' . expiry_nada_days() . ' Tage vorher)', 'pass' => 'Reisepass (Hinweis ' . expiry_pass_months() . ' Monate vorher)'] as $type => $title): ?>
+        <?php foreach (['nada' => 'NADA-Zertifikat (gelb ab ' . expiry_nada_months() . ' Monat vorher, blau ab ' . expiry_nada_urgent_days() . ' Tagen, rot am Ablauftag)', 'pass' => 'Reisepass (Hinweis ' . expiry_pass_months() . ' Monate vorher)'] as $type => $title): ?>
             <?php if (!empty($expiry[$type])): ?>
             <div>
                 <h3><?= h($title) ?></h3>
@@ -59,7 +59,7 @@ $listUrl = static fn (array $extra = []) => 'index.php?' . http_build_query(arra
                     <?php foreach ($expiry[$type] as $item): ?>
                         <li class="expiry-<?= h($item['state']) ?>">
                             <a href="member-form.php?id=<?= (int) $item['id'] ?>"><?= h($item['name']) ?></a>
-                            <span class="badge badge-<?= $item['state'] === 'expired' ? 'red' : 'orange' ?>"><?= $item['state'] === 'expired' ? 'abgelaufen' : 'bald' ?></span>
+                            <span class="badge badge-<?= expiry_badge_class($item['state']) ?>"><?= h(expiry_badge_label($item)) ?></span>
                             <span class="muted"><?= h(date('d.m.Y', strtotime($item['date']))) ?> – <?= h(expiry_text($item)) ?></span>
                         </li>
                     <?php endforeach; ?>
@@ -124,8 +124,8 @@ $listUrl = static fn (array $extra = []) => 'index.php?' . http_build_query(arra
             <td class="check-col" data-label="Auswahl"><input type="checkbox" name="ids[]" value="<?= (int) $mRow['id'] ?>" data-row-check aria-label="Mitglied auswählen"></td>
             <td data-label="Name & Vorname"><?= h(member_full_name($mRow)) ?><?php if (($mRow['kader'] ?? 'kader') === 'nicht_im_kader'): ?> <span class="badge badge-gray">nicht im Kader</span><?php endif; ?>
                 <?php $exp = expiry_states_for_row($mRow); ?>
-                <?php if ($exp['nada']): ?><span class="badge badge-<?= $exp['nada']['state'] === 'expired' ? 'red' : 'orange' ?>" title="NADA-Zertifikat: <?= h(expiry_text($exp['nada'])) ?>">NADA <?= $exp['nada']['state'] === 'expired' ? 'abgelaufen' : 'bald' ?></span><?php endif; ?>
-                <?php if ($exp['pass']): ?><span class="badge badge-<?= $exp['pass']['state'] === 'expired' ? 'red' : 'orange' ?>" title="Reisepass: <?= h(expiry_text($exp['pass'])) ?>">Pass <?= $exp['pass']['state'] === 'expired' ? 'abgelaufen' : 'bald' ?></span><?php endif; ?>
+                <?php if ($exp['nada']): ?><span class="badge badge-<?= expiry_badge_class($exp['nada']['state']) ?>" title="NADA-Zertifikat: <?= h(expiry_text($exp['nada'])) ?>">NADA <?= h(expiry_badge_label($exp['nada'])) ?></span><?php endif; ?>
+                <?php if ($exp['pass']): ?><span class="badge badge-<?= expiry_badge_class($exp['pass']['state']) ?>" title="Reisepass: <?= h(expiry_text($exp['pass'])) ?>">Pass <?= h(expiry_badge_label($exp['pass'])) ?></span><?php endif; ?>
             </td>
             <td data-label="Verein"><?= h($mRow['verein'] ?? '') ?></td>
             <td data-label="Position"><?= h($mRow['position'] ?? '') ?></td>

@@ -5,20 +5,30 @@ declare(strict_types=1);
 /**
  * Ablauf-Erinnerungen für NADA-Zertifikat und Reisepass.
  *
- *   NADA-Zertifikat: Hinweis ab 21 Tagen (3 Wochen) vor Ablauf, danach "abgelaufen"
- *   Reisepass:       Hinweis ab 6 Monaten vor Ablauf, danach "abgelaufen"
+ *   NADA-Zertifikat (Ablaufdatum "nada_gueltig_bis"):
+ *     ab 1 Monat vorher   -> GELB   (Stufe "notice")
+ *     ab 7 Tage vorher    -> BLAU   (Stufe "urgent")
+ *     am Ablauftag und danach -> ROT (Stufe "expired")
+ *   Reisepass (Ablaufdatum "reisepass_gueltig_bis"):
+ *     ab 6 Monate vorher  -> ORANGE (Stufe "soon"), abgelaufen (nach dem Ablauftag) -> ROT
  *
  * Geprüft werden nur aktive Mitglieder. Die Fristen lassen sich in der .env ändern
- * (EXPIRY_NADA_DAYS, EXPIRY_PASS_MONTHS). Die Prüfung läuft bei jedem Seitenaufruf, es ist also
- * kein Cronjob nötig.
+ * (EXPIRY_NADA_MONTHS, EXPIRY_NADA_URGENT_DAYS, EXPIRY_PASS_MONTHS). Die Prüfung läuft bei jedem
+ * Seitenaufruf, es ist also kein Cronjob nötig.
  */
 
 require_once __DIR__ . '/../db.php';
 
-function expiry_nada_days(): int
+function expiry_nada_months(): int
 {
-    $days = (int) (getenv('EXPIRY_NADA_DAYS') ?: 21);
-    return $days > 0 ? $days : 21;
+    $months = (int) (getenv('EXPIRY_NADA_MONTHS') ?: 1);
+    return $months > 0 ? $months : 1;
+}
+
+function expiry_nada_urgent_days(): int
+{
+    $days = (int) (getenv('EXPIRY_NADA_URGENT_DAYS') ?: 7);
+    return $days > 0 ? $days : 7;
 }
 
 function expiry_pass_months(): int
@@ -28,11 +38,15 @@ function expiry_pass_months(): int
 }
 
 /**
- * Status eines Ablaufdatums: 'expired' (abgelaufen), 'soon' (läuft bald ab) oder null (in Ordnung/leer).
+ * Status eines Ablaufdatums oder null (in Ordnung / kein Datum / noch außerhalb der Frist).
  *
+ * Stufen: 'expired' (rot), 'urgent' (blau), 'notice' (gelb), 'soon' (orange).
+ *
+ * @param int|null $urgentDays  wenn gesetzt: dreistufig (notice -> urgent -> expired) wie beim NADA-Zertifikat
+ * @param bool $redOnDay        true = schon am Ablauftag selbst "expired"
  * @return array{state: string, days: int, date: string}|null days < 0 = seit so vielen Tagen abgelaufen
  */
-function expiry_state(?string $date, DateTimeImmutable $limit, DateTimeImmutable $today): ?array
+function expiry_state(?string $date, DateTimeImmutable $limit, DateTimeImmutable $today, ?int $urgentDays = null, bool $redOnDay = false): ?array
 {
     if ($date === null || $date === '') {
         return null;
@@ -46,8 +60,30 @@ function expiry_state(?string $date, DateTimeImmutable $limit, DateTimeImmutable
     if ($expires > $limit) {
         return null;
     }
+
     $days = (int) $today->diff($expires)->format('%r%a');
-    return ['state' => $days < 0 ? 'expired' : 'soon', 'days' => $days, 'date' => $expires->format('Y-m-d')];
+    if ($days < 0 || ($redOnDay && $days === 0)) {
+        $state = 'expired';
+    } elseif ($urgentDays !== null) {
+        $state = $days <= $urgentDays ? 'urgent' : 'notice';
+    } else {
+        $state = 'soon';
+    }
+    return ['state' => $state, 'days' => $days, 'date' => $expires->format('Y-m-d')];
+}
+
+/** @return array<string, mixed>|null */
+function expiry_nada_state(?string $date, ?DateTimeImmutable $today = null): ?array
+{
+    $today ??= new DateTimeImmutable('today');
+    return expiry_state($date, $today->modify('+' . expiry_nada_months() . ' months'), $today, expiry_nada_urgent_days(), true);
+}
+
+/** @return array<string, mixed>|null */
+function expiry_pass_state(?string $date, ?DateTimeImmutable $today = null): ?array
+{
+    $today ??= new DateTimeImmutable('today');
+    return expiry_state($date, $today->modify('+' . expiry_pass_months() . ' months'), $today);
 }
 
 /**
@@ -60,24 +96,24 @@ function expiry_states_for_row(array $row): array
 {
     $today = new DateTimeImmutable('today');
     return [
-        'nada' => expiry_state($row['nada_gueltig_bis'] ?? null, $today->modify('+' . expiry_nada_days() . ' days'), $today),
-        'pass' => expiry_state($row['reisepass_gueltig_bis'] ?? null, $today->modify('+' . expiry_pass_months() . ' months'), $today),
+        'nada' => expiry_nada_state($row['nada_gueltig_bis'] ?? null, $today),
+        'pass' => expiry_pass_state($row['reisepass_gueltig_bis'] ?? null, $today),
     ];
 }
 
 /**
  * Alle aktiven Mitglieder mit abgelaufenem oder bald ablaufendem Dokument.
- * Sortiert: abgelaufene zuerst (am längsten überfällig zuerst), dann nach Ablaufdatum.
+ * Sortiert nach Dringlichkeit (überfällige zuerst), dann nach Ablaufdatum.
  *
  * @return array{nada: array<int, array<string, mixed>>, pass: array<int, array<string, mixed>>, counts: array<string, int>}
  */
 function expiry_report(): array
 {
     $today = new DateTimeImmutable('today');
-    $nadaLimit = $today->modify('+' . expiry_nada_days() . ' days');
+    $nadaLimit = $today->modify('+' . expiry_nada_months() . ' months');
     $passLimit = $today->modify('+' . expiry_pass_months() . ' months');
 
-    $report = ['nada' => [], 'pass' => [], 'counts' => ['nada_expired' => 0, 'nada_soon' => 0, 'pass_expired' => 0, 'pass_soon' => 0, 'total' => 0]];
+    $report = ['nada' => [], 'pass' => [], 'counts' => ['total' => 0, 'expired' => 0]];
 
     try {
         $stmt = db()->prepare(
@@ -95,8 +131,11 @@ function expiry_report(): array
     }
 
     foreach ($rows as $row) {
-        foreach (['nada' => [$row['nada_gueltig_bis'], $nadaLimit], 'pass' => [$row['reisepass_gueltig_bis'], $passLimit]] as $type => [$date, $limit]) {
-            $state = expiry_state($date, $limit, $today);
+        $states = [
+            'nada' => expiry_nada_state($row['nada_gueltig_bis'], $today),
+            'pass' => expiry_pass_state($row['reisepass_gueltig_bis'], $today),
+        ];
+        foreach ($states as $type => $state) {
             if ($state === null) {
                 continue;
             }
@@ -105,8 +144,12 @@ function expiry_report(): array
                 'name' => trim((string) $row['nachname'] . ' ' . (string) $row['vorname']),
                 'kader' => (string) $row['kader'],
             ] + $state;
-            $report['counts'][$type . '_' . $state['state']]++;
+            $key = $type . '_' . $state['state'];
+            $report['counts'][$key] = ($report['counts'][$key] ?? 0) + 1;
             $report['counts']['total']++;
+            if ($state['state'] === 'expired') {
+                $report['counts']['expired']++;
+            }
         }
     }
 
@@ -115,6 +158,30 @@ function expiry_report(): array
     }
 
     return $report;
+}
+
+/** CSS-Farbe (badge-…) je Stufe: rot / blau / gelb / orange. */
+function expiry_badge_class(string $state): string
+{
+    return match ($state) {
+        'expired' => 'red',
+        'urgent' => 'blue',
+        'notice' => 'yellow',
+        default => 'orange',
+    };
+}
+
+/** Kurzer Text im Etikett. */
+function expiry_badge_label(array $item): string
+{
+    if ($item['state'] === 'expired') {
+        return (int) $item['days'] === 0 ? 'heute' : 'abgelaufen';
+    }
+    return match ($item['state']) {
+        'urgent' => 'in ' . (int) $item['days'] . ' Tg.',
+        'notice' => 'bald',
+        default => 'bald',
+    };
 }
 
 /** "abgelaufen seit 12 Tagen" / "läuft in 5 Tagen ab" / "läuft heute ab" */
