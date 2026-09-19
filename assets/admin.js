@@ -119,3 +119,40 @@ document.addEventListener('DOMContentLoaded', function () {
         input.focus();
     });
 });
+
+// Benutzerformular: Rechte-Übersicht (Durch Rolle / Ergebnis) live nach Rolle und Einzelrechten berechnen
+document.addEventListener('DOMContentLoaded', function () {
+    var form = document.getElementById('user-form');
+    if (!form) {
+        return;
+    }
+    var roleSelect = form.querySelector('[data-role-select]');
+    var note = form.querySelector('[data-admin-note]');
+    var rows = form.querySelectorAll('tr[data-permission]');
+
+    function update() {
+        var option = roleSelect.options[roleSelect.selectedIndex];
+        var isAdmin = option.dataset.admin === '1';
+        var perms = [];
+        try { perms = JSON.parse(option.dataset.perms || '[]'); } catch (e) { perms = []; }
+        if (note) { note.hidden = !isAdmin; }
+
+        rows.forEach(function (row) {
+            var key = row.dataset.permission;
+            var select = row.querySelector('[data-perm-select]');
+            var byRole = isAdmin || perms.indexOf(key) !== -1;
+            var choice = isAdmin ? 'default' : select.value;
+            var result = choice === 'allow' ? true : choice === 'deny' ? false : byRole;
+
+            select.disabled = isAdmin;
+            row.querySelector('[data-role-cell]').innerHTML = byRole ? '<span class="perm-yes">✓ ja</span>' : '<span class="perm-no">– nein</span>';
+            row.querySelector('[data-result-cell]').innerHTML = result ? '<span class="perm-yes">✓ darf</span>' : '<span class="perm-no">✗ darf nicht</span>';
+        });
+    }
+
+    roleSelect.addEventListener('change', update);
+    form.addEventListener('change', function (event) {
+        if (event.target && event.target.matches('[data-perm-select]')) { update(); }
+    });
+    update();
+});

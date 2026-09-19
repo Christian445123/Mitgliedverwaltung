@@ -24,7 +24,7 @@ $docNote = static function (string $column, string $type) use ($m, $showAdminFie
     if (empty($m[$column])) {
         return '';
     }
-    $link = ($showAdminFields && !empty($m['id']))
+    $link = ($showAdminFields && !empty($m['id']) && user_can('documents.view'))
         ? ' – <a href="document.php?id=' . (int) $m['id'] . '&amp;type=' . h($type) . '" target="_blank" rel="noopener">ansehen</a>'
         : '';
     return ' (vorhanden' . $link . ' – neu hochladen zum Ersetzen)';

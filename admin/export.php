@@ -7,7 +7,7 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/member_import.php';
 require_once __DIR__ . '/../includes/field_access.php';
 
-require_admin();
+require_permission('members.export');
 
 $template = isset($_GET['template']);
 $status = in_array($_GET['status'] ?? '', ['aktiv', 'inaktiv'], true) ? $_GET['status'] : null;

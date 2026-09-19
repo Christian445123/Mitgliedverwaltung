@@ -6,7 +6,7 @@ require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/camps.php';
 
-require_admin();
+require_permission('camps.manage');
 
 $error = null;
 
@@ -24,9 +24,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flash_set('info', 'Camp wurde umbenannt.');
             redirect('camps.php');
         } elseif ($action === 'delete') {
-            if (!is_administrator()) {
+            if (!user_can('camps.delete')) {
                 http_response_code(403);
-                $error = 'Nur Administratoren dürfen Camps löschen.';
+                $error = 'Ihnen fehlt die Berechtigung, Camps zu löschen.';
             } else {
                 camp_delete((int) ($_POST['id'] ?? 0));
                 flash_set('info', 'Camp wurde gelöscht (inklusive der Teilnahmen).');
@@ -92,7 +92,7 @@ Neue Camps lassen sich auch direkt im Mitgliederformular unter „Nummer &amp; C
             </td>
             <td data-label="Teilnehmer"><?= (int) $c['members'] ?></td>
             <td class="actions" data-label="">
-                <?php if (is_administrator()): ?>
+                <?php if (user_can('camps.delete')): ?>
                 <form method="post" action="camps.php" class="inline-form"
                       data-confirm="Camp &quot;<?= h((string) $c['name']) ?>&quot; löschen? Die Teilnahmen von <?= (int) $c['members'] ?> Spieler(n) werden ebenfalls gelöscht.">
                     <?= csrf_field() ?>

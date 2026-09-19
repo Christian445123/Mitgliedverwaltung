@@ -5,9 +5,9 @@ declare(strict_types=1);
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/auth.php';
 
-require_administrator();
+require_permission('users.manage');
 
-$admins = db()->query('SELECT id, username, role, must_change_password, created_at FROM admins ORDER BY username')->fetchAll();
+$admins = db()->query('SELECT a.id, a.username, a.role, a.must_change_password, a.created_at, r.name AS role_name, (SELECT COUNT(*) FROM user_permissions up WHERE up.user_id = a.id) AS overrides FROM admins a LEFT JOIN roles r ON r.id = a.role_id ORDER BY a.username')->fetchAll();
 
 $pageTitle = 'Benutzerverwaltung';
 require __DIR__ . '/../includes/admin_header.php';
@@ -17,7 +17,10 @@ $error = flash_get('error');
 ?>
 <div class="content-header">
     <h1>Benutzer (<?= count($admins) ?>)</h1>
-    <a href="user-form.php" class="btn btn-primary">+ Neuer Benutzer</a>
+    <div class="header-actions">
+        <a href="roles.php" class="btn">Rollen</a>
+        <a href="user-form.php" class="btn btn-primary">+ Neuer Benutzer</a>
+    </div>
 </div>
 
 <?php if ($info): ?><p class="alert alert-success"><?= h($info) ?></p><?php endif; ?>
@@ -40,7 +43,7 @@ $error = flash_get('error');
                 <?= h($a['username']) ?>
                 <?php if ((int) $a['id'] === current_admin_id()): ?><span class="badge badge-blue">Du</span><?php endif; ?>
             </td>
-            <td><span class="badge <?= $a['role'] === 'administrator' ? 'badge-green' : 'badge-gray' ?>"><?= $a['role'] === 'administrator' ? 'Administrator' : 'Bearbeiter' ?></span></td>
+            <td><span class="badge <?= $a['role'] === 'administrator' ? 'badge-green' : 'badge-gray' ?>"><?= h((string) ($a['role_name'] ?? ($a['role'] === 'administrator' ? 'Administrator' : 'Bearbeiter'))) ?></span><?= (int) $a['overrides'] > 0 ? ' <span class="badge badge-orange" title="Einzelrechte gesetzt">' . (int) $a['overrides'] . ' Einzelrechte</span>' : '' ?></td>
             <td>
                 <?php if ((int) $a['must_change_password'] === 1): ?>
                     <span class="badge badge-orange">Passwort ausstehend</span>

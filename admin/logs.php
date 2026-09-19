@@ -6,11 +6,14 @@ require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/logger.php';
 
-require_administrator();
+require_permission('logs.view');
 log_ensure_table();
 
 // ── Aufräumen (POST) ───────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'purge') {
+    if (!user_can('logs.purge')) {
+        require_permission('logs.purge');
+    }
     verify_csrf();
     $days = (int) ($_POST['days'] ?? 0);
     $deleted = log_purge($days);
@@ -227,6 +230,7 @@ $info = flash_get('info');
 </div>
 <?php endif; ?>
 
+<?php if (user_can('logs.purge')): ?>
 <form method="post" action="logs.php" class="panel log-purge" data-confirm="Protokolleinträge wirklich endgültig löschen?">
     <?= csrf_field() ?>
     <input type="hidden" name="action" value="purge">
@@ -243,5 +247,6 @@ $info = flash_get('info');
         <button type="submit" class="btn btn-danger-outline">Löschen</button>
     </div>
 </form>
+<?php endif; ?>
 
 <?php require __DIR__ . '/../includes/admin_footer.php'; ?>

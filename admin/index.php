@@ -7,7 +7,7 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/member_repository.php';
 require_once __DIR__ . '/../includes/expiry.php';
 
-require_admin();
+require_permission('members.view');
 
 $query = trim((string) ($_GET['q'] ?? ''));
 $status = in_array($_GET['status'] ?? '', ['aktiv', 'inaktiv'], true) ? $_GET['status'] : null;
@@ -20,6 +20,7 @@ $page = min($page, $totalPages);
 $members = member_search($query, $perPage, ($page - 1) * $perPage, $status, $kader);
 $stats = member_stats();
 $expiry = expiry_report();
+$canDelete = user_can('members.delete');
 
 $pageTitle = 'Mitgliederübersicht';
 require __DIR__ . '/../includes/admin_header.php';
@@ -34,9 +35,9 @@ $listUrl = static fn (array $extra = []) => 'index.php?' . http_build_query(arra
 <div class="content-header">
     <h1>Mitglieder</h1>
     <div class="header-actions">
-        <a href="import.php" class="btn">Import</a>
-        <a href="<?= h('export.php' . ($status ? '?status=' . $status : '')) ?>" class="btn">Export CSV</a>
-        <a href="member-form.php" class="btn btn-primary">+ Neues Mitglied</a>
+        <?php if (user_can('members.import')): ?><a href="import.php" class="btn">Import</a><?php endif; ?>
+        <?php if (user_can('members.export')): ?><a href="<?= h('export.php' . ($status ? '?status=' . $status : '')) ?>" class="btn">Export CSV</a><?php endif; ?>
+        <?php if (user_can('members.create')): ?><a href="member-form.php" class="btn btn-primary">+ Neues Mitglied</a><?php endif; ?>
     </div>
 </div>
 
@@ -94,8 +95,8 @@ $listUrl = static fn (array $extra = []) => 'index.php?' . http_build_query(arra
 <form method="post" action="members-delete.php" id="bulk-form" data-confirm="Die ausgewählten Mitglieder samt Dokumenten wirklich endgültig löschen?">
     <?= csrf_field() ?>
     <div class="filter-bar bulk-bar">
-        <button type="submit" class="btn btn-danger" id="bulk-delete" disabled>Ausgewählte löschen (<span id="bulk-count">0</span>)</button>
-        <?php if (is_administrator()): ?>
+        <?php if ($canDelete): ?><button type="submit" class="btn btn-danger" id="bulk-delete" disabled>Ausgewählte löschen (<span id="bulk-count">0</span>)</button><?php endif; ?>
+        <?php if (user_can('members.delete_all')): ?>
             <a href="delete-all.php" class="btn btn-danger-outline">Alle Daten löschen …</a>
         <?php endif; ?>
     </div>
@@ -104,7 +105,7 @@ $listUrl = static fn (array $extra = []) => 'index.php?' . http_build_query(arra
 <table class="table table-cards">
     <thead>
         <tr>
-            <th class="check-col"><input type="checkbox" data-select-all aria-label="Alle auf dieser Seite auswählen"></th>
+            <?php if ($canDelete): ?><th class="check-col"><input type="checkbox" data-select-all aria-label="Alle auf dieser Seite auswählen"></th><?php endif; ?>
             <th>Name &amp; Vorname</th>
             <th>Verein</th>
             <th>Position</th>
@@ -121,7 +122,7 @@ $listUrl = static fn (array $extra = []) => 'index.php?' . http_build_query(arra
     <?php endif; ?>
     <?php foreach ($members as $mRow): ?>
         <tr>
-            <td class="check-col" data-label="Auswahl"><input type="checkbox" name="ids[]" value="<?= (int) $mRow['id'] ?>" data-row-check aria-label="Mitglied auswählen"></td>
+            <?php if ($canDelete): ?><td class="check-col" data-label="Auswahl"><input type="checkbox" name="ids[]" value="<?= (int) $mRow['id'] ?>" data-row-check aria-label="Mitglied auswählen"></td><?php endif; ?>
             <td data-label="Name & Vorname"><?= h(member_full_name($mRow)) ?><?php if (($mRow['kader'] ?? 'kader') === 'nicht_im_kader'): ?> <span class="badge badge-gray">nicht im Kader</span><?php endif; ?>
                 <?php $exp = expiry_states_for_row($mRow); ?>
                 <?php if ($exp['nada']): ?><span class="badge badge-<?= expiry_badge_class($exp['nada']['state']) ?>" title="NADA-Zertifikat: <?= h(expiry_text($exp['nada'])) ?>">NADA <?= h(expiry_badge_label($exp['nada'])) ?></span><?php endif; ?>
@@ -140,8 +141,8 @@ $listUrl = static fn (array $extra = []) => 'index.php?' . http_build_query(arra
                 <?php endif; ?>
             </td>
             <td class="actions actions-sticky" data-label="">
-                <a href="member-form.php?id=<?= (int) $mRow['id'] ?>" class="btn btn-sm">Bearbeiten</a>
-                <a href="member-link.php?id=<?= (int) $mRow['id'] ?>" class="btn btn-sm btn-primary" title="Persönlichen Link und Zugangscode anzeigen oder per E-Mail senden">Link senden</a>
+                <a href="member-form.php?id=<?= (int) $mRow['id'] ?>" class="btn btn-sm"><?= user_can('members.edit') ? 'Bearbeiten' : 'Ansehen' ?></a>
+                <?php if (user_can('members.links')): ?><a href="member-link.php?id=<?= (int) $mRow['id'] ?>" class="btn btn-sm btn-primary" title="Persönlichen Link und Zugangscode anzeigen oder per E-Mail senden">Link senden</a><?php endif; ?>
             </td>
         </tr>
     <?php endforeach; ?>

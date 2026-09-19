@@ -832,3 +832,11 @@ form.member-form button[type=submit] { margin-top: 24px; }
 .badge-yellow { background: #fef9c3; color: #854d0e; }
 .badge-blue { background: #dbeafe; color: #1e40af; }
 .expiry-urgent a { color: #1d4ed8; }
+
+/* ══════════════════ Rollen & Rechte ══════════════════ */
+.perm-group { font-size: 0.95rem; margin: 18px 0 6px; color: var(--accent-dark); }
+.perm-checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 8px 16px; }
+.perm-check { padding: 6px 0; }
+.perm-yes { color: var(--color-success-text); font-weight: 600; }
+.perm-no { color: var(--color-danger); font-weight: 600; }
+.perm-table select { min-width: 190px; }

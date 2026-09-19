@@ -87,4 +87,23 @@ require __DIR__ . '/../includes/admin_header.php';
 <p class="muted" style="color:var(--color-muted);">Weitere Benutzer verwaltest du unter <a href="users.php">Benutzer</a>.</p>
 <?php endif; ?>
 
+
+<h2 class="section-title" style="margin-top:28px;">Meine Berechtigungen</h2>
+<div class="panel">
+    <?php
+    $myPerms = user_permissions((int) current_admin_id());
+    $byGroup = [];
+    foreach (permissions_registry() as $permission => [$label, $group]) {
+        $byGroup[$group][] = [$label, isset($myPerms[$permission])];
+    }
+    ?>
+    <?php foreach ($byGroup as $group => $entries): ?>
+        <h3 class="perm-group"><?= h($group) ?></h3>
+        <ul class="expiry-list">
+            <?php foreach ($entries as [$label, $allowed]): ?>
+                <li><?= $allowed ? '<span class="perm-yes">✓ darf</span>' : '<span class="perm-no">✗ darf nicht</span>' ?> <?= h($label) ?></li>
+            <?php endforeach; ?>
+        </ul>
+    <?php endforeach; ?>
+</div>
 <?php require __DIR__ . '/../includes/admin_footer.php'; ?>

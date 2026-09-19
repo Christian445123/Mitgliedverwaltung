@@ -6,7 +6,7 @@ require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/member_repository.php';
 
-require_administrator();
+require_permission('members.delete_all');
 
 const DELETE_ALL_PHRASE = 'ALLE LÖSCHEN';
 

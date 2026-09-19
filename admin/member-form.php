@@ -6,7 +6,7 @@ require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/member_repository.php';
 
-require_admin();
+require_permission('members.view');
 
 $id = isset($_GET['id']) ? (int) $_GET['id'] : null;
 $existing = $id !== null ? member_find_by_id($id) : false;
@@ -14,6 +14,12 @@ $existing = $id !== null ? member_find_by_id($id) : false;
 if ($id !== null && $existing === false) {
     flash_set('error', 'Mitglied nicht gefunden.');
     redirect('index.php');
+}
+
+// Berechtigungen: Ansehen reicht zum Öffnen; Anlegen/Speichern braucht members.create bzw. members.edit
+$mayChange = $id === null ? user_can('members.create') : user_can('members.edit');
+if (!$mayChange && ($id === null || $_SERVER['REQUEST_METHOD'] === 'POST')) {
+    require_permission($id === null ? 'members.create' : 'members.edit');
 }
 
 $error = null;
@@ -32,7 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Neues Mitglied: gleich einen Zugangscode für den persönlichen Link erzeugen.
             $_SESSION['generated_password'] = member_regenerate_access_password($savedId);
             flash_set('info', 'Mitglied wurde angelegt. Link und Zugangscode können nun verschickt werden.');
-            redirect('member-link.php?id=' . $savedId);
+            redirect(user_can('members.links') ? 'member-link.php?id=' . $savedId : 'member-form.php?id=' . $savedId);
         }
 
         flash_set('info', 'Mitglied wurde gespeichert.');
@@ -63,12 +69,16 @@ $info = flash_get('info');
 <form method="post" action="member-form.php<?= $id !== null ? '?id=' . (int) $id : '' ?>" class="member-form" enctype="multipart/form-data" novalidate>
     <?= csrf_field() ?>
 
+    <fieldset class="form-locked" style="border:0;padding:0;margin:0;background:none;" <?= $mayChange ? '' : 'disabled' ?>>
     <?php require __DIR__ . '/../includes/member_fields.php'; ?>
+    </fieldset>
 
-    <button type="submit" class="btn btn-primary"><?= $isNew ? 'Mitglied anlegen' : 'Änderungen speichern' ?></button>
+    <?php if (!$mayChange): ?><p class="alert alert-warning">Sie dürfen dieses Mitglied ansehen, aber nicht ändern.</p><?php endif; ?>
+
+    <?php if ($mayChange): ?><button type="submit" class="btn btn-primary"><?= $isNew ? 'Mitglied anlegen' : 'Änderungen speichern' ?></button><?php endif; ?>
 </form>
 
-<?php if (!$isNew): ?>
+<?php if (!$isNew && user_can('members.delete')): ?>
 <form method="post" action="member-delete.php" class="inline-form" data-confirm="Mitglied &quot;<?= h(($m['vorname'] ?? '') . ' ' . ($m['nachname'] ?? '')) ?>&quot; wirklich unwiderruflich löschen?" style="margin-top:12px;">
     <?= csrf_field() ?>
     <input type="hidden" name="id" value="<?= (int) $id ?>">

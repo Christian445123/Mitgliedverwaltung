@@ -6,7 +6,7 @@ require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/member_repository.php';
 
-require_admin();
+require_permission('documents.view');
 
 $member = member_find_by_id((int) ($_GET['id'] ?? 0));
 if ($member === false) {

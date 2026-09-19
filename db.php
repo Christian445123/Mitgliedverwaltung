@@ -86,4 +86,12 @@ function db_ensure_columns(PDO $pdo): void
     } catch (Throwable $e) {
         error_log('camps_ensure_tables: ' . $e->getMessage());
     }
+
+    // Rollen und Berechtigungen (Tabellen, Standardrollen, Zuordnung bestehender Benutzer)
+    try {
+        require_once __DIR__ . '/includes/permissions.php';
+        permissions_ensure_tables($pdo);
+    } catch (Throwable $e) {
+        error_log('permissions_ensure_tables: ' . $e->getMessage());
+    }
 }

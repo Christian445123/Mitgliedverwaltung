@@ -5,7 +5,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/auth.php';
 
-require_administrator();
+require_permission('users.manage');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     redirect('users.php');

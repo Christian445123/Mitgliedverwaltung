@@ -7,7 +7,7 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/member_repository.php';
 require_once __DIR__ . '/../includes/Mailer.php';
 
-require_admin();
+require_permission('members.links');
 
 $id = (int) ($_GET['id'] ?? 0);
 $member = member_find_by_id($id);

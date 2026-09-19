@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../db.php';
 require_once __DIR__ . '/functions.php';
+require_once __DIR__ . '/permissions.php';
 
 const DEFAULT_ADMIN_USERNAME = 'admin';
 const DEFAULT_ADMIN_PASSWORD = 'AFBOE-U19-2026!';

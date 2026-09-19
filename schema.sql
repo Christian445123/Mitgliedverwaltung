@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS admins (
     password_hash VARCHAR(255) NOT NULL,
     role ENUM('administrator', 'editor') NOT NULL DEFAULT 'administrator',
     must_change_password TINYINT(1) NOT NULL DEFAULT 0,
+    role_id INT UNSIGNED DEFAULT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY uniq_username (username)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -188,4 +189,32 @@ CREATE TABLE IF NOT EXISTS member_camp_entries (
     PRIMARY KEY (member_id, camp_id),
     CONSTRAINT fk_camp_entries_member FOREIGN KEY (member_id) REFERENCES members (id) ON DELETE CASCADE,
     CONSTRAINT fk_camp_entries_camp FOREIGN KEY (camp_id) REFERENCES camps (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Rollen und Berechtigungen (Standardrollen "Administrator", "Bearbeiter", "Nur Lesen" legt die
+-- Anwendung beim ersten Aufruf selbst an und ordnet bestehende Benutzer zu)
+CREATE TABLE IF NOT EXISTS roles (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    role_key VARCHAR(30) DEFAULT NULL,
+    name VARCHAR(60) NOT NULL,
+    description VARCHAR(255) DEFAULT NULL,
+    is_system TINYINT(1) NOT NULL DEFAULT 0,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_role_key (role_key),
+    UNIQUE KEY uniq_role_name (name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS role_permissions (
+    role_id INT UNSIGNED NOT NULL,
+    permission VARCHAR(60) NOT NULL,
+    PRIMARY KEY (role_id, permission),
+    CONSTRAINT fk_role_permissions_role FOREIGN KEY (role_id) REFERENCES roles (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS user_permissions (
+    user_id INT UNSIGNED NOT NULL,
+    permission VARCHAR(60) NOT NULL,
+    allowed TINYINT(1) NOT NULL,
+    PRIMARY KEY (user_id, permission),
+    CONSTRAINT fk_user_permissions_user FOREIGN KEY (user_id) REFERENCES admins (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -6,7 +6,7 @@ require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/member_repository.php';
 
-require_admin();
+require_permission('members.delete');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     redirect('index.php');
