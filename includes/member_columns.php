@@ -463,7 +463,7 @@ function io_staff_aliases(): array
         'Telefon Angehoeriger' => 'telefon_angehoeriger', 'Tel. Angehöriger' => 'telefon_angehoeriger', 'Notfallkontakt' => 'telefon_angehoeriger',
         'Email' => 'email', 'E-Mail' => 'email', 'Handy' => 'telefon', 'Tel' => 'telefon',
         'Funktion' => 'position', 'Pos' => 'position', 'Rolle' => 'position',
-        'NADA' => 'nada', 'Straße' => 'strasse', 'Strasse' => 'strasse', 'Ort' => 'ort',
+        'NADA' => 'nada', 'NADA Gültigkeit' => 'nada_gueltig_bis', 'NADA gültig bis' => 'nada_gueltig_bis', 'Straße' => 'strasse', 'Strasse' => 'strasse', 'Ort' => 'ort',
         'T-Shirt / Polo Grösse' => 'tshirt_polo_groesse', 'T-Shirt & Polo Größe' => 'tshirt_polo_groesse',
         'Hoodie Grösse' => 'hoodie_groesse', 'Jacken Grösse' => 'jacken_groesse', 'Short Grösse' => 'short_groesse',
         'Wie viele Shorts besitzt du' => 'shorts_anzahl', 'Anzahl Shorts' => 'shorts_anzahl',

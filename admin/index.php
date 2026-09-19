@@ -53,7 +53,7 @@ $listUrl = static fn (array $extra = []) => 'index.php?' . http_build_query(arra
 <section class="panel expiry-panel">
     <h2 class="section-title">⚠ Ablaufende Dokumente (<?= (int) $expiry['counts']['total'] ?>)</h2>
     <div class="expiry-columns">
-        <?php foreach (['nada' => 'NADA-Zertifikat (gelb ab ' . expiry_nada_months() . ' Monat vorher, blau ab ' . expiry_nada_urgent_days() . ' Tagen, rot am Ablauftag)', 'pass' => 'Reisepass (Hinweis ' . expiry_pass_months() . ' Monate vorher)', 'staff_pass' => 'Staff: Reisepass (Hinweis ' . expiry_pass_months() . ' Monate vorher)'] as $type => $title): ?>
+        <?php foreach (['nada' => 'NADA-Zertifikat (gelb ab ' . expiry_nada_months() . ' Monat vorher, blau ab ' . expiry_nada_urgent_days() . ' Tagen, rot am Ablauftag)', 'pass' => 'Reisepass (Hinweis ' . expiry_pass_months() . ' Monate vorher)', 'staff_nada' => 'Staff: NADA-Zertifikat (gelb ab ' . expiry_nada_months() . ' Monat vorher, blau ab ' . expiry_nada_urgent_days() . ' Tagen, rot am Ablauftag)', 'staff_pass' => 'Staff: Reisepass (Hinweis ' . expiry_pass_months() . ' Monate vorher)'] as $type => $title): ?>
             <?php if (!empty($expiry[$type])): ?>
             <div>
                 <h3><?= h($title) ?></h3>

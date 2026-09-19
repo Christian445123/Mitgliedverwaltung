@@ -227,6 +227,7 @@ CREATE TABLE IF NOT EXISTS staff (
     name_vorname VARCHAR(255) GENERATED ALWAYS AS (CONCAT(nachname, ' ', vorname)) STORED,
     position VARCHAR(100) DEFAULT NULL,
     nada VARCHAR(100) DEFAULT NULL,
+    nada_gueltig_bis DATE DEFAULT NULL,
     geburtsdatum DATE DEFAULT NULL,
     telefon VARCHAR(50) DEFAULT NULL,
     email VARCHAR(190) DEFAULT NULL,

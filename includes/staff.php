@@ -20,6 +20,7 @@ const STAFF_IO_COLUMNS = [
     'vorname' => ['Vorname', 'str'],
     'position' => ['Position', 'str'],
     'nada' => ['Nada', 'str'],
+    'nada_gueltig_bis' => ['Nada gültig bis', 'date'],
     'geburtsdatum' => ['Geburtsdatum', 'date'],
     'telefon' => ['Telefon', 'str'],
     'email' => ['Mail', 'str'],
@@ -44,7 +45,7 @@ const STAFF_IO_COLUMNS = [
 
 /** Gruppen für das Formular: Überschrift => Feldschlüssel. */
 const STAFF_FORM_GROUPS = [
-    'Person' => ['nachname', 'vorname', 'position', 'nada', 'geburtsdatum'],
+    'Person' => ['nachname', 'vorname', 'position', 'nada', 'nada_gueltig_bis', 'geburtsdatum'],
     'Kontakt' => ['telefon', 'email', 'telefon_angehoeriger'],
     'Reisepass' => ['reisepass_nr', 'reisepass_ausgestellt_am', 'reisepass_gueltig_bis', 'geburtsland', 'ausstellungsbehoerde'],
     'Adresse' => ['plz', 'ort', 'strasse'],
@@ -62,6 +63,10 @@ function staff_columns(): array
 function staff_ensure_table(PDO $pdo): void
 {
     if ($pdo->query("SHOW TABLES LIKE 'staff'")->fetchColumn() !== false) {
+        // Nachrüsten: Ablaufdatum des NADA-Zertifikats
+        if ($pdo->query("SHOW COLUMNS FROM staff LIKE 'nada_gueltig_bis'")->fetchColumn() === false) {
+            $pdo->exec('ALTER TABLE staff ADD COLUMN nada_gueltig_bis DATE DEFAULT NULL AFTER nada');
+        }
         return;
     }
     $pdo->exec(
@@ -72,6 +77,7 @@ function staff_ensure_table(PDO $pdo): void
             name_vorname VARCHAR(255) GENERATED ALWAYS AS (CONCAT(nachname, ' ', vorname)) STORED,
             position VARCHAR(100) DEFAULT NULL,
             nada VARCHAR(100) DEFAULT NULL,
+            nada_gueltig_bis DATE DEFAULT NULL,
             geburtsdatum DATE DEFAULT NULL,
             telefon VARCHAR(50) DEFAULT NULL,
             email VARCHAR(190) DEFAULT NULL,
