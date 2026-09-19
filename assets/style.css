@@ -779,3 +779,27 @@ form.member-form button[type=submit] { margin-top: 24px; }
 @media (prefers-reduced-motion: reduce) {
     * { animation: none !important; transition: none !important; }
 }
+
+/* ══════════════════ Aktionsbuttons in der Mitgliederliste ══════════════════ */
+.btn-sm { padding: 6px 12px; font-size: 0.82rem; min-height: 0; white-space: nowrap; }
+.table .actions { white-space: nowrap; }
+.table .actions .btn { margin-right: 6px; }
+
+/* Aktionsspalte bleibt am rechten Rand sichtbar, auch wenn die Tabelle horizontal scrollt */
+@media (min-width: 641px) {
+    .table .actions-sticky {
+        position: sticky;
+        right: 0;
+        background: var(--color-surface);
+        box-shadow: -8px 0 8px -8px rgba(10, 14, 26, 0.12);
+        z-index: 1;
+    }
+    .table thead .actions-sticky { background: #f7f7fb; z-index: 2; }
+    .table tbody tr:hover .actions-sticky { background: var(--accent-soft); }
+    .content, .public-page .content { max-width: min(1320px, 100%); }
+}
+
+@media (max-width: 640px) {
+    .table-cards td.actions { justify-content: stretch; gap: 8px; padding-top: 12px; }
+    .table-cards td.actions .btn { flex: 1 1 0; margin: 0; min-height: 44px; }
+}

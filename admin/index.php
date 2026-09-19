@@ -86,7 +86,7 @@ $listUrl = static fn (array $extra = []) => 'index.php?' . http_build_query(arra
             <th>E-Mail</th>
             <th>Status</th>
             <th>Bestätigt</th>
-            <th></th>
+            <th class="actions-sticky">Aktionen</th>
         </tr>
     </thead>
     <tbody>
@@ -109,9 +109,9 @@ $listUrl = static fn (array $extra = []) => 'index.php?' . http_build_query(arra
                     <span class="badge badge-orange">Ausstehend</span>
                 <?php endif; ?>
             </td>
-            <td class="actions" data-label="">
-                <a href="member-form.php?id=<?= (int) $mRow['id'] ?>">Bearbeiten</a>
-                <a href="member-link.php?id=<?= (int) $mRow['id'] ?>">Link</a>
+            <td class="actions actions-sticky" data-label="">
+                <a href="member-form.php?id=<?= (int) $mRow['id'] ?>" class="btn btn-sm">Bearbeiten</a>
+                <a href="member-link.php?id=<?= (int) $mRow['id'] ?>" class="btn btn-sm btn-primary" title="Persönlichen Link und Zugangscode anzeigen oder per E-Mail senden">Link senden</a>
             </td>
         </tr>
     <?php endforeach; ?>
