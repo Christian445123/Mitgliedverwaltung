@@ -9,26 +9,58 @@ require_once __DIR__ . '/member_repository.php';
 const MEMBER_IMPORT_MAX_ROWS = 5000;
 
 /**
- * Prüft eine eingelesene Tabelle (erste Zeile = Überschriften) und
- * bestimmt je Zeile, was beim Import passieren würde.
+ * Findet die Überschriftenzeile: unter den ersten 15 Zeilen diejenige, in der die
+ * meisten Spalten erkannt werden (Titelzeilen über der Tabelle sind dadurch egal).
+ *
+ * @param array<int, array<int, string>> $table Zeilennummer => Zellen
+ * @return int|null Zeilennummer der Überschriftenzeile
+ */
+function member_import_find_header(array $table): ?int
+{
+    $best = null;
+    $bestCount = 0;
+    $checked = 0;
+    foreach ($table as $rowNo => $cells) {
+        if (++$checked > 15) {
+            break;
+        }
+        $count = count(io_map_headers($cells)['map']);
+        if ($count > $bestCount) {
+            $best = $rowNo;
+            $bestCount = $count;
+        }
+    }
+    return $bestCount >= 3 ? $best : null;
+}
+
+/**
+ * Prüft eine eingelesene Tabelle und bestimmt je Zeile, was beim Import passieren würde.
+ * Alle Spalten mit erkannter Überschrift werden übernommen; Spalten, die nicht
+ * zugeordnet werden können, aber Werte enthalten, werden ausdrücklich gemeldet.
  *
  * Zeilen-Aktionen: create | update | skip | error
  *
- * @param array<int, array<int, string>> $table
- * @return array{rows: array<int, array<string, mixed>>, columns: array<int, string>, unknown: array<int, string>, counts: array<string, int>}
+ * @param array<int, array<int, string>> $table Zeilennummer (wie in Excel) => Zellen
+ * @return array{rows: array<int, array<string, mixed>>, columns: array<int, array<string, mixed>>, unknown: array<int, string>, counts: array<string, int>, header_row: int}
  * @throws RuntimeException wenn die Datei grundsätzlich nicht verwendbar ist
  */
 function member_import_analyze(array $table, bool $updateExisting): array
 {
-    if (count($table) < 2) {
-        throw new RuntimeException('Die Datei enthält keine Datenzeilen (erste Zeile muss die Spaltenüberschriften enthalten).');
+    $headerRow = member_import_find_header($table);
+    if ($headerRow === null) {
+        throw new RuntimeException('Keine Überschriftenzeile gefunden (es wurden weniger als 3 bekannte Spaltennamen erkannt). Tipp: Vorlage über "Vorlage herunterladen" verwenden.');
     }
-    if (count($table) - 1 > MEMBER_IMPORT_MAX_ROWS) {
+
+    $header = $table[$headerRow];
+    $dataRows = array_filter($table, static fn (int $rowNo) => $rowNo > $headerRow, ARRAY_FILTER_USE_KEY);
+    if (count($dataRows) === 0) {
+        throw new RuntimeException('Unter der Überschriftenzeile (Zeile ' . $headerRow . ') stehen keine Daten.');
+    }
+    if (count($dataRows) > MEMBER_IMPORT_MAX_ROWS) {
         throw new RuntimeException('Zu viele Zeilen (maximal ' . MEMBER_IMPORT_MAX_ROWS . ' pro Import).');
     }
 
-    $header = array_shift($table);
-    ['map' => $map, 'unknown' => $unknown] = io_map_headers($header);
+    ['map' => $map, 'unknown' => $unknownCols] = io_map_headers($header);
 
     $mapped = array_values($map);
     foreach (['nachname', 'vorname', 'email'] as $required) {
@@ -37,18 +69,46 @@ function member_import_analyze(array $table, bool $updateExisting): array
         }
     }
 
-    $counts = ['create' => 0, 'update' => 0, 'skip' => 0, 'error' => 0];
+    // Spaltenübersicht: Überschrift -> Feld, Anzahl gefüllter Zellen
+    $clean = static fn (string $s): string => trim((string) preg_replace('/\s+/', ' ', $s));
+    $columns = [];
+    foreach ($map as $col => $key) {
+        $filled = 0;
+        foreach ($dataRows as $cells) {
+            if (trim((string) ($cells[$col] ?? '')) !== '') {
+                $filled++;
+            }
+        }
+        $columns[] = ['header' => $clean((string) $header[$col]), 'field' => MEMBER_IO_COLUMNS[$key][0], 'values' => $filled];
+    }
+
+    // Nicht zugeordnete Spalten: nur melden, wenn dort Daten stehen
+    $unknown = [];
+    foreach ($unknownCols as $col => $title) {
+        $filled = 0;
+        foreach ($dataRows as $cells) {
+            if (trim((string) ($cells[$col] ?? '')) !== '') {
+                $filled++;
+            }
+        }
+        if ($filled > 0) {
+            $unknown[] = $clean($title) . ' (' . $filled . ' Werte)';
+            $columns[] = ['header' => $clean($title), 'field' => null, 'values' => $filled];
+        }
+    }
+
+    $counts = ['create' => 0, 'update' => 0, 'skip' => 0, 'error' => 0, 'warning' => 0];
     $seenEmails = [];
     $rows = [];
 
-    foreach ($table as $i => $cells) {
-        $line = $i + 2; // 1 = Überschrift
+    foreach ($dataRows as $line => $cells) {
+        // Jede Zelle wird über ihren Spaltenindex genau der Überschrift derselben Spalte zugeordnet
         $raw = [];
         foreach ($map as $col => $key) {
             $raw[$key] = $cells[$col] ?? '';
         }
 
-        ['data' => $data, 'errors' => $errors] = io_convert_row($raw);
+        ['data' => $data, 'errors' => $errors, 'warnings' => $warnings] = io_convert_row($raw, false, true);
 
         foreach (['nachname', 'vorname', 'email'] as $required) {
             if (!isset($data[$required])) {
@@ -63,12 +123,9 @@ function member_import_analyze(array $table, bool $updateExisting): array
                 $errors[] = 'E-Mail-Adresse kommt in Zeile ' . $seenEmails[$email] . ' bereits vor';
             } else {
                 $seenEmails[$email] = $line;
-                $exists = member_find_by_email((string) $data['email']) !== false;
-                if ($exists) {
-                    $action = $updateExisting ? 'update' : 'skip';
-                } else {
-                    $action = 'create';
-                }
+                $action = member_find_by_email((string) $data['email']) !== false
+                    ? ($updateExisting ? 'update' : 'skip')
+                    : 'create';
             }
         }
         if ($errors !== []) {
@@ -76,10 +133,19 @@ function member_import_analyze(array $table, bool $updateExisting): array
         }
 
         $counts[$action]++;
-        $rows[] = ['line' => $line, 'action' => $action, 'data' => $data, 'errors' => $errors];
+        if ($warnings !== [] && ($action === 'create' || $action === 'update')) {
+            $counts['warning']++;
+        }
+        $rows[] = ['line' => $line, 'action' => $action, 'data' => $data, 'errors' => $errors, 'warnings' => $warnings];
     }
 
-    return ['rows' => $rows, 'columns' => array_values(array_unique($mapped)), 'unknown' => $unknown, 'counts' => $counts];
+    return [
+        'rows' => $rows,
+        'columns' => $columns,
+        'unknown' => $unknown,
+        'counts' => $counts,
+        'header_row' => $headerRow,
+    ];
 }
 
 /**

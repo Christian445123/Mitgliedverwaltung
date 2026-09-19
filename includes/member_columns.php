@@ -110,7 +110,7 @@ function io_map_headers(array $headers): array
     }
 
     // Spalten der Excel-Liste, die es hier nicht als Import-Feld gibt (bewusst ohne Warnung ignoriert)
-    $ignored = array_map('io_normalize_header', ['ID', 'Name & Vorname', 'Bild E-Card', 'Pass Foto']);
+    $ignored = array_map('io_normalize_header', ['ID', 'Name & Vorname']);
 
     $map = [];
     $unknown = [];
@@ -122,7 +122,7 @@ function io_map_headers(array $headers): array
         if (isset($aliases[$norm]) && !in_array($aliases[$norm], $map, true)) {
             $map[$i] = $aliases[$norm];
         } else {
-            $unknown[] = (string) $header;
+            $unknown[$i] = (string) $header; // Spaltenindex => Überschrift
         }
     }
     return ['map' => $map, 'unknown' => $unknown];
@@ -132,11 +132,15 @@ function io_map_headers(array $headers): array
  * Wandelt einen Rohwert (CSV-Zelle, Excel-Zelle oder JSON-Wert) in den
  * DB-Wert um. Leere Werte ergeben null.
  *
+ * Mit $lenient (Import aus Excel) werden übliche Schreibweisen großzügig
+ * akzeptiert: "185 cm", "80,5 kg", Datum mit Uhrzeit, beliebiger Text in
+ * Ja/Nein-Feldern (= Ja, außer eindeutig "nein"/"kein"/"leih").
+ *
  * @param mixed $raw
  * @return mixed
  * @throws InvalidArgumentException bei ungültigem Wert
  */
-function io_parse_value(string $type, $raw, string $key = '')
+function io_parse_value(string $type, $raw, string $key = '', bool $lenient = false)
 {
     if (is_array($raw) || is_object($raw)) {
         throw new InvalidArgumentException('Verschachtelte Werte sind nicht erlaubt');
@@ -155,21 +159,33 @@ function io_parse_value(string $type, $raw, string $key = '')
     switch ($type) {
         case 'bool':
             $v = mb_strtolower($raw);
-            if (in_array($v, ['1', 'ja', 'j', 'x', 'true', 'wahr', 'yes', 'y', 'ok', '1.0'], true)) {
+            if (in_array($v, ['1', 'ja', 'j', 'x', 'true', 'wahr', 'yes', 'y', 'ok', '1.0', '✓', '✔', '√'], true)) {
                 return 1;
             }
-            if (in_array($v, ['0', 'nein', 'n', 'false', 'falsch', 'no', '-', '0.0'], true)) {
+            if (in_array($v, ['0', 'nein', 'n', 'false', 'falsch', 'no', '-', '0.0', '–'], true)) {
                 return 0;
+            }
+            if ($lenient) {
+                foreach (['nein', 'kein', 'nicht', 'leih'] as $negative) {
+                    if (str_contains($v, $negative)) {
+                        return 0;
+                    }
+                }
+                return 1; // irgendein Eintrag (Datum, "Ja, bezahlt", ...) = trifft zu
             }
             throw new InvalidArgumentException("Ungültiger Ja/Nein-Wert \"{$raw}\"");
 
         case 'int':
-            if (!preg_match('/^\d+([.,]0+)?$/', $raw)) {
+            $number = $lenient ? trim((string) preg_replace('/\s*(cm|kg|kgs|m)\.?$/i', '', $raw)) : $raw;
+            if (!preg_match('/^\d+([.,]\d+)?$/', $number) || (!$lenient && !preg_match('/^\d+([.,]0+)?$/', $number))) {
                 throw new InvalidArgumentException("Ungültige Zahl \"{$raw}\"");
             }
-            return (int) $raw;
+            return (int) round((float) str_replace(',', '.', $number));
 
         case 'date':
+            if ($lenient) {
+                $raw = trim((string) preg_replace('/[ T]\d{1,2}:\d{2}(:\d{2})?.*$/', '', $raw)); // Uhrzeit abschneiden
+            }
             // Excel-Seriennummer (z.B. 38718)
             if (preg_match('/^\d{4,6}(\.\d+)?$/', $raw) && (float) $raw > 1 && (float) $raw < 80000) {
                 return gmdate('Y-m-d', (int) round(((float) $raw - 25569) * 86400));
@@ -206,39 +222,64 @@ function io_parse_value(string $type, $raw, string $key = '')
  * Zellen werden ausgelassen (überschreiben beim Update also nichts);
  * mit $clearEmpty (API-Änderungen) leeren sie das Feld stattdessen.
  *
+ * $lenient (Import): Formatprobleme in optionalen Feldern verwerfen NICHT die
+ * Zeile, sondern werden als Warnung gemeldet - zu lange Texte werden gekürzt,
+ * nicht erkennbare Telefonnummern unverändert übernommen. Fehler gibt es dann
+ * nur bei Nachname, Vorname und Mail.
+ *
  * @param array<string, mixed> $raw
- * @return array{data: array<string, mixed>, errors: array<int, string>}
+ * @return array{data: array<string, mixed>, errors: array<int, string>, warnings: array<int, string>}
  */
-function io_convert_row(array $raw, bool $clearEmpty = false): array
+function io_convert_row(array $raw, bool $clearEmpty = false, bool $lenient = false): array
 {
     $data = [];
     $errors = [];
+    $warnings = [];
+    $required = ['nachname', 'vorname', 'email'];
+
     foreach ($raw as $key => $value) {
         if (!isset(MEMBER_IO_COLUMNS[$key])) {
             continue;
         }
         [$label, $type] = MEMBER_IO_COLUMNS[$key];
+        $isRequired = in_array($key, $required, true);
+
+        // Zu lange Texte kürzen statt die Zeile abzulehnen (nur Import)
+        if ($lenient && !$isRequired && $type === 'str' && isset(MEMBER_IO_MAXLEN[$key]) && is_scalar($value)
+            && mb_strlen(trim((string) $value)) > MEMBER_IO_MAXLEN[$key]) {
+            $warnings[] = $label . ': auf ' . MEMBER_IO_MAXLEN[$key] . ' Zeichen gekürzt';
+            $value = mb_substr(trim((string) $value), 0, MEMBER_IO_MAXLEN[$key]);
+        }
+
         try {
-            $parsed = io_parse_value($type, $value, $key);
+            $parsed = io_parse_value($type, $value, $key, $lenient);
         } catch (InvalidArgumentException $e) {
-            $errors[] = $label . ': ' . $e->getMessage();
+            if ($lenient && !$isRequired) {
+                $warnings[] = $label . ': ' . $e->getMessage() . ' - Wert nicht übernommen';
+            } else {
+                $errors[] = $label . ': ' . $e->getMessage();
+            }
             continue;
         }
+
         if ($parsed === null && $clearEmpty) {
-            if (in_array($key, ["nachname", "vorname", "email"], true)) {
-                $errors[] = $label . " darf nicht leer sein";
-            } elseif ($type === "bool" && $key !== "helm_eigener") {
+            if ($isRequired) {
+                $errors[] = $label . ' darf nicht leer sein';
+            } elseif ($type === 'bool' && $key !== 'helm_eigener') {
                 $data[$key] = 0;
-            } elseif ($type !== "status") {
+            } elseif ($type !== 'status') {
                 $data[$key] = null;
             }
         } elseif ($parsed !== null) {
-            if ($key === "telefon" || $key === "erz_telefon") {
+            if ($key === 'telefon' || $key === 'erz_telefon') {
                 try {
                     $parsed = normalize_phone((string) $parsed);
                 } catch (InvalidArgumentException $e) {
-                    $errors[] = $label . ": " . $e->getMessage();
-                    continue;
+                    if (!$lenient) {
+                        $errors[] = $label . ': ' . $e->getMessage();
+                        continue;
+                    }
+                    $warnings[] = $label . ': "' . $parsed . '" nicht als Nummer erkannt - unverändert übernommen';
                 }
             }
             $data[$key] = $parsed;
@@ -249,9 +290,15 @@ function io_convert_row(array $raw, bool $clearEmpty = false): array
         $errors[] = 'Mail: ungültige E-Mail-Adresse "' . $data['email'] . '"';
     }
     if (isset($data['erz_email']) && !is_valid_email((string) $data['erz_email'])) {
-        $errors[] = 'Mail Erzieh: ungültige E-Mail-Adresse';
+        $message = 'Mail Erzieh: "' . $data['erz_email'] . '" ist keine gültige E-Mail-Adresse';
+        if ($lenient) {
+            $warnings[] = $message . ' - unverändert übernommen';
+        } else {
+            $errors[] = $message;
+        }
     }
-    return ['data' => $data, 'errors' => $errors];
+
+    return ['data' => $data, 'errors' => $errors, 'warnings' => $warnings];
 }
 
 /**

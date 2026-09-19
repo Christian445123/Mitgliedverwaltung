@@ -148,12 +148,15 @@ if ($path === 'import' && $method === 'POST') {
         $response = [
             'counts' => $analysis['counts'],
             'unknown_columns' => $analysis['unknown'],
+            'columns' => $analysis['columns'],
+            'header_row' => $analysis['header_row'],
             'rows' => array_map(static fn (array $r) => [
                 'line' => $r['line'],
                 'action' => $r['action'],
                 'name' => trim(($r['data']['nachname'] ?? '') . ', ' . ($r['data']['vorname'] ?? ''), ', '),
                 'email' => $r['data']['email'] ?? '',
                 'errors' => $r['errors'],
+                'warnings' => $r['warnings'],
             ], $analysis['rows']),
         ];
         if ($commit) {

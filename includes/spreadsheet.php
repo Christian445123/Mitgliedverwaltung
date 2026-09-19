@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 /**
  * Liest eine CSV- oder XLSX-Datei als Tabelle (Liste von Zeilen, jede
- * Zeile eine Liste von Strings). Leere Zeilen werden übersprungen.
+ * Zeile eine Liste von Strings; Schlüssel = Zeilennummer in der Datei). Leere Zeilen werden übersprungen.
  *
  * @return array<int, array<int, string>>
  * @throws RuntimeException bei nicht lesbarer/nicht unterstützter Datei
@@ -59,11 +59,13 @@ function spreadsheet_read_csv(string $path): array
     rewind($stream);
 
     $rows = [];
+    $lineNo = 0;
     while (($cells = fgetcsv($stream, 0, $best, '"', '')) !== false) {
+        $lineNo++;
         if ($cells === [null] || count(array_filter($cells, static fn ($c) => trim((string) $c) !== '')) === 0) {
             continue;
         }
-        $rows[] = array_map(static fn ($c) => trim((string) $c), $cells);
+        $rows[$lineNo] = array_map(static fn ($c) => trim((string) $c), $cells);
     }
     fclose($stream);
 
@@ -138,23 +140,40 @@ function spreadsheet_read_xlsx(string $path): array
     }
 
     $rows = [];
+    $lastRowNo = 0;
     foreach ($sheet->sheetData->row as $row) {
+        // Echte Excel-Zeilennummer beibehalten (leere Zeilen werden übersprungen, die Nummern bleiben stimmig)
+        $rowNo = isset($row['r']) ? (int) $row['r'] : $lastRowNo + 1;
+        $lastRowNo = $rowNo;
+
         $cells = [];
         $maxCol = -1;
+        $nextCol = 0;
         foreach ($row->c as $c) {
-            $col = spreadsheet_column_index((string) $c['r']);
+            $col = isset($c['r']) ? spreadsheet_column_index((string) $c['r']) : $nextCol;
+            $nextCol = $col + 1;
             $type = (string) $c['t'];
             if ($type === 's') {
                 $value = $shared[(int) $c->v] ?? '';
             } elseif ($type === 'inlineStr') {
-                $value = (string) $c->is->t;
+                $value = '';
+                if (isset($c->is->t)) {
+                    $value = (string) $c->is->t;
+                } else {
+                    foreach ($c->is->r as $run) {
+                        $value .= (string) $run->t;
+                    }
+                }
             } elseif ($type === 'b') {
                 $value = (string) $c->v === '1' ? '1' : '0';
+            } elseif ($type === 'e') {
+                $value = ''; // Excel-Fehlerwerte (#N/A, #DIV/0!) sind keine Daten
             } else {
                 $value = (string) $c->v;
-                // 12.0 -> 12 (Excel liefert Zahlen als Dezimalstring)
-                if (preg_match('/^-?\d+\.0+$/', $value)) {
-                    $value = (string) (int) $value;
+                if ($type !== 'str' && preg_match('/^-?\d+\.0+$/', $value)) {
+                    $value = (string) (int) $value; // 12.0 -> 12
+                } elseif ($type !== 'str' && preg_match('/^-?\d+(\.\d+)?[eE][+-]?\d+$/', $value)) {
+                    $value = sprintf('%.0f', (float) $value); // 1.23E+10 -> 12300000000
                 }
             }
             $cells[$col] = trim($value);
@@ -170,7 +189,7 @@ function spreadsheet_read_xlsx(string $path): array
         if (count(array_filter($line, static fn ($v) => $v !== '')) === 0) {
             continue;
         }
-        $rows[] = $line;
+        $rows[$rowNo] = $line;
     }
 
     return $rows;

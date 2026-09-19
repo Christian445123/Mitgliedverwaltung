@@ -92,10 +92,34 @@ $actionBadges = ['create' => 'green', 'update' => 'blue', 'skip' => 'gray', 'err
         <?php endforeach; ?>
     </div>
 
+
     <?php if ($preview['unknown']): ?>
-        <p class="alert alert-warning">Diese Spalten wurden nicht erkannt und werden ignoriert:
-            <?= h(implode(', ', $preview['unknown'])) ?></p>
+        <p class="alert alert-error"><strong>Diese Spalten enthalten Daten, konnten aber keinem Feld zugeordnet werden und werden NICHT übernommen:</strong>
+            <?= h(implode(', ', $preview['unknown'])) ?>.
+            Bitte die Überschrift in der Datei anpassen (siehe Spaltenzuordnung unten) und erneut hochladen.</p>
     <?php endif; ?>
+    <?php if ($preview['counts']['warning'] > 0): ?>
+        <p class="alert alert-warning"><?= (int) $preview['counts']['warning'] ?> Zeile(n) werden importiert, haben aber Hinweise
+            (z. B. nicht lesbares Datum oder gekürzter Text) – siehe Spalte „Hinweis“.</p>
+    <?php endif; ?>
+
+    <details class="panel" style="margin-bottom:16px;">
+        <summary><strong>Spaltenzuordnung</strong> – Überschrift in der Datei → Feld (Überschriftenzeile: <?= (int) $preview['header_row'] ?>)</summary>
+        <div class="table-scroll">
+        <table class="table">
+            <thead><tr><th>Spalte in der Datei</th><th>Wird übernommen als</th><th>Gefüllte Zellen</th></tr></thead>
+            <tbody>
+            <?php foreach ($preview['columns'] as $col): ?>
+                <tr>
+                    <td><?= h($col['header']) ?></td>
+                    <td><?= $col['field'] !== null ? h($col['field']) : '<span class="badge badge-orange">nicht zugeordnet</span>' ?></td>
+                    <td><?= (int) $col['values'] ?></td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+        </div>
+    </details>
 
     <?php $importable = $preview['counts']['create'] + $preview['counts']['update']; ?>
 
@@ -111,7 +135,7 @@ $actionBadges = ['create' => 'green', 'update' => 'blue', 'skip' => 'gray', 'err
                 <td><span class="badge badge-<?= $actionBadges[$row['action']] ?>"><?= h($actionLabels[$row['action']]) ?></span></td>
                 <td><?= h(($row['data']['nachname'] ?? '') . ', ' . ($row['data']['vorname'] ?? '')) ?></td>
                 <td><?= h((string) ($row['data']['email'] ?? '')) ?></td>
-                <td><?= h(implode('; ', $row['errors']) ?: ($row['action'] === 'skip' ? 'Existiert bereits (Aktualisieren war nicht aktiviert)' : '')) ?></td>
+                <td><?= h(implode('; ', $row['errors']) ?: ($row['action'] === 'skip' ? 'Existiert bereits (Aktualisieren war nicht aktiviert)' : implode('; ', $row['warnings'] ?? []))) ?></td>
             </tr>
         <?php endforeach; ?>
         </tbody>
@@ -141,7 +165,7 @@ $actionBadges = ['create' => 'green', 'update' => 'blue', 'skip' => 'gray', 'err
         <section class="panel">
             <h2 class="section-title">Import aus CSV / Excel</h2>
             <p>Unterstützt <strong>.xlsx</strong> und <strong>.csv</strong> (Excel-CSV mit Semikolon oder Komma).
-               Die erste Zeile muss die Spaltenüberschriften enthalten; Pflichtspalten sind
+               Die Überschriftenzeile wird automatisch gefunden (Titelzeilen darüber stören nicht); Pflichtspalten sind
                <em>Nachname</em>, <em>Vorname</em> und <em>Mail</em>. Vor dem Speichern gibt es eine Vorschau.</p>
 
             <form method="post" action="import.php" enctype="multipart/form-data">
