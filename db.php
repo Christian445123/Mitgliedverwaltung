@@ -78,4 +78,12 @@ function db_ensure_columns(PDO $pdo): void
     } catch (PDOException $e) {
         // Nicht kritisch: die Anwendung berechnet den Namen zusätzlich selbst (member_full_name()).
     }
+
+    // Tabellen für weitere Camps (falls noch nicht vorhanden)
+    try {
+        require_once __DIR__ . '/includes/camps.php';
+        camps_ensure_tables($pdo);
+    } catch (Throwable $e) {
+        error_log('camps_ensure_tables: ' . $e->getMessage());
+    }
 }

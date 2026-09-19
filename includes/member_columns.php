@@ -2,13 +2,15 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/camps.php';
+
 /**
  * Zentrale Spaltendefinition für Import (CSV/Excel), Export und REST-API.
  * Reihenfolge = Spaltenreihenfolge im Export.
  *
  * Typen: str | int | date | bool | status | kader
  */
-const MEMBER_IO_COLUMNS = [
+const MEMBER_IO_BASE_COLUMNS = [
     'jersey_nr' => ['Jersey Nr.', 'str'],
     'camp_1' => ['Camp 1', 'bool'],
     'spanien' => ['Spanien', 'bool'],
@@ -70,6 +72,31 @@ const MEMBER_IO_MAXLEN = [
     'zimmer_nr' => 20, 'pract_jersey_nr' => 10, 'pract_hose_groesse' => 10,
 ];
 
+/**
+ * Alle Import-/Export-Felder: die festen Felder plus je ein Ja/Nein-Feld pro weiterem Camp
+ * (Schlüssel "camp:<id>", direkt nach "Tschechien").
+ *
+ * @return array<string, array{0: string, 1: string}>
+ */
+function member_io_columns(): array
+{
+    static $cache = null;
+    if ($cache !== null) {
+        return $cache;
+    }
+
+    $columns = [];
+    foreach (MEMBER_IO_BASE_COLUMNS as $key => $definition) {
+        $columns[$key] = $definition;
+        if ($key === 'tschechien') {
+            foreach (camps_all() as $camp) {
+                $columns['camp:' . $camp['id']] = [$camp['name'], 'bool'];
+            }
+        }
+    }
+    return $cache = $columns;
+}
+
 function io_normalize_header(string $header): string
 {
     $header = mb_strtolower(trim($header));
@@ -96,7 +123,7 @@ function io_normalize_header(string $header): string
 function io_map_headers(array $headers, array $overrides = []): array
 {
     $aliases = [];
-    foreach (MEMBER_IO_COLUMNS as $key => [$label]) {
+    foreach (member_io_columns() as $key => [$label]) {
         $aliases[io_normalize_header($key)] = $key;
         $aliases[io_normalize_header($label)] = $key;
     }
@@ -151,7 +178,7 @@ function io_map_headers(array $headers, array $overrides = []): array
             $skipped[$i] = (string) $headers[$i];
             continue;
         }
-        if (!isset(MEMBER_IO_COLUMNS[$target])) {
+        if (!isset(member_io_columns()[$target])) {
             continue;
         }
         // Ein Feld kann nur aus einer Spalte kommen: andere Spalte, die es bisher hatte, wird frei
@@ -290,10 +317,10 @@ function io_convert_row(array $raw, bool $clearEmpty = false, bool $lenient = fa
     $required = ['nachname', 'vorname', 'email'];
 
     foreach ($raw as $key => $value) {
-        if (!isset(MEMBER_IO_COLUMNS[$key])) {
+        if (!isset(member_io_columns()[$key])) {
             continue;
         }
-        [$label, $type] = MEMBER_IO_COLUMNS[$key];
+        [$label, $type] = member_io_columns()[$key];
         $isRequired = in_array($key, $required, true);
 
         // Zu lange Texte kürzen statt die Zeile abzulehnen (nur Import)
@@ -360,7 +387,7 @@ function io_convert_row(array $raw, bool $clearEmpty = false, bool $lenient = fa
  */
 function io_export_value(string $key, array $row): string
 {
-    $type = MEMBER_IO_COLUMNS[$key][1];
+    $type = member_io_columns()[$key][1];
     $value = $row[$key] ?? null;
     if ($value === null || $value === '') {
         return '';

@@ -59,7 +59,7 @@ function api_error(int $status, string $message, array $details = []): never
 function api_member(array $row): array
 {
     $out = ['id' => (int) $row['id']];
-    foreach (MEMBER_IO_COLUMNS as $key => [, $type]) {
+    foreach (member_io_columns() as $key => [, $type]) {
         $value = $row[$key] ?? null;
         if ($value !== null && $value !== '') {
             if ($type === 'int') {
@@ -73,6 +73,7 @@ function api_member(array $row): array
         $out[$key] = $value;
     }
     $out['name_vorname'] = member_full_name($row); // automatisch: "Nachname Vorname"
+    $out['weitere_camps'] = array_values(array_map(static fn (array $c) => $c['name'], array_filter(camps_all(), static fn (array $c) => !empty($row['camp:' . $c['id']]))));
     $out['dokumente'] = member_documents_present($row);
     $out['bestaetigt_am'] = $row['verified_at'] ?? null;
     $out['angelegt_am'] = $row['created_at'] ?? null;
@@ -300,7 +301,7 @@ try {
         ['data' => $data, 'errors' => $errors] = io_convert_row($readBody());
         foreach (['nachname', 'vorname', 'email'] as $required) {
             if (!isset($data[$required])) {
-                $errors[] = MEMBER_IO_COLUMNS[$required][0] . ' ist ein Pflichtfeld';
+                $errors[] = member_io_columns()[$required][0] . ' ist ein Pflichtfeld';
             }
         }
         if ($errors !== []) {

@@ -5,6 +5,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../db.php';
 require_once __DIR__ . '/functions.php';
 require_once __DIR__ . '/field_access.php';
+require_once __DIR__ . '/camps.php';
 
 const MEMBER_UPLOAD_DIR = __DIR__ . '/../uploads';
 const MEMBER_UPLOAD_PUBLIC_PREFIX = '/uploads';
@@ -70,7 +71,8 @@ function member_find_by_id(int $id)
 {
     $stmt = db()->prepare(MEMBER_JOIN_SQL . ' WHERE m.id = ? LIMIT 1');
     $stmt->execute([$id]);
-    return $stmt->fetch();
+    $row = $stmt->fetch();
+    return $row === false ? false : member_attach_camps([$row])[0];
 }
 
 /**
@@ -80,7 +82,8 @@ function member_find_by_email(string $email)
 {
     $stmt = db()->prepare(MEMBER_JOIN_SQL . ' WHERE m.email = ? LIMIT 1');
     $stmt->execute([$email]);
-    return $stmt->fetch();
+    $row = $stmt->fetch();
+    return $row === false ? false : member_attach_camps([$row])[0];
 }
 
 /**
@@ -90,7 +93,8 @@ function member_find_by_token(string $token)
 {
     $stmt = db()->prepare(MEMBER_JOIN_SQL . ' WHERE ac.verify_token = ? LIMIT 1');
     $stmt->execute([$token]);
-    return $stmt->fetch();
+    $row = $stmt->fetch();
+    return $row === false ? false : member_attach_camps([$row])[0];
 }
 
 function build_member_link(string $token): string
@@ -269,7 +273,7 @@ function member_collect_input(array $existing = [], string $audience = 'admin'):
         'hoodie_groesse' => post_str('hoodie_groesse'),
         'mesh_shorts_groesse' => post_str('mesh_shorts_groesse'),
         'socken_groesse' => post_str('socken_groesse'),
-    ] + member_collect_admin_equipment();
+    ] + member_collect_admin_equipment() + member_collect_camps();
 }
 
 /**
@@ -322,6 +326,15 @@ function upsert_child_row(string $table, array $columns, int $memberId, array $d
  */
 function member_upsert(array $data, ?int $id, ?string $status = null): int
 {
+    // Weitere Camps: Schlüssel "camp:<id>" (1/0) und "new_camps" (Namen neuer Camps)
+    $campChanges = [];
+    foreach ($data as $key => $value) {
+        if (is_string($key) && preg_match('/^camp:(\d+)$/', $key, $m) === 1) {
+            $campChanges[(int) $m[1]] = (int) $value === 1;
+        }
+    }
+    $newCampNames = array_values(array_filter((array) ($data['new_camps'] ?? []), static fn ($name) => trim((string) $name) !== ''));
+
     $pdo = db();
     $pdo->beginTransaction();
 
@@ -357,6 +370,11 @@ function member_upsert(array $data, ?int $id, ?string $status = null): int
         if ($isNew) {
             $stmt = $pdo->prepare('INSERT INTO member_access (member_id, verify_token) VALUES (?, ?)');
             $stmt->execute([$memberId, $data['verify_token'] ?? random_token(32)]);
+        }
+
+        // Teilnahme an weiteren Camps (Formular, Import, API)
+        if ($campChanges !== [] || $newCampNames !== []) {
+            member_apply_camp_changes($memberId, $campChanges, $newCampNames);
         }
 
         $pdo->commit();
@@ -436,7 +454,7 @@ function member_search(string $query, int $limit, int $offset, ?string $status =
     $stmt->bindValue('limit', $limit, PDO::PARAM_INT);
     $stmt->bindValue('offset', $offset, PDO::PARAM_INT);
     $stmt->execute();
-    return $stmt->fetchAll();
+    return member_attach_camps($stmt->fetchAll());
 }
 
 function member_count(string $query, ?string $status = null, ?string $kader = null): int
@@ -650,4 +668,33 @@ function member_delete_all(): int
 {
     $ids = db()->query('SELECT id FROM members')->fetchAll(PDO::FETCH_COLUMN);
     return member_delete_many($ids);
+}
+
+/**
+ * Liest die Camp-Auswahl aus dem Formular: Häkchen je weiterem Camp und Namen neuer Camps.
+ * Ohne Formular-Marker "camps_present" (z. B. ausgeblendetes Feld) wird nichts verändert.
+ *
+ * @return array<string, mixed>
+ */
+function member_collect_camps(): array
+{
+    if (!isset($_POST['camps_present'])) {
+        return [];
+    }
+
+    $data = [];
+    foreach (camps_all() as $camp) {
+        $data['camp:' . $camp['id']] = isset($_POST['camp'][$camp['id']]) ? 1 : 0;
+    }
+    $names = [];
+    foreach ((array) ($_POST['new_camps'] ?? []) as $name) {
+        $name = trim((string) $name);
+        if ($name !== '') {
+            $names[] = $name;
+        }
+    }
+    if ($names !== []) {
+        $data['new_camps'] = $names;
+    }
+    return $data;
 }

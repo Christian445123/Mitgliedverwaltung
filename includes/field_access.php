@@ -15,6 +15,7 @@ declare(strict_types=1);
  */
 
 require_once __DIR__ . '/../db.php';
+require_once __DIR__ . '/camps.php';
 
 /**
  * Alle steuerbaren Felder: Schlüssel => [Beschriftung, Gruppe, Formularfelder (name="…"), Optionen].
@@ -31,6 +32,7 @@ function field_access_registry(): array
         'spanien' => ['Spanien', 'Nummer & Camps', ['spanien']],
         'camp_2' => ['Camp 2', 'Nummer & Camps', ['camp_2']],
         'tschechien' => ['Tschechien', 'Nummer & Camps', ['tschechien']],
+        'extra_camps' => ['Weitere Camps (neue Camps)', 'Nummer & Camps', array_merge(['camps_present', 'new_camps[]'], array_map(static fn (array $c) => 'camp[' . $c['id'] . ']', camps_all()))],
 
         'nachname' => ['Nachname', 'Persönliche Daten', ['nachname'], ['core' => true]],
         'vorname' => ['Vorname', 'Persönliche Daten', ['vorname'], ['core' => true]],
@@ -246,6 +248,12 @@ function field_access_locked_inputs(string $audience): array
 function field_access_overlay_post(array $existing, string $audience): void
 {
     foreach (field_access_locked_inputs($audience) as $name) {
+        // Weitere Camps: Formular-Marker entfernen, dann bleibt die Teilnahme unverändert
+        if ($name === 'camps_present' || $name === 'new_camps[]' || str_starts_with($name, 'camp[')) {
+            unset($_POST['camps_present'], $_POST['new_camps'], $_POST['camp']);
+            continue;
+        }
+
         if (in_array($name, FIELD_ACCESS_FILE_INPUTS, true)) {
             unset($_FILES[$name]); // bisheriger Dateipfad bleibt erhalten
             continue;
@@ -353,4 +361,23 @@ function field_access_apply_html(string $html, string $audience): string
         $out .= $doc->saveHTML($child);
     }
     return $out;
+}
+
+/**
+ * Import-/Export-Schlüssel, die die Zielgruppe nicht sehen darf (für den CSV-Export von Bearbeitern).
+ *
+ * @return array<int, string>
+ */
+function field_access_hidden_export_keys(string $audience): array
+{
+    $hidden = field_access_hidden_inputs($audience);
+    $keys = array_values(array_intersect(array_keys(member_io_columns()), $hidden));
+    if (in_array('camps_present', $hidden, true)) {
+        foreach (array_keys(member_io_columns()) as $key) {
+            if (str_starts_with((string) $key, 'camp:')) {
+                $keys[] = $key;
+            }
+        }
+    }
+    return $keys;
 }

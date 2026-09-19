@@ -21,6 +21,6 @@ app_log('export.csv', $template ? 'Import-Vorlage heruntergeladen' : 'Mitglieder
 
 $out = fopen('php://output', 'w');
 // Bearbeiter erhalten nur die Felder, die für sie freigegeben sind (Feld-Rechte)
-$exclude = field_access_admin_audience() === 'admin' ? [] : array_values(array_intersect(array_keys(MEMBER_IO_COLUMNS), field_access_hidden_inputs('editor')));
+$exclude = field_access_admin_audience() === 'admin' ? [] : field_access_hidden_export_keys('editor');
 member_export_csv($out, $template ? [] : member_all($status), $exclude);
 fclose($out);

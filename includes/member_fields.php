@@ -68,6 +68,32 @@ ob_start(); // Formular puffern, damit gesperrte Felder (Feld-Rechte) am Ende en
             <label><input type="checkbox" name="tschechien" value="1" <?= $checked('tschechien') ?>> Tschechien</label>
         </div>
     </div>
+
+    <?php
+    // Weitere Camps (zusätzlich zu den vier festen): Häkchen je Camp + neue Camps direkt anlegen
+    $extraCamps = camps_all();
+    ?>
+    <div class="form-group" hidden><input type="hidden" name="camps_present" value="1"></div>
+    <?php if ($extraCamps !== []): ?>
+    <div class="form-row camps-extra">
+        <?php foreach ($extraCamps as $camp): ?>
+        <div class="form-group">
+            <label><input type="checkbox" name="camp[<?= (int) $camp['id'] ?>]" value="1" <?= !empty($m['camp:' . $camp['id']]) ? 'checked' : '' ?>> <?= h($camp['name']) ?></label>
+        </div>
+        <?php endforeach; ?>
+    </div>
+    <?php endif; ?>
+    <?php if ($showAdminFields): ?>
+    <div class="form-group new-camps" data-new-camps>
+        <label for="new_camp_1">Neues Camp hinzufügen</label>
+        <div class="new-camp-row">
+            <input type="text" id="new_camp_1" name="new_camps[]" maxlength="100" placeholder="Name des neuen Camps, z. B. Camp 3">
+        </div>
+        <button type="button" class="btn btn-sm" data-add-camp>+ Weiteres Camp</button>
+        <p class="muted">Das neue Camp wird beim Speichern angelegt, dem Spieler zugeordnet und steht danach bei allen Spielern zur Auswahl.
+            Verwalten und löschen: <a href="camps.php">Camps</a>.</p>
+    </div>
+    <?php endif; ?>
 </fieldset>
 
 <fieldset>

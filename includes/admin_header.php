@@ -4,6 +4,8 @@
 $currentScript = basename((string) $_SERVER['SCRIPT_NAME']);
 $navActive = static fn (string $script) => $currentScript === $script ? ' active' : '';
 $adminInitial = h(strtoupper(mb_substr(current_admin_username() ?? '?', 0, 1)));
+require_once __DIR__ . '/expiry.php';
+$expiryTotal = (int) (expiry_report()['counts']['total'] ?? 0); // abgelaufene bzw. bald ablaufende NADA-Zertifikate/Pässe
 ?>
 <!doctype html>
 <html lang="de">
@@ -26,10 +28,15 @@ $adminInitial = h(strtoupper(mb_substr(current_admin_username() ?? '?', 0, 1)));
             <a href="index.php" class="<?= $navActive('index.php') ?>">
                 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                 Mitglieder
+                <?php if ($expiryTotal > 0): ?><span class="nav-badge" title="Abgelaufene bzw. bald ablaufende Dokumente"><?= $expiryTotal ?></span><?php endif; ?>
             </a>
             <a href="import.php" class="<?= $navActive('import.php') ?>">
                 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                 Import / Export
+            </a>
+            <a href="camps.php" class="<?= $navActive('camps.php') ?>">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20 12 4l9 16z"/><path d="M12 12v8"/></svg>
+                Camps
             </a>
             <a href="account.php" class="<?= $navActive('account.php') ?>">
                 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/></svg>

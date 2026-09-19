@@ -5,6 +5,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/member_repository.php';
+require_once __DIR__ . '/../includes/expiry.php';
 
 require_admin();
 
@@ -18,6 +19,7 @@ $totalPages = max(1, (int) ceil($total / $perPage));
 $page = min($page, $totalPages);
 $members = member_search($query, $perPage, ($page - 1) * $perPage, $status, $kader);
 $stats = member_stats();
+$expiry = expiry_report();
 
 $pageTitle = 'Mitgliederübersicht';
 require __DIR__ . '/../includes/admin_header.php';
@@ -44,6 +46,30 @@ $listUrl = static fn (array $extra = []) => 'index.php?' . http_build_query(arra
     <div class="stat-card"><span class="stat-value"><?= $stats['bestaetigt'] ?></span><span class="stat-label">Daten bestätigt</span></div>
     <div class="stat-card stat-warn"><span class="stat-value"><?= $stats['ausstehend'] ?></span><span class="stat-label">Bestätigung offen</span></div>
 </div>
+
+<?php if ($expiry['counts']['total'] > 0): ?>
+<section class="panel expiry-panel">
+    <h2 class="section-title">⚠ Ablaufende Dokumente (<?= (int) $expiry['counts']['total'] ?>)</h2>
+    <div class="expiry-columns">
+        <?php foreach (['nada' => 'NADA-Zertifikat (Hinweis ' . expiry_nada_days() . ' Tage vorher)', 'pass' => 'Reisepass (Hinweis ' . expiry_pass_months() . ' Monate vorher)'] as $type => $title): ?>
+            <?php if (!empty($expiry[$type])): ?>
+            <div>
+                <h3><?= h($title) ?></h3>
+                <ul class="expiry-list">
+                    <?php foreach ($expiry[$type] as $item): ?>
+                        <li class="expiry-<?= h($item['state']) ?>">
+                            <a href="member-form.php?id=<?= (int) $item['id'] ?>"><?= h($item['name']) ?></a>
+                            <span class="badge badge-<?= $item['state'] === 'expired' ? 'red' : 'orange' ?>"><?= $item['state'] === 'expired' ? 'abgelaufen' : 'bald' ?></span>
+                            <span class="muted"><?= h(date('d.m.Y', strtotime($item['date']))) ?> – <?= h(expiry_text($item)) ?></span>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+            <?php endif; ?>
+        <?php endforeach; ?>
+    </div>
+</section>
+<?php endif; ?>
 
 <?php if ($info): ?><p class="alert alert-success"><?= h($info) ?></p><?php endif; ?>
 <?php if ($error): ?><p class="alert alert-error"><?= h($error) ?></p><?php endif; ?>
@@ -96,7 +122,11 @@ $listUrl = static fn (array $extra = []) => 'index.php?' . http_build_query(arra
     <?php foreach ($members as $mRow): ?>
         <tr>
             <td class="check-col" data-label="Auswahl"><input type="checkbox" name="ids[]" value="<?= (int) $mRow['id'] ?>" data-row-check aria-label="Mitglied auswählen"></td>
-            <td data-label="Name & Vorname"><?= h(member_full_name($mRow)) ?><?php if (($mRow['kader'] ?? 'kader') === 'nicht_im_kader'): ?> <span class="badge badge-gray">nicht im Kader</span><?php endif; ?></td>
+            <td data-label="Name & Vorname"><?= h(member_full_name($mRow)) ?><?php if (($mRow['kader'] ?? 'kader') === 'nicht_im_kader'): ?> <span class="badge badge-gray">nicht im Kader</span><?php endif; ?>
+                <?php $exp = expiry_states_for_row($mRow); ?>
+                <?php if ($exp['nada']): ?><span class="badge badge-<?= $exp['nada']['state'] === 'expired' ? 'red' : 'orange' ?>" title="NADA-Zertifikat: <?= h(expiry_text($exp['nada'])) ?>">NADA <?= $exp['nada']['state'] === 'expired' ? 'abgelaufen' : 'bald' ?></span><?php endif; ?>
+                <?php if ($exp['pass']): ?><span class="badge badge-<?= $exp['pass']['state'] === 'expired' ? 'red' : 'orange' ?>" title="Reisepass: <?= h(expiry_text($exp['pass'])) ?>">Pass <?= $exp['pass']['state'] === 'expired' ? 'abgelaufen' : 'bald' ?></span><?php endif; ?>
+            </td>
             <td data-label="Verein"><?= h($mRow['verein'] ?? '') ?></td>
             <td data-label="Position"><?= h($mRow['position'] ?? '') ?></td>
             <td data-label="Jersey Nr."><?= h($mRow['jersey_nr'] ?? '') ?></td>

@@ -98,3 +98,24 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 });
+
+// Mitgliederformular: weitere Eingabezeilen für neue Camps
+document.addEventListener('DOMContentLoaded', function () {
+    var box = document.querySelector('[data-new-camps]');
+    if (!box) {
+        return;
+    }
+    var button = box.querySelector('[data-add-camp]');
+    button.addEventListener('click', function () {
+        var row = document.createElement('div');
+        row.className = 'new-camp-row';
+        var input = document.createElement('input');
+        input.type = 'text';
+        input.name = 'new_camps[]';
+        input.maxLength = 100;
+        input.placeholder = 'Name des nächsten Camps';
+        row.appendChild(input);
+        box.insertBefore(row, button);
+        input.focus();
+    });
+});

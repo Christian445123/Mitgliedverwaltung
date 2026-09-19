@@ -67,7 +67,7 @@ function member_import_analyze(array $table, bool $updateExisting, ?string $kade
     $missing = [];
     foreach (['nachname', 'vorname', 'email'] as $required) {
         if (!in_array($required, $mapped, true)) {
-            $missing[] = MEMBER_IO_COLUMNS[$required][0];
+            $missing[] = member_io_columns()[$required][0];
         }
     }
 
@@ -103,7 +103,7 @@ function member_import_analyze(array $table, bool $updateExisting, ?string $kade
             'index' => (int) $col,
             'header' => $clean((string) $title),
             'key' => $key,
-            'field' => $key !== null ? MEMBER_IO_COLUMNS[$key][0] : null,
+            'field' => $key !== null ? member_io_columns()[$key][0] : null,
             'values' => $filled,
             'state' => $state,
         ];
@@ -129,7 +129,7 @@ function member_import_analyze(array $table, bool $updateExisting, ?string $kade
 
         foreach (['nachname', 'vorname', 'email'] as $required) {
             if (!isset($data[$required])) {
-                $errors[] = MEMBER_IO_COLUMNS[$required][0] . ' fehlt';
+                $errors[] = member_io_columns()[$required][0] . ' fehlt';
             }
         }
 
@@ -163,7 +163,7 @@ function member_import_analyze(array $table, bool $updateExisting, ?string $kade
         'counts' => $counts,
         'header_row' => $headerRow,
         'missing_required' => $missing,
-        'fields' => array_map(static fn (string $k) => ['key' => $k, 'label' => MEMBER_IO_COLUMNS[$k][0]], array_keys(MEMBER_IO_COLUMNS)),
+        'fields' => array_map(static fn (string $k) => ['key' => $k, 'label' => member_io_columns()[$k][0]], array_keys(member_io_columns())),
     ];
 }
 
@@ -208,7 +208,7 @@ function member_export_csv($out, array $rows, array $excludeKeys = []): void
     // Kopfzeile: "ID" steht wie in der bisherigen Excel-Liste vorn, "Name & Vorname" (automatisch
     // gebildet) direkt nach "Vorname". Beide Spalten werden beim Import ignoriert.
     $header = ['ID'];
-    foreach (MEMBER_IO_COLUMNS as $key => [$label]) {
+    foreach (member_io_columns() as $key => [$label]) {
         if (in_array($key, $excludeKeys, true)) {
             continue;
         }
@@ -221,7 +221,7 @@ function member_export_csv($out, array $rows, array $excludeKeys = []): void
 
     foreach ($rows as $row) {
         $line = [(string) ($row['id'] ?? '')];
-        foreach (array_keys(MEMBER_IO_COLUMNS) as $key) {
+        foreach (array_keys(member_io_columns()) as $key) {
             if (in_array($key, $excludeKeys, true)) {
                 continue;
             }

@@ -172,3 +172,20 @@ CREATE TABLE IF NOT EXISTS field_permissions (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     updated_by VARCHAR(100) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Weitere Camps (zusätzlich zu den vier festen Camps in member_camps)
+CREATE TABLE IF NOT EXISTS camps (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    sort_order INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_camp_name (name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS member_camp_entries (
+    member_id INT UNSIGNED NOT NULL,
+    camp_id INT UNSIGNED NOT NULL,
+    PRIMARY KEY (member_id, camp_id),
+    CONSTRAINT fk_camp_entries_member FOREIGN KEY (member_id) REFERENCES members (id) ON DELETE CASCADE,
+    CONSTRAINT fk_camp_entries_camp FOREIGN KEY (camp_id) REFERENCES camps (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
