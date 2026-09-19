@@ -840,3 +840,45 @@ form.member-form button[type=submit] { margin-top: 24px; }
 .perm-yes { color: var(--color-success-text); font-weight: 600; }
 .perm-no { color: var(--color-danger); font-weight: 600; }
 .perm-table select { min-width: 190px; }
+
+/* ══════════════════ Feinschliff: moderner Look ══════════════════ */
+:root { color-scheme: light dark; --table-head: #f7f7fb; --badge-gray: #f3f4f6; }
+.table th { background: var(--table-head); }
+.table thead .actions-sticky { background: var(--table-head); }
+.badge-gray { background: var(--badge-gray); }
+
+/* Sichtbarer Fokus (Tastatur), weichere Karten, Tabellenkopf bleibt beim Scrollen sichtbar */
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+.panel { transition: box-shadow 0.2s, transform 0.2s; }
+.panel:hover { box-shadow: var(--shadow); }
+input, select, textarea { transition: border-color 0.15s, box-shadow 0.15s; }
+input:focus, select:focus, textarea:focus { box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.18); }
+.badge { border-radius: 999px; }
+::selection { background: rgba(249, 115, 22, 0.25); }
+
+/* Dunkles Erscheinungsbild folgt der Einstellung des Geräts */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --color-bg: #0b0e1a;
+        --color-surface: #141a30;
+        --color-border: #262e4d;
+        --color-text: #e8eaf5;
+        --color-muted: #9aa1bd;
+        --accent-soft: #2a1c10;
+        --color-success-bg: #06281e;
+        --color-success-text: #6ee7b7;
+        --color-error-bg: #33121a;
+        --color-error-text: #fca5a5;
+        --color-warning-bg: #33260a;
+        --color-warning-text: #fcd34d;
+        --color-info-bg: #0f1f3d;
+        --color-info-text: #93c5fd;
+        --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+        --shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+        --table-head: #1a2140;
+        --badge-gray: #222a49;
+    }
+    input, select, textarea { background: var(--color-surface); color: var(--color-text); border-color: var(--color-border); }
+    .btn:hover { background: var(--navy-800); }
+    a { color: #fb923c; }
+}
