@@ -67,6 +67,9 @@ function staff_ensure_table(PDO $pdo): void
         if ($pdo->query("SHOW COLUMNS FROM staff LIKE 'nada_gueltig_bis'")->fetchColumn() === false) {
             $pdo->exec('ALTER TABLE staff ADD COLUMN nada_gueltig_bis DATE DEFAULT NULL AFTER nada');
         }
+        if ($pdo->query("SHOW COLUMNS FROM staff LIKE 'rechte_dokument_pfad'")->fetchColumn() === false) {
+            $pdo->exec('ALTER TABLE staff ADD COLUMN rechte_dokument_pfad VARCHAR(255) DEFAULT NULL');
+        }
         return;
     }
     $pdo->exec(
@@ -97,6 +100,7 @@ function staff_ensure_table(PDO $pdo): void
             short_groesse VARCHAR(10) DEFAULT NULL,
             shorts_anzahl VARCHAR(20) DEFAULT NULL,
             coaching_hosen_lang_groesse VARCHAR(10) DEFAULT NULL,
+            rechte_dokument_pfad VARCHAR(255) DEFAULT NULL,
             status ENUM('aktiv', 'inaktiv') NOT NULL DEFAULT 'aktiv',
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -256,8 +260,25 @@ function staff_delete_many(array $ids): int
         return 0;
     }
     $marks = implode(',', array_fill(0, count($ids), '?'));
+
+    // Hochgeladene Dokumente mit löschen
+    $files = db()->prepare("SELECT * FROM staff WHERE id IN ({$marks})");
+    $files->execute($ids);
+    $toDelete = [];
+    foreach ($files->fetchAll() as $row) {
+        foreach (array_keys(STAFF_DOCUMENT_TYPES) as $type) {
+            $path = staff_document_path($row, $type);
+            if ($path !== null) {
+                $toDelete[] = $path;
+            }
+        }
+    }
+
     $stmt = db()->prepare("DELETE FROM staff WHERE id IN ({$marks})");
     $stmt->execute($ids);
+    foreach ($toDelete as $file) {
+        @unlink($file);
+    }
     return $stmt->rowCount();
 }
 
@@ -292,4 +313,103 @@ function staff_collect_input(): array
     $data = $result['data'];
     $data['status'] = ($_POST['status'] ?? 'aktiv') === 'inaktiv' ? 'inaktiv' : 'aktiv';
     return $data;
+}
+
+// ── Dokumente (Rechte & Pflichten, unterschrieben) ────────────────────────
+
+const STAFF_UPLOAD_DIR = __DIR__ . '/../uploads/staff';
+const STAFF_UPLOAD_PUBLIC_PREFIX = '/uploads/staff';
+
+/** Dokumenttypen des Staffs: Schlüssel (API/URL) => Spalte und Beschriftung. */
+const STAFF_DOCUMENT_TYPES = [
+    'rechte' => ['column' => 'rechte_dokument_pfad', 'label' => 'Rechte & Pflichten'],
+];
+
+/**
+ * Absoluter Dateipfad eines Staff-Dokuments oder null (nicht vorhanden / außerhalb von uploads/).
+ *
+ * @param array<string, mixed> $row
+ */
+function staff_document_path(array $row, string $type): ?string
+{
+    if (!isset(STAFF_DOCUMENT_TYPES[$type]) || empty($row[STAFF_DOCUMENT_TYPES[$type]['column']])) {
+        return null;
+    }
+    $path = realpath(__DIR__ . '/..' . $row[STAFF_DOCUMENT_TYPES[$type]['column']]);
+    $root = realpath(__DIR__ . '/../uploads');
+    if ($path === false || $root === false || !str_starts_with($path, $root . DIRECTORY_SEPARATOR) || !is_file($path)) {
+        return null;
+    }
+    return $path;
+}
+
+/**
+ * @param array<string, mixed> $row
+ * @return array<string, bool>
+ */
+function staff_documents_present(array $row): array
+{
+    $present = [];
+    foreach (STAFF_DOCUMENT_TYPES as $type => $def) {
+        $present[$type] = !empty($row[$def['column']]);
+    }
+    return $present;
+}
+
+/**
+ * Speichert (ersetzt) oder entfernt ein Dokument. $inputName = Name des Upload-Feldes in $_FILES,
+ * null = Dokument entfernen. Die alte Datei wird gelöscht.
+ *
+ * @throws RuntimeException bei ungültigem Upload
+ */
+function staff_set_document(int $id, string $type, ?string $inputName): void
+{
+    $def = STAFF_DOCUMENT_TYPES[$type] ?? null;
+    if ($def === null) {
+        throw new RuntimeException('Unbekannter Dokumenttyp.');
+    }
+    $row = staff_find_by_id($id);
+    if ($row === false) {
+        throw new RuntimeException('Person nicht gefunden.');
+    }
+
+    $newPath = null;
+    if ($inputName !== null) {
+        require_once __DIR__ . '/functions.php';
+        $newPath = handle_upload($inputName, STAFF_UPLOAD_DIR, STAFF_UPLOAD_PUBLIC_PREFIX);
+        if ($newPath === null) {
+            return; // keine neue Datei gewählt
+        }
+    }
+
+    $old = staff_document_path($row, $type);
+    $stmt = db()->prepare('UPDATE staff SET ' . $def['column'] . ' = ? WHERE id = ?');
+    $stmt->execute([$newPath, $id]);
+    if ($old !== null) {
+        @unlink($old);
+    }
+}
+
+/**
+ * Sendet ein Staff-Dokument an den Browser/Client (404, falls nicht vorhanden).
+ *
+ * @param array<string, mixed> $row
+ */
+function staff_document_send(array $row, string $type, bool $inline = true): never
+{
+    $path = staff_document_path($row, $type);
+    if ($path === null) {
+        http_response_code(404);
+        exit('Dokument nicht vorhanden.');
+    }
+    $mime = (new finfo(FILEINFO_MIME_TYPE))->file($path) ?: 'application/octet-stream';
+    $name = preg_replace('/[^A-Za-z0-9_-]+/', '_', 'staff-' . $type . '-' . ($row['nachname'] ?? '') . '-' . ($row['vorname'] ?? '')) . '.' . pathinfo($path, PATHINFO_EXTENSION);
+
+    header('Content-Type: ' . $mime);
+    header('Content-Length: ' . filesize($path));
+    header('Content-Disposition: ' . ($inline ? 'inline' : 'attachment') . '; filename="' . $name . '"');
+    header('X-Content-Type-Options: nosniff');
+    header('Cache-Control: private, no-store');
+    readfile($path);
+    exit;
 }

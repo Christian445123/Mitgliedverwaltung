@@ -249,6 +249,7 @@ CREATE TABLE IF NOT EXISTS staff (
     short_groesse VARCHAR(10) DEFAULT NULL,
     shorts_anzahl VARCHAR(20) DEFAULT NULL,
     coaching_hosen_lang_groesse VARCHAR(10) DEFAULT NULL,
+    rechte_dokument_pfad VARCHAR(255) DEFAULT NULL,
     status ENUM('aktiv', 'inaktiv') NOT NULL DEFAULT 'aktiv',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

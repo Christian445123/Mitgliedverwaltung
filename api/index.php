@@ -21,6 +21,7 @@ declare(strict_types=1);
  *   POST   /api/update                              Server-Update per git pull --ff-only (Schreib-Token)
  *   GET    /api/template.csv                        Import-Vorlage
  *   GET/POST/PUT/DELETE /api/staff[/{id}]           Staff (Coaches/Betreuer) lesen, anlegen, ändern, löschen
+ *   GET/POST/DELETE     /api/staff/{id}/documents/rechte  Staff: unterschriebenes Dokument Rechte & Pflichten
  *   GET    /api/roster.pdf|xlsx                     Alphabetischer Roster;  /api/roster-ifaf.pdf|xlsx?competition=&game=&team= IFAF-Roster
  *   GET    /api/members/{id}/documents/{typ}        Dokument laden (typ: ecard, ecard_back, pass, pass_back, nada, rechte)
  *   POST   /api/members/{id}/documents/{typ}        Dokument hochladen (multipart, Feld "file"; Schreib-Token)
@@ -294,6 +295,45 @@ if ($path === 'members/bulk-delete' && $method === 'POST') {
     }
 }
 
+// Staff-Dokumente: GET/POST/DELETE /staff/{id}/documents/rechte
+if (preg_match('#^staff/(\d+)/documents/(rechte)$#', $path, $sdm) === 1) {
+    require_once __DIR__ . '/../includes/staff.php';
+    $sid = (int) $sdm[1];
+    $sType = $sdm[2];
+    try {
+        staff_ensure_table(db());
+        $sRow = staff_find_by_id($sid);
+        if ($sRow === false) {
+            api_error(404, 'Person nicht gefunden.');
+        }
+        if ($method === 'GET') {
+            if (staff_document_path($sRow, $sType) === null) {
+                api_error(404, 'Dokument nicht vorhanden.');
+            }
+            staff_document_send($sRow, $sType, false);
+        }
+        if ($method === 'POST') {
+            $requireWrite();
+            if (!isset($_FILES['file'])) {
+                api_error(400, 'Keine Datei übermittelt (Feld "file").');
+            }
+            staff_set_document($sid, $sType, 'file');
+            app_log('document.upload', 'Staff-Dokument per API hochgeladen', ['target_type' => 'staff', 'target_id' => $sid, 'type' => $sType]);
+            api_json(200, ['dokumente' => staff_documents_present(staff_find_by_id($sid))]);
+        }
+        if ($method === 'DELETE') {
+            $requireWrite();
+            staff_set_document($sid, $sType, null);
+            app_log('document.delete', 'Staff-Dokument per API entfernt', ['target_type' => 'staff', 'target_id' => $sid, 'type' => $sType]);
+            api_json(200, ['dokumente' => staff_documents_present(staff_find_by_id($sid))]);
+        }
+    } catch (RuntimeException $e) {
+        api_error(422, $e->getMessage());
+    }
+    header('Allow: GET, POST, DELETE');
+    api_error(405, 'Methode nicht erlaubt.');
+}
+
 // Staff (Coaches/Betreuer): GET /staff, GET /staff/{id}, POST /staff, PUT /staff/{id}, DELETE /staff/{id}
 if (preg_match('#^staff(?:/(\d+))?$#', $path, $sm) === 1) {
     require_once __DIR__ . '/../includes/staff.php';
@@ -306,6 +346,7 @@ if (preg_match('#^staff(?:/(\d+))?$#', $path, $sm) === 1) {
             $out[$key] = $value === '' ? null : $value;
         }
         $out['name_vorname'] = trim((string) ($row['nachname'] ?? '') . ' ' . (string) ($row['vorname'] ?? ''));
+        $out['dokumente'] = staff_documents_present($row);
         return $out;
     };
     $readStaffBody = static function (): array {
