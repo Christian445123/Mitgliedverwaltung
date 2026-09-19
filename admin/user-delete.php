@@ -40,6 +40,7 @@ if ($target['role'] === 'administrator') {
 
 $delete = db()->prepare('DELETE FROM admins WHERE id = ?');
 $delete->execute([$id]);
+app_log('user.delete', 'Benutzer gelöscht', ['target_type' => 'admin', 'target_id' => $id, 'username' => $target['username'] ?? null], 'warning');
 
 flash_set('info', 'Benutzer wurde gelöscht.');
 redirect('users.php');

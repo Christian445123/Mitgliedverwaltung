@@ -14,4 +14,5 @@ if ($member === false) {
     exit('Mitglied nicht gefunden.');
 }
 
+app_log('document.view', 'Dokument angesehen', ['target_type' => 'member', 'target_id' => $member['id'], 'type' => (string) ($_GET['type'] ?? '')]);
 member_document_send($member, (string) ($_GET['type'] ?? ''));

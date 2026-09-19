@@ -33,12 +33,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'regenerate_link') {
         $newToken = member_regenerate_token($id);
+        app_log('member.link_regenerate', 'Zugangslink neu erzeugt', ['target_type' => 'member', 'target_id' => $id]);
         $member['verify_token'] = $newToken;
         $member['verified_at'] = null;
         $member['failed_verify_attempts'] = 0;
         $member['verify_locked_until'] = null;
     } elseif ($action === 'regenerate_password') {
         $generatedPassword = member_regenerate_access_password($id);
+        app_log('member.code_regenerate', 'Zugangscode neu erzeugt', ['target_type' => 'member', 'target_id' => $id]);
         $member['failed_verify_attempts'] = 0;
         $member['verify_locked_until'] = null;
     } elseif ($action === 'send_email') {
@@ -61,6 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             try {
                 (new Mailer())->send($member['email'], $member['vorname'] . ' ' . $member['nachname'], 'Dein Zugang zur Mitgliederverwaltung – AFBÖ U19', $html);
                 $generatedPassword = $freshPassword;
+                app_log('member.email_sent', 'Zugangslink per E-Mail versendet', ['target_type' => 'member', 'target_id' => $id]);
                 $mailNotice = ['type' => 'success', 'text' => 'Link und Zugangscode wurden an ' . $member['email'] . ' gesendet.'];
             } catch (Throwable $e) {
                 $mailNotice = ['type' => 'error', 'text' => 'E-Mail konnte nicht gesendet werden: ' . (APP_DEBUG ? $e->getMessage() : 'Bitte später erneut versuchen.')];

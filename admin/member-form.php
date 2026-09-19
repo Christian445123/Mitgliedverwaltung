@@ -26,6 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $status = ($_POST['status'] ?? 'aktiv') === 'inaktiv' ? 'inaktiv' : 'aktiv';
 
         $savedId = member_upsert($data, $id, $status);
+        app_log($id === null ? 'member.create' : 'member.update', $id === null ? 'Mitglied angelegt' : 'Mitglied geändert', ['target_type' => 'member', 'target_id' => $savedId, 'status' => null]);
 
         if ($id === null) {
             // Neues Mitglied: gleich einen Zugangscode für den persönlichen Link erzeugen.

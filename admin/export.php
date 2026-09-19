@@ -16,6 +16,7 @@ $filename = $template ? 'mitglieder-vorlage.csv' : 'mitglieder-' . date('Y-m-d')
 header('Content-Type: text/csv; charset=utf-8');
 header('Content-Disposition: attachment; filename="' . $filename . '"');
 header('Cache-Control: no-store');
+app_log('export.csv', $template ? 'Import-Vorlage heruntergeladen' : 'Mitglieder als CSV exportiert', ['status_filter' => $status]);
 
 $out = fopen('php://output', 'w');
 member_export_csv($out, $template ? [] : member_all($status));

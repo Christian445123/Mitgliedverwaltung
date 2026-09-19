@@ -1,5 +1,8 @@
 .env
-/uploads/ecard/*
-/uploads/pass/*
-!/uploads/ecard/.gitkeep
-!/uploads/pass/.gitkeep
+
+# Hochgeladene Dokumente (E-Card, Pass, NADA, Rechte & Pflichten, ...) niemals einchecken
+/uploads/*/*
+!/uploads/*/.gitkeep
+
+# Protokolldateien
+/logs/

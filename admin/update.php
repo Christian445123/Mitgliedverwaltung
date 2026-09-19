@@ -13,6 +13,7 @@ $result = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
     $result = perform_update(dirname(__DIR__));
+    app_log('system.update', $result['success'] ? 'Server-Update erfolgreich' : 'Server-Update fehlgeschlagen', ['success' => $result['success']], $result['success'] ? 'info' : 'error');
 }
 
 $pageTitle = 'Anwendung aktualisieren';

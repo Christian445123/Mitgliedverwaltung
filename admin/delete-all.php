@@ -17,6 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Die Bestätigung stimmt nicht. Bitte genau "' . DELETE_ALL_PHRASE . '" eingeben.';
     } else {
         $count = member_delete_all();
+        app_log('member.delete_all', 'ALLE Mitglieder gelöscht (' . $count . ')', ['deleted' => $count], 'warning');
         flash_set('info', 'Alle Mitglieder wurden gelöscht (' . $count . ').');
         redirect('index.php');
     }

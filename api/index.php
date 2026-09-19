@@ -25,6 +25,9 @@ declare(strict_types=1);
  *   DELETE /api/members/{id}/documents/{typ}        Dokument entfernen (Schreib-Token)
  */
 
+// Quelle für das Protokoll (muss vor config.php definiert sein)
+define('LOG_SOURCE', 'api');
+
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/api_tokens.php';
 require_once __DIR__ . '/../includes/member_import.php';
@@ -82,11 +85,13 @@ $token = preg_match('/^Bearer\s+(\S+)$/i', $header, $m) ? $m[1] : trim($header);
 
 $auth = $token !== '' ? api_token_verify($token) : null;
 if ($auth === null) {
+    app_log('api.auth_failed', 'Ungültiger oder fehlender API-Token', [], 'warning');
     usleep(300000);
     header('WWW-Authenticate: Bearer realm="U19"');
     api_error(401, 'Ungültiger oder fehlender API-Token.');
 }
 $canWrite = (int) $auth['can_write'] === 1;
+$GLOBALS['log_actor'] = 'token:' . $auth['name'];
 
 // ── Routing ───────────────────────────────────────────────────────
 $path = (string) parse_url((string) $_SERVER['REQUEST_URI'], PHP_URL_PATH);
@@ -176,6 +181,7 @@ if ($path === 'import' && $method === 'POST') {
         ];
         if ($commit) {
             $response['result'] = member_import_commit($analysis['rows'], $update);
+            app_log('import.commit', 'Import per API', ['created' => $response['result']['created'], 'updated' => $response['result']['updated'], 'failed' => count($response['result']['failed']), 'file' => (string) $file['name']]);
         }
         api_json(200, $response);
     } catch (RuntimeException $e) {
@@ -187,6 +193,7 @@ if ($path === 'import' && $method === 'POST') {
 if ($path === 'update' && $method === 'POST') {
     $requireWrite();
     $result = perform_update(APP_ROOT);
+    app_log('system.update', $result['success'] ? 'Server-Update per API erfolgreich' : 'Server-Update per API fehlgeschlagen', ['success' => $result['success']], $result['success'] ? 'info' : 'error');
     api_json(200, $result);
 }
 
@@ -209,11 +216,13 @@ if (preg_match('#^members/(\d+)/documents/(ecard|pass|nada|rechte)$#', $path, $d
         if ($method === 'POST') {
             $requireWrite();
             member_set_document($docId, $docType, 'file');
+            app_log('document.upload', 'Dokument per API hochgeladen', ['target_type' => 'member', 'target_id' => $docId, 'type' => $docType]);
             api_json(200, ['dokumente' => member_documents_present(member_find_by_id($docId))]);
         }
         if ($method === 'DELETE') {
             $requireWrite();
             member_set_document($docId, $docType, null);
+            app_log('document.delete', 'Dokument per API entfernt', ['target_type' => 'member', 'target_id' => $docId, 'type' => $docType]);
             api_json(200, ['dokumente' => member_documents_present(member_find_by_id($docId))]);
         }
     } catch (RuntimeException $e) {
@@ -236,13 +245,17 @@ if ($path === 'members/bulk-delete' && $method === 'POST') {
             if (($body['confirm'] ?? '') !== 'ALLE LÖSCHEN') {
                 api_error(422, 'Zum Löschen aller Mitglieder muss "confirm" genau "ALLE LÖSCHEN" lauten.');
             }
-            api_json(200, ['deleted' => member_delete_all()]);
+            $deleted = member_delete_all();
+            app_log('member.delete_all', 'ALLE Mitglieder per API gelöscht (' . $deleted . ')', ['deleted' => $deleted], 'warning');
+            api_json(200, ['deleted' => $deleted]);
         }
         $ids = $body['ids'] ?? null;
         if (!is_array($ids) || $ids === []) {
             api_error(422, '"ids" muss eine nicht leere Liste von Mitglieds-IDs sein.');
         }
-        api_json(200, ['deleted' => member_delete_many($ids)]);
+        $deleted = member_delete_many($ids);
+        app_log('member.delete_bulk', $deleted . ' Mitglieder per API gelöscht', ['ids' => $ids, 'deleted' => $deleted], 'warning');
+        api_json(200, ['deleted' => $deleted]);
     } catch (RuntimeException $e) {
         api_error(409, $e->getMessage());
     }
@@ -296,7 +309,9 @@ try {
             api_error(409, 'Ein Mitglied mit dieser E-Mail-Adresse existiert bereits.');
         }
         member_import_save($data, false);
-        api_json(201, api_member(member_find_by_email((string) $data['email'])));
+        $created = member_find_by_email((string) $data['email']);
+        app_log('member.create', 'Mitglied per API angelegt', ['target_type' => 'member', 'target_id' => $created['id'] ?? null]);
+        api_json(201, api_member($created));
     }
 
     if (($method === 'PUT' || $method === 'PATCH') && $id !== null) {
@@ -313,6 +328,7 @@ try {
         $status = $data['status'] ?? null;
         unset($data['status']);
         member_upsert($data, $id, $status);
+        app_log('member.update', 'Mitglied per API geändert', ['target_type' => 'member', 'target_id' => $id, 'fields' => array_keys($data)]);
         api_json(200, api_member(member_find_by_id($id)));
     }
 
@@ -322,6 +338,7 @@ try {
             api_error(404, 'Mitglied nicht gefunden.');
         }
         member_delete($id);
+        app_log('member.delete', 'Mitglied per API gelöscht', ['target_type' => 'member', 'target_id' => $id], 'warning');
         api_json(200, ['deleted' => $id]);
     }
 

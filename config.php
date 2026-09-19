@@ -52,3 +52,7 @@ if (session_status() === PHP_SESSION_NONE) {
     ]);
     session_start();
 }
+
+// Protokollierung (Fehler, Requests, Audit) für alle Seiten und die API aktivieren
+require_once __DIR__ . '/includes/logger.php';
+log_register_handlers();

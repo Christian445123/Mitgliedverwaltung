@@ -35,6 +35,7 @@ function admin_login(string $username, string $password): bool
     $admin = $stmt->fetch();
 
     if ($admin === false || !password_verify($password, $admin['password_hash'])) {
+        app_log('auth.login_failed', 'Anmeldung fehlgeschlagen', ['actor' => $username, 'username' => $username, 'reason' => $admin === false ? 'unbekannter Benutzer' : 'falsches Passwort'], 'warning');
         usleep(300000);
         return false;
     }
@@ -44,12 +45,16 @@ function admin_login(string $username, string $password): bool
     $_SESSION['admin_username'] = $admin['username'];
     $_SESSION['admin_role'] = $admin['role'];
     $_SESSION['must_change_password'] = (bool) $admin['must_change_password'];
+    app_log('auth.login', 'Anmeldung erfolgreich', ['actor' => $admin['username'], 'target_type' => 'admin', 'target_id' => $admin['id'], 'role' => $admin['role']]);
 
     return true;
 }
 
 function admin_logout(): void
 {
+    if (!empty($_SESSION['admin_id'])) {
+        app_log('auth.logout', 'Abgemeldet', ['target_type' => 'admin', 'target_id' => $_SESSION['admin_id']]);
+    }
     $_SESSION = [];
     if (session_status() === PHP_SESSION_ACTIVE) {
         session_destroy();

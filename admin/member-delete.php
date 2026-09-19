@@ -17,6 +17,7 @@ verify_csrf();
 $id = (int) ($_POST['id'] ?? 0);
 if ($id > 0) {
     member_delete($id);
+    app_log('member.delete', 'Mitglied gelöscht', ['target_type' => 'member', 'target_id' => $id], 'warning');
     flash_set('info', 'Mitglied wurde gelöscht.');
 }
 

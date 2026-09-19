@@ -74,3 +74,16 @@ document.addEventListener('DOMContentLoaded', function () {
     });
     update();
 });
+
+// Mobiles Menü: Seitenleiste auf Tablet/Handy auf- und zuklappen
+document.addEventListener('DOMContentLoaded', function () {
+    var toggle = document.querySelector('[data-nav-toggle]');
+    var sidebar = document.querySelector('.sidebar');
+    if (!toggle || !sidebar) {
+        return;
+    }
+    toggle.addEventListener('click', function () {
+        var open = sidebar.classList.toggle('nav-open');
+        toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+});

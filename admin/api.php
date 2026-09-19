@@ -21,9 +21,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Bitte eine Bezeichnung angeben (max. 100 Zeichen), z.B. "Excel Büro-PC".';
         } else {
             $newToken = api_token_create($name, ($_POST['access'] ?? '') === 'write', current_admin_id());
+            app_log('api_token.create', 'API-Zugang erstellt', ['name' => $name, 'write' => ($_POST['access'] ?? '') === 'write']);
         }
     } elseif ($action === 'delete') {
         api_token_delete((int) ($_POST['id'] ?? 0));
+        app_log('api_token.delete', 'API-Zugang widerrufen', ['target_type' => 'api_token', 'target_id' => (int) ($_POST['id'] ?? 0)], 'warning');
         flash_set('info', 'Zugang wurde widerrufen.');
         redirect('api.php');
     }

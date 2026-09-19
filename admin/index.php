@@ -75,7 +75,7 @@ $listUrl = static fn (array $extra = []) => 'index.php?' . http_build_query(arra
     </div>
 
 <div class="table-scroll">
-<table class="table">
+<table class="table table-cards">
     <thead>
         <tr>
             <th class="check-col"><input type="checkbox" data-select-all aria-label="Alle auf dieser Seite auswählen"></th>
@@ -95,21 +95,21 @@ $listUrl = static fn (array $extra = []) => 'index.php?' . http_build_query(arra
     <?php endif; ?>
     <?php foreach ($members as $mRow): ?>
         <tr>
-            <td class="check-col"><input type="checkbox" name="ids[]" value="<?= (int) $mRow['id'] ?>" data-row-check aria-label="Mitglied auswählen"></td>
-            <td><?= h($mRow['nachname']) ?>, <?= h($mRow['vorname']) ?><?php if (($mRow['kader'] ?? 'kader') === 'nicht_im_kader'): ?> <span class="badge badge-gray">nicht im Kader</span><?php endif; ?></td>
-            <td><?= h($mRow['verein'] ?? '') ?></td>
-            <td><?= h($mRow['position'] ?? '') ?></td>
-            <td><?= h($mRow['jersey_nr'] ?? '') ?></td>
-            <td><?= h($mRow['email']) ?></td>
-            <td><span class="badge badge-<?= $mRow['status'] === 'aktiv' ? 'green' : 'gray' ?>"><?= h(ucfirst($mRow['status'])) ?></span></td>
-            <td>
+            <td class="check-col" data-label="Auswahl"><input type="checkbox" name="ids[]" value="<?= (int) $mRow['id'] ?>" data-row-check aria-label="Mitglied auswählen"></td>
+            <td data-label="Name"><?= h($mRow['nachname']) ?>, <?= h($mRow['vorname']) ?><?php if (($mRow['kader'] ?? 'kader') === 'nicht_im_kader'): ?> <span class="badge badge-gray">nicht im Kader</span><?php endif; ?></td>
+            <td data-label="Verein"><?= h($mRow['verein'] ?? '') ?></td>
+            <td data-label="Position"><?= h($mRow['position'] ?? '') ?></td>
+            <td data-label="Jersey Nr."><?= h($mRow['jersey_nr'] ?? '') ?></td>
+            <td data-label="E-Mail"><?= h($mRow['email']) ?></td>
+            <td data-label="Status"><span class="badge badge-<?= $mRow['status'] === 'aktiv' ? 'green' : 'gray' ?>"><?= h(ucfirst($mRow['status'])) ?></span></td>
+            <td data-label="Bestätigt">
                 <?php if ($mRow['verified_at']): ?>
                     <span class="badge badge-green" title="Bestätigt am <?= h($mRow['verified_at']) ?>">✓</span>
                 <?php else: ?>
                     <span class="badge badge-orange">Ausstehend</span>
                 <?php endif; ?>
             </td>
-            <td class="actions">
+            <td class="actions" data-label="">
                 <a href="member-form.php?id=<?= (int) $mRow['id'] ?>">Bearbeiten</a>
                 <a href="member-link.php?id=<?= (int) $mRow['id'] ?>">Link</a>
             </td>

@@ -11,11 +11,6 @@ CREATE TABLE IF NOT EXISTS admins (
     UNIQUE KEY uniq_username (username)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Idempotente Migration für bereits bestehende Installationen (falls die
--- Tabelle "admins" schon ohne die Spalte "role" existiert). Benötigt
--- MariaDB (unterstützt "ADD COLUMN IF NOT EXISTS"); auf reinem MySQL bei
--- Bedarf manuell prüfen/anpassen.
-ALTER TABLE admins ADD COLUMN IF NOT EXISTS role ENUM('administrator', 'editor') NOT NULL DEFAULT 'administrator' AFTER password_hash;
 
 -- Kern-Tabelle: Stammdaten + Felder, die für Liste/Suche im Admin-Dashboard
 -- gebraucht werden. Alles andere ist in Teiltabellen ausgelagert (1:1 über
@@ -140,4 +135,29 @@ CREATE TABLE IF NOT EXISTS api_tokens (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     last_used_at DATETIME DEFAULT NULL,
     UNIQUE KEY uniq_token_hash (token_hash)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Protokoll (Audit- und Zugriffslog für Web-Anwendung und API)
+CREATE TABLE IF NOT EXISTS activity_log (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    source VARCHAR(10) NOT NULL,
+    level VARCHAR(10) NOT NULL DEFAULT 'info',
+    action VARCHAR(60) NOT NULL,
+    actor VARCHAR(100) DEFAULT NULL,
+    target_type VARCHAR(30) DEFAULT NULL,
+    target_id VARCHAR(40) DEFAULT NULL,
+    message VARCHAR(500) NOT NULL DEFAULT '',
+    details TEXT DEFAULT NULL,
+    ip VARCHAR(45) DEFAULT NULL,
+    user_agent VARCHAR(255) DEFAULT NULL,
+    http_method VARCHAR(8) DEFAULT NULL,
+    path VARCHAR(255) DEFAULT NULL,
+    status_code SMALLINT UNSIGNED DEFAULT NULL,
+    duration_ms INT UNSIGNED DEFAULT NULL,
+    KEY idx_created (created_at),
+    KEY idx_source_created (source, created_at),
+    KEY idx_level (level),
+    KEY idx_actor (actor),
+    KEY idx_action (action)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

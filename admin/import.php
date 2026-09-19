@@ -44,6 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $preview = member_import_analyze($table, $updateExisting, $kaderDefault);
             $preview['filename'] = (string) $file['name'];
             $preview['update_existing'] = $updateExisting;
+            app_log('import.preview', 'Import-Vorschau erstellt', ['file' => (string) $file['name'], 'rows' => count($preview['rows']), 'counts' => $preview['counts']]);
 
             $_SESSION['member_import'] = [
                 'rows' => $preview['rows'],
@@ -77,6 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new RuntimeException('Keine Import-Vorschau vorhanden. Bitte Datei erneut hochladen.');
             }
             $result = member_import_commit($pending['rows'], (bool) $pending['update_existing']);
+            app_log('import.commit', 'Import durchgeführt', ['created' => $result['created'], 'updated' => $result['updated'], 'failed' => count($result['failed'])]);
         } elseif ($action === 'cancel') {
             unset($_SESSION['member_import'], $_SESSION['member_import_source']);
             redirect('import.php');

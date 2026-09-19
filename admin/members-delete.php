@@ -21,5 +21,6 @@ if (!is_array($ids) || $ids === []) {
 }
 
 $count = member_delete_many($ids);
+app_log('member.delete_bulk', $count . ' Mitglieder gelöscht', ['ids' => array_values($ids), 'deleted' => $count], 'warning');
 flash_set('info', $count === 1 ? '1 Mitglied wurde gelöscht.' : $count . ' Mitglieder wurden gelöscht.');
 redirect('index.php');

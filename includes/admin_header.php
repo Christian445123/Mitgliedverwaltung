@@ -9,7 +9,8 @@ $adminInitial = h(strtoupper(mb_substr(current_admin_username() ?? '?', 0, 1)));
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#11152a">
 <title><?= h($pageTitle ?? 'Verwaltung') ?> – Mitgliederverwaltung</title>
 <link rel="stylesheet" href="../assets/style.css?v=<?= asset_version('style.css') ?>">
 </head>
@@ -19,6 +20,7 @@ $adminInitial = h(strtoupper(mb_substr(current_admin_username() ?? '?', 0, 1)));
         <div class="sidebar-brand">
             <span class="brand-mark">U19</span>
             <span>AFBÖ<br>Mitgliederverwaltung</span>
+            <button type="button" class="nav-toggle" data-nav-toggle aria-label="Menü öffnen" aria-expanded="false">&#9776;</button>
         </div>
         <nav class="sidebar-nav">
             <a href="index.php" class="<?= $navActive('index.php') ?>">
@@ -41,6 +43,10 @@ $adminInitial = h(strtoupper(mb_substr(current_admin_username() ?? '?', 0, 1)));
             <a href="api.php" class="<?= $navActive('api.php') ?>">
                 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
                 API-Zugang
+            </a>
+            <a href="logs.php" class="<?= $navActive('logs.php') ?>">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
+                Protokoll
             </a>
             <a href="update.php" class="<?= $navActive('update.php') ?>">
                 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 3 21 9 15 9"/></svg>

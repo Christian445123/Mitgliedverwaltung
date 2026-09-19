@@ -64,10 +64,12 @@ if (!$unlocked) {
             if ($emailMatches && $passwordMatches) {
                 $_SESSION[$sessionKey] = true;
                 member_record_verify_success($memberId);
+                app_log('member.self_verify', 'Mitglied hat den Zugang bestätigt', ['actor' => 'member:' . $memberId, 'target_type' => 'member', 'target_id' => $memberId]);
                 redirect('mitglied-formular.php?token=' . $token);
             }
 
             member_record_verify_failure($memberId, (int) $member['failed_verify_attempts'], MAX_VERIFY_ATTEMPTS, VERIFY_LOCKOUT_MINUTES);
+            app_log('member.self_verify_failed', 'Falscher Zugangscode', ['actor' => 'member:' . $memberId, 'target_type' => 'member', 'target_id' => $memberId], 'warning');
             $unlockError = 'E-Mail-Adresse oder Zugangscode ist falsch.';
         }
     }
@@ -133,6 +135,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['stage'] ?? '') !== 'unlock
     try {
         $data = member_collect_input($member);
         member_upsert($data, $memberId);
+        app_log('member.self_update', 'Mitglied hat seine Daten selbst geändert', ['actor' => 'member:' . $memberId, 'target_type' => 'member', 'target_id' => $memberId]);
         $member = member_find_by_id($memberId);
         $saved = true;
     } catch (RuntimeException $e) {

@@ -56,6 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 );
                 $stmt->execute([$username, password_hash($password, PASSWORD_DEFAULT), $role]);
                 flash_set('info', "Benutzer „{$username}“ wurde angelegt.");
+                app_log('user.create', 'Benutzer angelegt', ['target_type' => 'admin', 'username' => $username, 'role' => $role]);
             } else {
                 if ($password !== '') {
                     $stmt = db()->prepare('UPDATE admins SET username = ?, password_hash = ?, role = ?, must_change_password = 1 WHERE id = ?');
@@ -65,6 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $stmt->execute([$username, $role, $id]);
                 }
                 flash_set('info', 'Benutzer wurde aktualisiert.');
+                app_log('user.update', 'Benutzer geändert', ['target_type' => 'admin', 'target_id' => $id, 'username' => $username, 'role' => $role, 'password_changed' => $password !== '']);
             }
 
             redirect('users.php');

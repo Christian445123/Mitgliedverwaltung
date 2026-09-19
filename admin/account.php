@@ -23,6 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'chang
 
     if ($row === false || !password_verify($current, $row['password_hash'])) {
         $passwordError = 'Aktuelles Passwort ist falsch.';
+        app_log('auth.password_change_failed', 'Passwortänderung: aktuelles Passwort falsch', ['target_type' => 'admin', 'target_id' => current_admin_id()], 'warning');
     } elseif (strlen($new) < 8) {
         $passwordError = 'Neues Passwort muss mindestens 8 Zeichen haben.';
     } elseif ($new !== $repeat) {
@@ -32,6 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'chang
         $update->execute([password_hash($new, PASSWORD_DEFAULT), current_admin_id()]);
         $_SESSION['must_change_password'] = false;
         $passwordSuccess = 'Passwort wurde geändert.';
+        app_log('auth.password_changed', 'Eigenes Passwort geändert', ['target_type' => 'admin', 'target_id' => current_admin_id()]);
     }
 }
 

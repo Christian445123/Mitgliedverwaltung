@@ -30,7 +30,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#11152a">
 <title>Login – Mitgliederverwaltung</title>
 <link rel="stylesheet" href="../assets/style.css?v=<?= asset_version('style.css') ?>">
 </head>

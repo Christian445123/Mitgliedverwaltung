@@ -10,11 +10,12 @@ function db(): PDO
 
     if ($pdo === null) {
         $host = (string) getenv('DB_HOST');
+        $port = (string) (getenv("DB_PORT") ?: "3306");
         $name = (string) getenv('DB_NAME');
         $user = (string) getenv('DB_USER');
         $pass = (string) getenv('DB_PASS');
 
-        $dsn = "mysql:host={$host};dbname={$name};charset=utf8mb4";
+        $dsn = "mysql:host={$host};port={$port};dbname={$name};charset=utf8mb4";
 
         $pdo = new PDO($dsn, $user, $pass, [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
