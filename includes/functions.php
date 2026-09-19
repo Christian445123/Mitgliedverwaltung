@@ -161,3 +161,45 @@ function handle_upload(string $inputName, string $targetDir, string $publicPrefi
 
     return rtrim($publicPrefix, '/') . '/' . $filename;
 }
+
+/**
+ * Vereinheitlicht Telefonnummern (Standard-Vorwahl +43):
+ *   0660 1234567 / 0043 660 1234567 / 660 1234567 -> +43 660 1234567
+ * Andere Länder (führendes "+") werden nur aufgeräumt.
+ *
+ * @throws InvalidArgumentException wenn keine plausible Nummer erkennbar ist (6-15 Ziffern)
+ */
+function normalize_phone(string $raw): string
+{
+    $raw = trim($raw);
+    $plus = str_starts_with($raw, '+');
+    $raw = (string) preg_replace('/\(0\)/', '', $raw); // "+43 (0) 660" -> "+43 660"
+    $digits = (string) preg_replace('/\D+/', '', $raw);
+
+    if (strlen($digits) < 6 || strlen($digits) > 15) {
+        throw new InvalidArgumentException('Ungültige Telefonnummer "' . $raw . '"');
+    }
+
+    if (!$plus && str_starts_with($digits, '00')) {
+        $plus = true;
+        $digits = substr($digits, 2);
+    } elseif (!$plus && str_starts_with($digits, '43') && strlen($digits) >= 11) {
+        $plus = true; // "436601234567" (Excel ohne "+")
+    }
+
+    if (!$plus) {
+        $digits = '43' . ltrim($digits, '0'); // 0660... oder 660... -> Österreich
+        $plus = true;
+    }
+
+    if (str_starts_with($digits, '43')) {
+        $rest = ltrim(substr($digits, 2), '0');
+        // Mobilnetz (z.B. 650, 660, 664, 676, 699): Vorwahl abtrennen
+        if (strlen($rest) > 3 && $rest[0] === '6') {
+            return '+43 ' . substr($rest, 0, 3) . ' ' . substr($rest, 3);
+        }
+        return '+43 ' . $rest;
+    }
+
+    return '+' . $digits;
+}

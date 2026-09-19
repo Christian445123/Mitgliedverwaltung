@@ -50,6 +50,9 @@ const MEMBER_IO_COLUMNS = [
     'hoodie_groesse' => ['Hoodie Größe', 'str'],
     'mesh_shorts_groesse' => ['Mesh Shorts Größe', 'str'],
     'socken_groesse' => ['Socken Größe', 'str'],
+    'zimmer_nr' => ['Zimmer Nr', 'str'],
+    'pract_jersey_nr' => ['Pract. Jersey Nr.', 'str'],
+    'pract_hose_groesse' => ['Pract. Hose Größe', 'str'],
     'status' => ['Status', 'status'],
 ];
 
@@ -63,18 +66,22 @@ const MEMBER_IO_MAXLEN = [
     'plz' => 10, 'ort' => 100, 'strasse' => 150, 'essen' => 255,
     'game_jersey_groesse' => 10, 'game_hosen_groesse' => 10, 'helm_groesse' => 10,
     'tshirt_polo_groesse' => 10, 'hoodie_groesse' => 10, 'mesh_shorts_groesse' => 10, 'socken_groesse' => 10,
+    'zimmer_nr' => 20, 'pract_jersey_nr' => 10, 'pract_hose_groesse' => 10,
 ];
 
 function io_normalize_header(string $header): string
 {
     $header = mb_strtolower(trim($header));
-    $header = strtr($header, ['ä' => 'ae', 'ö' => 'oe', 'ü' => 'ue', 'ß' => 'ss', '&' => 'und']);
-    return (string) preg_replace('/[^a-z0-9]+/', '', $header);
+    $header = strtr($header, ['ä' => 'a', 'ö' => 'o', 'ü' => 'u', 'ß' => 'ss', '&' => 'und']);
+    $header = (string) preg_replace('/[^a-z0-9]+/', '', $header);
+    // ae/oe/ue-Schreibweise (Größe = Groesse = Grösse) vereinheitlichen
+    return str_replace(['ae', 'oe', 'ue'], ['a', 'o', 'u'], $header);
 }
 
 /**
  * Ordnet Spaltenüberschriften den internen Feldnamen zu (akzeptiert
- * sowohl das deutsche Label als auch den technischen Schlüssel).
+ * sowohl das deutsche Label als auch den technischen Schlüssel sowie
+ * die Schreibweisen aus der bisherigen Excel-Liste).
  *
  * @param array<int, string> $headers
  * @return array{map: array<int, string>, unknown: array<int, string>}
@@ -86,20 +93,30 @@ function io_map_headers(array $headers): array
         $aliases[io_normalize_header($key)] = $key;
         $aliases[io_normalize_header($label)] = $key;
     }
-    // Häufige Alternativschreibweisen
-    $aliases += [
-        'email' => 'email', 'emailadresse' => 'email', 'mail' => 'email',
-        'bez' => 'bezirk', 'bezirk' => 'bezirk',
-        'gewicht' => 'gewicht_kg', 'groesse' => 'groesse_cm',
-        'svnr' => 'sozialversicherungsnummer', 'sozialversicherungsnummer' => 'sozialversicherungsnummer',
-        'rechteundpflicht' => 'rechte_pflichten_akzeptiert', 'rechteundpflichten' => 'rechte_pflichten_akzeptiert',
+    // Schreibweisen aus der bisherigen Excel-Liste und häufige Varianten
+    $extra = [
+        'Jersy Nr.' => 'jersey_nr', 'Jersey Nr' => 'jersey_nr', 'Trikotnummer' => 'jersey_nr',
+        'Email' => 'email', 'E-Mail' => 'email', 'Mail' => 'email', 'E-Mail-Adresse' => 'email',
+        'Bez.' => 'bezirk', 'Pos' => 'position', 'Pos.' => 'position',
+        'cm' => 'groesse_cm', 'Größe' => 'groesse_cm', 'KG' => 'gewicht_kg', 'Gewicht' => 'gewicht_kg',
+        'Name Erziehungsberechtigter' => 'erz_name', 'Name Erziehungsberechtigte' => 'erz_name',
+        'Rechte + Pflichten' => 'rechte_pflichten_akzeptiert', 'Rechte & Pflichten' => 'rechte_pflichten_akzeptiert',
+        'Sozial Ver. Nr.' => 'sozialversicherungsnummer', 'SV-Nr' => 'sozialversicherungsnummer',
+        'Helm verwendest du' => 'helm_eigener', 'Helm verwendest du (eigenen Helm)' => 'helm_eigener',
+        'Game Jersey Grösse' => 'game_jersey_groesse', 'Game Hosen Grösse' => 'game_hosen_groesse',
     ];
+    foreach ($extra as $alias => $key) {
+        $aliases[io_normalize_header($alias)] = $aliases[io_normalize_header($alias)] ?? $key;
+    }
+
+    // Spalten der Excel-Liste, die es hier nicht als Import-Feld gibt (bewusst ohne Warnung ignoriert)
+    $ignored = array_map('io_normalize_header', ['ID', 'Name & Vorname', 'Bild E-Card', 'Pass Foto']);
 
     $map = [];
     $unknown = [];
     foreach ($headers as $i => $header) {
         $norm = io_normalize_header((string) $header);
-        if ($norm === '') {
+        if ($norm === '' || in_array($norm, $ignored, true)) {
             continue;
         }
         if (isset($aliases[$norm]) && !in_array($aliases[$norm], $map, true)) {
@@ -216,6 +233,14 @@ function io_convert_row(array $raw, bool $clearEmpty = false): array
                 $data[$key] = null;
             }
         } elseif ($parsed !== null) {
+            if ($key === "telefon" || $key === "erz_telefon") {
+                try {
+                    $parsed = normalize_phone((string) $parsed);
+                } catch (InvalidArgumentException $e) {
+                    $errors[] = $label . ": " . $e->getMessage();
+                    continue;
+                }
+            }
             $data[$key] = $parsed;
         }
     }

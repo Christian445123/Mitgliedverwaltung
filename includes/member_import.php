@@ -118,9 +118,10 @@ function member_import_commit(array $rows, bool $updateExisting): array
 function member_export_csv($out, array $rows): void
 {
     fwrite($out, "\xEF\xBB\xBF");
-    spreadsheet_write_csv_row($out, array_map(static fn (array $c) => $c[0], array_values(MEMBER_IO_COLUMNS)));
+    // "ID" steht wie in der bisherigen Excel-Liste vorn; beim Import wird die Spalte ignoriert.
+    spreadsheet_write_csv_row($out, array_merge(['ID'], array_map(static fn (array $c) => $c[0], array_values(MEMBER_IO_COLUMNS))));
     foreach ($rows as $row) {
-        $line = [];
+        $line = [(string) ($row['id'] ?? '')];
         foreach (array_keys(MEMBER_IO_COLUMNS) as $key) {
             $line[] = io_export_value($key, $row);
         }

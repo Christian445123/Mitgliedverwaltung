@@ -17,12 +17,17 @@ declare(strict_types=1);
  *   PUT    /api/members/{id}                        Ändern         (Schreib-Token)
  *   DELETE /api/members/{id}                        Löschen        (Schreib-Token)
  *   POST   /api/import                              CSV/XLSX-Import (Schreib-Token; commit=1 speichert)
+ *   POST   /api/update                              Server-Update per git pull --ff-only (Schreib-Token)
  *   GET    /api/template.csv                        Import-Vorlage
+ *   GET    /api/members/{id}/documents/{typ}        Dokument laden (typ: ecard, pass, nada, rechte)
+ *   POST   /api/members/{id}/documents/{typ}        Dokument hochladen (multipart, Feld "file"; Schreib-Token)
+ *   DELETE /api/members/{id}/documents/{typ}        Dokument entfernen (Schreib-Token)
  */
 
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/api_tokens.php';
 require_once __DIR__ . '/../includes/member_import.php';
+require_once __DIR__ . '/../includes/updater.php';
 
 // Die API nutzt keine Sitzung; eine evtl. von config.php gestartete Session wird sofort freigegeben.
 if (session_status() === PHP_SESSION_ACTIVE) {
@@ -63,6 +68,7 @@ function api_member(array $row): array
         }
         $out[$key] = $value;
     }
+    $out['dokumente'] = member_documents_present($row);
     $out['bestaetigt_am'] = $row['verified_at'] ?? null;
     $out['angelegt_am'] = $row['created_at'] ?? null;
     $out['geaendert_am'] = $row['updated_at'] ?? null;
@@ -157,6 +163,46 @@ if ($path === 'import' && $method === 'POST') {
     } catch (RuntimeException $e) {
         api_error(422, $e->getMessage());
     }
+}
+
+// Server-Update (git pull --ff-only), wie der Update-Button im Admin-Bereich
+if ($path === 'update' && $method === 'POST') {
+    $requireWrite();
+    $result = perform_update(APP_ROOT);
+    api_json(200, $result);
+}
+
+// Dokumente eines Mitglieds (E-Card, Pass, NADA, Rechte & Pflichten)
+if (preg_match('#^members/(\d+)/documents/(ecard|pass|nada|rechte)$#', $path, $dm)) {
+    $docId = (int) $dm[1];
+    $docType = $dm[2];
+    $docMember = member_find_by_id($docId);
+    if ($docMember === false) {
+        api_error(404, 'Mitglied nicht gefunden.');
+    }
+
+    try {
+        if ($method === 'GET') {
+            if (member_document_path($docMember, $docType) === null) {
+                api_error(404, 'Dokument nicht vorhanden.');
+            }
+            member_document_send($docMember, $docType, false);
+        }
+        if ($method === 'POST') {
+            $requireWrite();
+            member_set_document($docId, $docType, 'file');
+            api_json(200, ['dokumente' => member_documents_present(member_find_by_id($docId))]);
+        }
+        if ($method === 'DELETE') {
+            $requireWrite();
+            member_set_document($docId, $docType, null);
+            api_json(200, ['dokumente' => member_documents_present(member_find_by_id($docId))]);
+        }
+    } catch (RuntimeException $e) {
+        api_error(422, $e->getMessage());
+    }
+    header('Allow: GET, POST, DELETE');
+    api_error(405, 'Methode nicht erlaubt.');
 }
 
 if (!preg_match('#^members(?:/(\d+))?$#', $path, $m)) {

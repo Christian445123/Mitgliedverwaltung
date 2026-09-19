@@ -85,6 +85,8 @@ CREATE TABLE IF NOT EXISTS member_documents (
     geburtsland VARCHAR(100) DEFAULT NULL,
     geburtsort VARCHAR(100) DEFAULT NULL,
     ausstellungsbehoerde VARCHAR(150) DEFAULT NULL,
+    nada_dokument_pfad VARCHAR(255) DEFAULT NULL,
+    rechte_pflichten_dokument_pfad VARCHAR(255) DEFAULT NULL,
     CONSTRAINT fk_member_documents_member FOREIGN KEY (member_id) REFERENCES members (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -109,6 +111,9 @@ CREATE TABLE IF NOT EXISTS member_equipment (
     hoodie_groesse VARCHAR(10) DEFAULT NULL,
     mesh_shorts_groesse VARCHAR(10) DEFAULT NULL,
     socken_groesse VARCHAR(10) DEFAULT NULL,
+    zimmer_nr VARCHAR(20) DEFAULT NULL,
+    pract_jersey_nr VARCHAR(10) DEFAULT NULL,
+    pract_hose_groesse VARCHAR(10) DEFAULT NULL,
     CONSTRAINT fk_member_equipment_member FOREIGN KEY (member_id) REFERENCES members (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

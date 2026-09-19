@@ -19,6 +19,17 @@ $showAdminFields = $showAdminFields ?? false;
 $v = static fn (string $key) => h((string) ($m[$key] ?? ''));
 $checked = static fn (string $key) => !empty($m[$key]) ? 'checked' : '';
 
+// Hinweis am Upload-Feld: "vorhanden" (für Admins mit Link zum Dokument)
+$docNote = static function (string $column, string $type) use ($m, $showAdminFields): string {
+    if (empty($m[$column])) {
+        return '';
+    }
+    $link = ($showAdminFields && !empty($m['id']))
+        ? ' – <a href="document.php?id=' . (int) $m['id'] . '&amp;type=' . h($type) . '" target="_blank" rel="noopener">ansehen</a>'
+        : '';
+    return ' (vorhanden' . $link . ' – neu hochladen zum Ersetzen)';
+};
+
 // Erziehungsberechtigte-Angaben: im öffentlichen Formular nur bei
 // Minderjährigen einblenden (Admin sieht/bearbeitet sie immer).
 $isMinor = true; // solange kein Geburtsdatum bekannt ist, sicherheitshalber anzeigen
@@ -184,13 +195,17 @@ $showGuardianSection = $showAdminFields || $isMinor;
             Ich akzeptiere die Rechte und Pflichten des Vereins *
         </label>
     </div>
+    <div class="form-group">
+        <label for="rechte_pflichten_dokument">Unterschriebenes Dokument Rechte &amp; Pflichten<?= $docNote('rechte_pflichten_dokument_pfad', 'rechte') ?></label>
+        <input type="file" id="rechte_pflichten_dokument" name="rechte_pflichten_dokument" accept=".jpg,.jpeg,.png,.pdf">
+    </div>
 </fieldset>
 
 <fieldset>
     <legend>Bild E-Card &amp; Sozialversicherung</legend>
 
     <div class="form-group">
-        <label for="bild_ecard">Bild E-Card <?= !empty($m['bild_ecard_pfad']) ? '(vorhanden – neu hochladen zum Ersetzen)' : '' ?></label>
+        <label for="bild_ecard">Bild E-Card<?= $docNote('bild_ecard_pfad', 'ecard') ?></label>
         <input type="file" id="bild_ecard" name="bild_ecard" accept=".jpg,.jpeg,.png,.pdf">
     </div>
     <div class="form-group">
@@ -212,13 +227,18 @@ $showGuardianSection = $showAdminFields || $isMinor;
             <input type="date" id="nada_gueltig_bis" name="nada_gueltig_bis" value="<?= $v('nada_gueltig_bis') ?>">
         </div>
     </div>
+
+    <div class="form-group">
+        <label for="nada_dokument">NADA-Zertifikat (Dokument)<?= $docNote('nada_dokument_pfad', 'nada') ?></label>
+        <input type="file" id="nada_dokument" name="nada_dokument" accept=".jpg,.jpeg,.png,.pdf">
+    </div>
 </fieldset>
 
 <fieldset>
     <legend>Reisepass</legend>
 
     <div class="form-group">
-        <label for="pass_foto">Pass Foto <?= !empty($m['pass_foto_pfad']) ? '(vorhanden – neu hochladen zum Ersetzen)' : '' ?></label>
+        <label for="pass_foto">Pass Foto<?= $docNote('pass_foto_pfad', 'pass') ?></label>
         <input type="file" id="pass_foto" name="pass_foto" accept=".jpg,.jpeg,.png,.pdf">
     </div>
 
@@ -339,6 +359,20 @@ $showGuardianSection = $showAdminFields || $isMinor;
             <option value="aktiv" <?= ($m['status'] ?? 'aktiv') === 'aktiv' ? 'selected' : '' ?>>Aktiv</option>
             <option value="inaktiv" <?= ($m['status'] ?? '') === 'inaktiv' ? 'selected' : '' ?>>Inaktiv</option>
         </select>
+    </div>
+    <div class="form-row">
+        <div class="form-group">
+            <label for="zimmer_nr">Zimmer Nr</label>
+            <input type="text" id="zimmer_nr" name="zimmer_nr" value="<?= $v('zimmer_nr') ?>" maxlength="20">
+        </div>
+        <div class="form-group">
+            <label for="pract_jersey_nr">Pract. Jersey Nr.</label>
+            <input type="text" id="pract_jersey_nr" name="pract_jersey_nr" value="<?= $v('pract_jersey_nr') ?>" maxlength="10">
+        </div>
+        <div class="form-group">
+            <label for="pract_hose_groesse">Pract. Hose Größe</label>
+            <input type="text" id="pract_hose_groesse" name="pract_hose_groesse" value="<?= $v('pract_hose_groesse') ?>" maxlength="10">
+        </div>
     </div>
 </fieldset>
 <?php endif; ?>

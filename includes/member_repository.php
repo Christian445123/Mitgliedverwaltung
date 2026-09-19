@@ -16,9 +16,19 @@ const MEMBERS_COLUMNS = ['jersey_nr', 'nachname', 'vorname', 'sz', 'bezirk', 'po
 const CAMPS_COLUMNS = ['camp_1', 'spanien', 'camp_2', 'tschechien'];
 const GUARDIAN_COLUMNS = ['erz_name', 'erz_telefon', 'erz_email'];
 const CONSENT_COLUMNS = ['rechte_pflichten_akzeptiert', 'rechte_pflichten_am'];
-const DOCUMENT_COLUMNS = ['bild_ecard_pfad', 'sozialversicherungsnummer', 'nada_zertifikat', 'nada_gueltig_bis', 'pass_foto_pfad', 'reisepass_nr', 'reisepass_ausgestellt_am', 'reisepass_gueltig_bis', 'geburtsland', 'geburtsort', 'ausstellungsbehoerde'];
+const DOCUMENT_COLUMNS = ['bild_ecard_pfad', 'sozialversicherungsnummer', 'nada_zertifikat', 'nada_gueltig_bis', 'pass_foto_pfad', 'reisepass_nr', 'reisepass_ausgestellt_am', 'reisepass_gueltig_bis', 'geburtsland', 'geburtsort', 'ausstellungsbehoerde', 'nada_dokument_pfad', 'rechte_pflichten_dokument_pfad'];
 const ADDRESS_COLUMNS = ['plz', 'ort', 'strasse'];
-const EQUIPMENT_COLUMNS = ['essen', 'game_jersey_groesse', 'game_hosen_groesse', 'helm_groesse', 'helm_eigener', 'tshirt_polo_groesse', 'hoodie_groesse', 'mesh_shorts_groesse', 'socken_groesse'];
+const EQUIPMENT_COLUMNS = ['essen', 'game_jersey_groesse', 'game_hosen_groesse', 'helm_groesse', 'helm_eigener', 'tshirt_polo_groesse', 'hoodie_groesse', 'mesh_shorts_groesse', 'socken_groesse', 'zimmer_nr', 'pract_jersey_nr', 'pract_hose_groesse'];
+
+/**
+ * Dokumenttypen: Schlüssel (API/URL) => Spalte, Upload-Unterordner, Beschriftung.
+ */
+const MEMBER_DOCUMENT_TYPES = [
+    'ecard' => ['column' => 'bild_ecard_pfad', 'dir' => 'ecard', 'label' => 'E-Card'],
+    'pass' => ['column' => 'pass_foto_pfad', 'dir' => 'pass', 'label' => 'Reisepass'],
+    'nada' => ['column' => 'nada_dokument_pfad', 'dir' => 'nada', 'label' => 'NADA-Zertifikat'],
+    'rechte' => ['column' => 'rechte_pflichten_dokument_pfad', 'dir' => 'rechte', 'label' => 'Rechte & Pflichten'],
+];
 
 const MEMBER_JOIN_SQL = '
     SELECT m.*,
@@ -27,10 +37,10 @@ const MEMBER_JOIN_SQL = '
         co.rechte_pflichten_akzeptiert, co.rechte_pflichten_am,
         d.bild_ecard_pfad, d.sozialversicherungsnummer, d.nada_zertifikat, d.nada_gueltig_bis,
         d.pass_foto_pfad, d.reisepass_nr, d.reisepass_ausgestellt_am, d.reisepass_gueltig_bis,
-        d.geburtsland, d.geburtsort, d.ausstellungsbehoerde,
+        d.geburtsland, d.geburtsort, d.ausstellungsbehoerde, d.nada_dokument_pfad, d.rechte_pflichten_dokument_pfad,
         a.plz, a.ort, a.strasse,
         e.essen, e.game_jersey_groesse, e.game_hosen_groesse, e.helm_groesse, e.helm_eigener,
-        e.tshirt_polo_groesse, e.hoodie_groesse, e.mesh_shorts_groesse, e.socken_groesse,
+        e.tshirt_polo_groesse, e.hoodie_groesse, e.mesh_shorts_groesse, e.socken_groesse, e.zimmer_nr, e.pract_jersey_nr, e.pract_hose_groesse,
         ac.verify_token, ac.access_password_hash, ac.verified_at, ac.failed_verify_attempts, ac.verify_locked_until
     FROM members m
     LEFT JOIN member_camps c ON c.member_id = m.id
@@ -167,6 +177,13 @@ function member_collect_input(array $existing = []): array
     $vorname = post_str('vorname');
     $email = post_str('email');
     $telefon = post_str('telefon');
+    $erzTelefon = post_str('erz_telefon');
+    try {
+        $telefon = $telefon === null ? null : normalize_phone($telefon);
+        $erzTelefon = $erzTelefon === null ? null : normalize_phone($erzTelefon);
+    } catch (InvalidArgumentException $e) {
+        throw new RuntimeException($e->getMessage());
+    }
 
     if ($nachname === null || $vorname === null || $email === null || $telefon === null) {
         throw new RuntimeException('Nachname, Vorname, Telefon und E-Mail-Adresse sind Pflichtfelder.');
@@ -181,6 +198,12 @@ function member_collect_input(array $existing = []): array
 
     $passFotoPfad = handle_upload('pass_foto', MEMBER_UPLOAD_DIR . '/pass', MEMBER_UPLOAD_PUBLIC_PREFIX . '/pass')
         ?? ($existing['pass_foto_pfad'] ?? null);
+
+    $nadaDokumentPfad = handle_upload('nada_dokument', MEMBER_UPLOAD_DIR . '/nada', MEMBER_UPLOAD_PUBLIC_PREFIX . '/nada')
+        ?? ($existing['nada_dokument_pfad'] ?? null);
+
+    $rechteDokumentPfad = handle_upload('rechte_pflichten_dokument', MEMBER_UPLOAD_DIR . '/rechte', MEMBER_UPLOAD_PUBLIC_PREFIX . '/rechte')
+        ?? ($existing['rechte_pflichten_dokument_pfad'] ?? null);
 
     $rechteAkzeptiert = post_checkbox('rechte_pflichten_akzeptiert');
 
@@ -204,7 +227,7 @@ function member_collect_input(array $existing = []): array
         'email' => $email,
 
         'erz_name' => post_str('erz_name'),
-        'erz_telefon' => post_str('erz_telefon'),
+        'erz_telefon' => $erzTelefon,
         'erz_email' => post_str('erz_email'),
 
         'rechte_pflichten_akzeptiert' => $rechteAkzeptiert ? 1 : 0,
@@ -219,6 +242,8 @@ function member_collect_input(array $existing = []): array
         'nada_gueltig_bis' => post_date('nada_gueltig_bis'),
 
         'pass_foto_pfad' => $passFotoPfad,
+        'nada_dokument_pfad' => $nadaDokumentPfad,
+        'rechte_pflichten_dokument_pfad' => $rechteDokumentPfad,
         'reisepass_nr' => post_str('reisepass_nr'),
         'reisepass_ausgestellt_am' => post_date('reisepass_ausgestellt_am'),
         'reisepass_gueltig_bis' => post_date('reisepass_gueltig_bis'),
@@ -240,7 +265,24 @@ function member_collect_input(array $existing = []): array
         'hoodie_groesse' => post_str('hoodie_groesse'),
         'mesh_shorts_groesse' => post_str('mesh_shorts_groesse'),
         'socken_groesse' => post_str('socken_groesse'),
-    ];
+    ] + member_collect_admin_equipment();
+}
+
+/**
+ * Nur-Admin-Felder (Zimmer, Practice-Ausrüstung): werden nur übernommen, wenn sie
+ * im Formular mitgesendet wurden, damit die öffentliche Mitglieder-Seite sie nicht leert.
+ *
+ * @return array<string, mixed>
+ */
+function member_collect_admin_equipment(): array
+{
+    $data = [];
+    foreach (['zimmer_nr', 'pract_jersey_nr', 'pract_hose_groesse'] as $key) {
+        if (array_key_exists($key, $_POST)) {
+            $data[$key] = post_str($key);
+        }
+    }
+    return $data;
 }
 
 /**
@@ -331,7 +373,7 @@ function member_delete(int $id): void
         return;
     }
 
-    foreach (['bild_ecard_pfad', 'pass_foto_pfad'] as $field) {
+    foreach (array_column(MEMBER_DOCUMENT_TYPES, 'column') as $field) {
         if (!empty($member[$field])) {
             $path = __DIR__ . '/..' . $member[$field];
             if (is_file($path)) {
@@ -356,8 +398,10 @@ function member_where(string $query, ?string $status): array
     $params = [];
 
     if ($query !== '') {
-        $conditions[] = '(m.nachname LIKE :q OR m.vorname LIKE :q OR m.email LIKE :q OR m.verein LIKE :q OR m.jersey_nr LIKE :q)';
-        $params['q'] = '%' . $query . '%';
+        $conditions[] = '(m.nachname LIKE :q1 OR m.vorname LIKE :q2 OR m.email LIKE :q3 OR m.verein LIKE :q4 OR m.jersey_nr LIKE :q5)';
+        foreach (['q1', 'q2', 'q3', 'q4', 'q5'] as $name) {
+            $params[$name] = '%' . $query . '%'; // native Prepares erlauben keinen Parameternamen mehrfach
+        }
     }
     if ($status === 'aktiv' || $status === 'inaktiv') {
         $conditions[] = 'm.status = :status';
@@ -472,4 +516,97 @@ function member_import_save(array $data, bool $updateExisting): string
 
     member_upsert($data, null, $status);
     return 'created';
+}
+
+/**
+ * Absoluter Dateipfad eines Mitglieds-Dokuments oder null (nicht vorhanden / außerhalb von uploads/).
+ *
+ * @param array<string, mixed> $member
+ */
+function member_document_path(array $member, string $type): ?string
+{
+    if (!isset(MEMBER_DOCUMENT_TYPES[$type]) || empty($member[MEMBER_DOCUMENT_TYPES[$type]['column']])) {
+        return null;
+    }
+
+    $path = realpath(__DIR__ . '/..' . $member[MEMBER_DOCUMENT_TYPES[$type]['column']]);
+    $root = realpath(MEMBER_UPLOAD_DIR);
+    if ($path === false || $root === false || !str_starts_with($path, $root . DIRECTORY_SEPARATOR) || !is_file($path)) {
+        return null;
+    }
+    return $path;
+}
+
+/**
+ * Welche Dokumente sind vorhanden? [Typ => bool]
+ *
+ * @param array<string, mixed> $member
+ * @return array<string, bool>
+ */
+function member_documents_present(array $member): array
+{
+    $present = [];
+    foreach (array_keys(MEMBER_DOCUMENT_TYPES) as $type) {
+        $present[$type] = !empty($member[MEMBER_DOCUMENT_TYPES[$type]['column']]);
+    }
+    return $present;
+}
+
+/**
+ * Speichert (ersetzt) oder entfernt ein Dokument. $inputName = Name des Upload-Feldes in $_FILES,
+ * null = Dokument entfernen. Die alte Datei wird gelöscht.
+ *
+ * @throws RuntimeException bei ungültigem Upload
+ */
+function member_set_document(int $memberId, string $type, ?string $inputName): void
+{
+    $def = MEMBER_DOCUMENT_TYPES[$type] ?? null;
+    if ($def === null) {
+        throw new RuntimeException('Unbekannter Dokumenttyp.');
+    }
+
+    $member = member_find_by_id($memberId);
+    if ($member === false) {
+        throw new RuntimeException('Mitglied nicht gefunden.');
+    }
+
+    $newPath = null;
+    if ($inputName !== null) {
+        $newPath = handle_upload($inputName, MEMBER_UPLOAD_DIR . '/' . $def['dir'], MEMBER_UPLOAD_PUBLIC_PREFIX . '/' . $def['dir']);
+        if ($newPath === null) {
+            throw new RuntimeException('Keine Datei übermittelt.');
+        }
+    }
+
+    $old = member_document_path($member, $type);
+    upsert_child_row('member_documents', DOCUMENT_COLUMNS, $memberId, [$def['column'] => $newPath], false);
+    if ($old !== null) {
+        @unlink($old);
+    }
+}
+
+/**
+ * Sendet ein Dokument an den Browser/Client (bricht mit 404 ab, falls nicht vorhanden).
+ *
+ * @param array<string, mixed> $member
+ */
+function member_document_send(array $member, string $type, bool $inline = true): never
+{
+    $path = member_document_path($member, $type);
+    if ($path === null) {
+        http_response_code(404);
+        exit('Dokument nicht vorhanden.');
+    }
+
+    $mime = (new finfo(FILEINFO_MIME_TYPE))->file($path) ?: 'application/octet-stream';
+    $ext = pathinfo($path, PATHINFO_EXTENSION);
+    $name = preg_replace('/[^A-Za-z0-9_-]+/', '_', $type . '-' . ($member['nachname'] ?? '') . '-' . ($member['vorname'] ?? '')) . '.' . $ext;
+
+    header('Content-Type: ' . $mime);
+    header('Content-Length: ' . filesize($path));
+    header('Content-Disposition: ' . ($inline ? 'inline' : 'attachment') . '; filename="' . $name . '"');
+    header('X-Content-Type-Options: nosniff');
+    header('Cache-Control: private, no-store');
+    readfile($path);
+    exit;
 }
