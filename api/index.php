@@ -146,12 +146,24 @@ if ($path === 'import' && $method === 'POST') {
 
     try {
         $kaderDefault = in_array($_POST['kader_default'] ?? '', ['kader', 'nicht_im_kader'], true) ? $_POST['kader_default'] : null;
-        $analysis = member_import_analyze(spreadsheet_read($file['tmp_name'], (string) $file['name']), $update, $kaderDefault);
+        // Manuelle Spaltenzuordnung: JSON-Objekt {"<Spaltenindex>": "<Feld>" oder "-"}
+        $overrides = [];
+        $mapping = json_decode((string) ($_POST['mapping'] ?? ''), true);
+        if (is_array($mapping)) {
+            foreach ($mapping as $index => $target) {
+                if (is_string($target) && ctype_digit((string) $index)) {
+                    $overrides[(int) $index] = $target;
+                }
+            }
+        }
+        $analysis = member_import_analyze(spreadsheet_read($file['tmp_name'], (string) $file['name']), $update, $kaderDefault, $overrides);
         $response = [
             'counts' => $analysis['counts'],
             'unknown_columns' => $analysis['unknown'],
             'columns' => $analysis['columns'],
             'header_row' => $analysis['header_row'],
+            'fields' => $analysis['fields'],
+            'missing_required' => $analysis['missing_required'],
             'rows' => array_map(static fn (array $r) => [
                 'line' => $r['line'],
                 'action' => $r['action'],

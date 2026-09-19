@@ -81,12 +81,23 @@ function perform_update(string $projectRoot): array
         $log .= "OK, keine lokalen Änderungen.\n\n";
     }
 
+    // Häufigste Ursache für scheiternde Updates: .git enthält Dateien, die einem anderen Benutzer
+    // gehören (z.B. nach "git fetch/pull/reset" als root per SSH) - der Webserver darf dann nicht schreiben.
+    $blocked = find_unwritable_git_paths($projectRoot . '/.git');
+    if ($blocked !== []) {
+        return ['success' => false, 'log' => $log . permission_problem_help($projectRoot, $blocked)];
+    }
+
     $log .= "== git pull --ff-only ==\n";
     [$code, $out, $err] = run_shell_command('git pull --ff-only', $projectRoot);
     $log .= $out;
     if ($code !== 0) {
-        $log .= $err . "\ngit pull fehlgeschlagen (Exit-Code {$code}). Möglicherweise ist die Historie"
-            . " divergiert – dann per SSH manuell prüfen (`git fetch` / `git log`).\n";
+        $log .= $err . "\ngit pull fehlgeschlagen (Exit-Code {$code}).\n";
+        if (stripos($err, 'permission') !== false || stripos($err, 'unpack-objects failed') !== false) {
+            $log .= permission_problem_help($projectRoot, find_unwritable_git_paths($projectRoot . '/.git'));
+        } else {
+            $log .= "Möglicherweise ist die Historie divergiert – dann per SSH manuell prüfen (`git fetch` / `git log`).\n";
+        }
         return ['success' => false, 'log' => $log];
     }
 
@@ -95,4 +106,92 @@ function perform_update(string $projectRoot): array
         . "Falls sich schema.sql geändert hat, die Änderungen manuell in die Datenbank übernehmen.\n";
 
     return ['success' => true, 'log' => $log];
+}
+
+/**
+ * Name des Benutzers, unter dem PHP gerade läuft.
+ */
+function current_php_user(): string
+{
+    if (function_exists('posix_geteuid') && function_exists('posix_getpwuid')) {
+        $info = posix_getpwuid(posix_geteuid());
+        if (is_array($info) && !empty($info['name'])) {
+            return (string) $info['name'];
+        }
+    }
+    return get_current_user() ?: 'www-data';
+}
+
+/**
+ * Sucht Dateien/Ordner in .git, in die der Webserver-Benutzer nicht schreiben darf.
+ *
+ * @return array<int, string> die ersten Fundstellen (max. $limit)
+ */
+function find_unwritable_git_paths(string $gitDir, int $limit = 5): array
+{
+    if (!is_dir($gitDir)) {
+        return [];
+    }
+
+    $found = [];
+    if (!is_writable($gitDir)) {
+        $found[] = $gitDir;
+    }
+
+    try {
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($gitDir, FilesystemIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::SELF_FIRST
+        );
+        foreach ($iterator as $path => $info) {
+            // Ordner müssen beschreibbar sein (neue Objekte); Dateien außerhalb von objects/ ebenfalls
+            // (index, FETCH_HEAD, refs ...). Objekt-/Pack-Dateien sind normalerweise schreibgeschützt.
+            $unwritable = $info->isDir()
+                ? !is_writable((string) $path)
+                : (!str_contains(str_replace(DIRECTORY_SEPARATOR, '/', (string) $path), '/objects/') && !is_writable((string) $path));
+            if ($unwritable) {
+                $found[] = (string) $path;
+                if (count($found) >= $limit) {
+                    break;
+                }
+            }
+        }
+    } catch (Throwable $e) {
+        // Nicht lesbare Ordner sind selbst ein Fund
+        $found[] = $gitDir . ' (nicht lesbar)';
+    }
+
+    return $found;
+}
+
+/**
+ * Verständliche Anleitung bei Rechteproblemen im Git-Ordner.
+ *
+ * @param array<int, string> $blocked
+ */
+function permission_problem_help(string $projectRoot, array $blocked): string
+{
+    $user = current_php_user();
+    $text = "\n== Berechtigungsproblem ==\n"
+        . "Der Webserver läuft als Benutzer \"{$user}\" und darf im Git-Ordner nicht schreiben.\n"
+        . "Ursache: Dateien wurden zuvor von einem anderen Benutzer angelegt (typisch: git-Befehle per SSH als root).\n";
+
+    if ($blocked !== []) {
+        $text .= "Betroffen z.B.:\n";
+        foreach ($blocked as $path) {
+            $owner = '?';
+            if (function_exists('posix_getpwuid') && is_string($path) && file_exists($path)) {
+                $info = posix_getpwuid((int) fileowner($path));
+                $owner = is_array($info) ? (string) $info['name'] : (string) fileowner($path);
+            }
+            $text .= "  - {$path} (Besitzer: {$owner})\n";
+        }
+    }
+
+    $text .= "\nLösung per SSH (einmalig, als root):\n"
+        . "  chown -R {$user}:{$user} " . escapeshellarg($projectRoot) . "\n"
+        . "Danach git-Befehle per SSH nur noch als dieser Benutzer ausführen, z.B.:\n"
+        . "  sudo -u {$user} git -C " . escapeshellarg($projectRoot) . " pull\n";
+
+    return $text;
 }

@@ -32,6 +32,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $updateExisting = post_checkbox('update_existing');
             $table = spreadsheet_read($file['tmp_name'], (string) $file['name']);
             $kaderDefault = in_array($_POST['kader_default'] ?? '', ['kader', 'nicht_im_kader'], true) ? $_POST['kader_default'] : null;
+
+            // Für die manuelle Spaltenzuordnung merken wir uns die eingelesene Tabelle in der Sitzung
+            $_SESSION['member_import_source'] = [
+                'table' => $table,
+                'filename' => (string) $file['name'],
+                'update' => $updateExisting,
+                'kader' => $kaderDefault,
+            ];
+
             $preview = member_import_analyze($table, $updateExisting, $kaderDefault);
             $preview['filename'] = (string) $file['name'];
             $preview['update_existing'] = $updateExisting;
@@ -40,15 +49,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'rows' => $preview['rows'],
                 'update_existing' => $updateExisting,
             ];
+        } elseif ($action === 'remap') {
+            $source = $_SESSION['member_import_source'] ?? null;
+            if (!is_array($source)) {
+                throw new RuntimeException('Die Datei ist nicht mehr verfügbar. Bitte erneut hochladen.');
+            }
+
+            $overrides = [];
+            foreach ((array) ($_POST['map'] ?? []) as $index => $target) {
+                if (is_string($target) && ctype_digit((string) $index)) {
+                    $overrides[(int) $index] = $target;
+                }
+            }
+
+            $preview = member_import_analyze($source['table'], (bool) $source['update'], $source['kader'], $overrides);
+            $preview['filename'] = (string) $source['filename'];
+            $preview['update_existing'] = (bool) $source['update'];
+
+            $_SESSION['member_import'] = [
+                'rows' => $preview['rows'],
+                'update_existing' => (bool) $source['update'],
+            ];
         } elseif ($action === 'commit') {
             $pending = $_SESSION['member_import'] ?? null;
-            unset($_SESSION['member_import']);
+            unset($_SESSION['member_import'], $_SESSION['member_import_source']);
             if (!is_array($pending)) {
                 throw new RuntimeException('Keine Import-Vorschau vorhanden. Bitte Datei erneut hochladen.');
             }
             $result = member_import_commit($pending['rows'], (bool) $pending['update_existing']);
         } elseif ($action === 'cancel') {
-            unset($_SESSION['member_import']);
+            unset($_SESSION['member_import'], $_SESSION['member_import_source']);
             redirect('import.php');
         }
     } catch (RuntimeException $e) {
@@ -94,33 +124,53 @@ $actionBadges = ['create' => 'green', 'update' => 'blue', 'skip' => 'gray', 'err
     </div>
 
 
+    <?php if ($preview['missing_required']): ?>
+        <p class="alert alert-error"><strong>Pflichtfeld nicht zugeordnet:</strong> <?= h(implode(', ', $preview['missing_required'])) ?>.
+            Bitte unten in der Spaltenzuordnung eine Spalte dafür auswählen.</p>
+    <?php endif; ?>
     <?php if ($preview['unknown']): ?>
-        <p class="alert alert-error"><strong>Diese Spalten enthalten Daten, konnten aber keinem Feld zugeordnet werden und werden NICHT übernommen:</strong>
+        <p class="alert alert-error"><strong>Diese Spalten enthalten Daten, sind aber keinem Feld zugeordnet und werden NICHT übernommen:</strong>
             <?= h(implode(', ', $preview['unknown'])) ?>.
-            Bitte die Überschrift in der Datei anpassen (siehe Spaltenzuordnung unten) und erneut hochladen.</p>
+            Ordnen Sie sie unten in der Spaltenzuordnung einem Feld zu.</p>
     <?php endif; ?>
     <?php if ($preview['counts']['warning'] > 0): ?>
         <p class="alert alert-warning"><?= (int) $preview['counts']['warning'] ?> Zeile(n) werden importiert, haben aber Hinweise
             (z. B. nicht lesbares Datum oder gekürzter Text) – siehe Spalte „Hinweis“.</p>
     <?php endif; ?>
 
-    <details class="panel" style="margin-bottom:16px;">
-        <summary><strong>Spaltenzuordnung</strong> – Überschrift in der Datei → Feld (Überschriftenzeile: <?= (int) $preview['header_row'] ?>)</summary>
-        <div class="table-scroll">
-        <table class="table">
-            <thead><tr><th>Spalte in der Datei</th><th>Wird übernommen als</th><th>Gefüllte Zellen</th></tr></thead>
-            <tbody>
-            <?php foreach ($preview['columns'] as $col): ?>
-                <tr>
-                    <td><?= h($col['header']) ?></td>
-                    <td><?= $col['field'] !== null ? h($col['field']) : '<span class="badge badge-orange">nicht zugeordnet</span>' ?></td>
-                    <td><?= (int) $col['values'] ?></td>
-                </tr>
-            <?php endforeach; ?>
-            </tbody>
-        </table>
-        </div>
-    </details>
+    <form method="post" action="import.php">
+        <?= csrf_field() ?>
+        <input type="hidden" name="action" value="remap">
+        <details class="panel" style="margin-bottom:16px;" <?= ($preview['unknown'] || $preview['missing_required']) ? 'open' : '' ?>>
+            <summary><strong>Spaltenzuordnung</strong> – jede Spalte der Datei einem Feld zuordnen (Überschriftenzeile: <?= (int) $preview['header_row'] ?>)</summary>
+            <div class="table-scroll">
+            <table class="table">
+                <thead><tr><th>Spalte in der Datei</th><th>Wird übernommen als</th><th>Gefüllte Zellen</th></tr></thead>
+                <tbody>
+                <?php foreach ($preview['columns'] as $col): ?>
+                    <tr>
+                        <td><?= h($col['header']) ?></td>
+                        <td>
+                            <select name="map[<?= (int) $col['index'] ?>]">
+                                <option value="-" <?= $col['key'] === null ? 'selected' : '' ?>>— nicht importieren —</option>
+                                <?php foreach ($preview['fields'] as $field): ?>
+                                    <option value="<?= h($field['key']) ?>" <?= $col['key'] === $field['key'] ? 'selected' : '' ?>><?= h($field['label']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </td>
+                        <td>
+                            <?= (int) $col['values'] ?>
+                            <?php if ($col['state'] === 'unmapped' && $col['values'] > 0): ?><span class="badge badge-orange">nicht zugeordnet</span><?php endif; ?>
+                            <?php if ($col['state'] === 'skipped'): ?><span class="badge badge-gray">übersprungen</span><?php endif; ?>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+            </div>
+            <button type="submit" class="btn btn-primary" style="margin-top:12px;">Zuordnung übernehmen &amp; Vorschau aktualisieren</button>
+        </details>
+    </form>
 
     <?php $importable = $preview['counts']['create'] + $preview['counts']['update']; ?>
 

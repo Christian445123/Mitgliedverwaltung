@@ -84,10 +84,16 @@ function io_normalize_header(string $header): string
  * sowohl das deutsche Label als auch den technischen Schlüssel sowie
  * die Schreibweisen aus der bisherigen Excel-Liste).
  *
+ * $overrides = manuelle Zuordnung (Spaltenindex => Feldname oder '-' für "nicht importieren").
+ * Sie hat Vorrang vor der automatischen Erkennung.
+ *
  * @param array<int, string> $headers
- * @return array{map: array<int, string>, unknown: array<int, string>}
+ * @param array<int, string> $overrides
+ * @return array{map: array<int, string>, unknown: array<int, string>, ignored: array<int, string>, skipped: array<int, string>}
+ *   map = Spaltenindex => Feld; unknown = nicht zugeordnet; ignored = bewusst ohne Warnung
+ *   übergangen (ID, Name & Vorname); skipped = manuell auf "nicht importieren" gesetzt
  */
-function io_map_headers(array $headers): array
+function io_map_headers(array $headers, array $overrides = []): array
 {
     $aliases = [];
     foreach (MEMBER_IO_COLUMNS as $key => [$label]) {
@@ -113,22 +119,51 @@ function io_map_headers(array $headers): array
     }
 
     // Spalten der Excel-Liste, die es hier nicht als Import-Feld gibt (bewusst ohne Warnung ignoriert)
-    $ignored = array_map('io_normalize_header', ['ID', 'Name & Vorname']);
+    $ignoredNames = array_map('io_normalize_header', ['ID', 'Name & Vorname']);
 
     $map = [];
     $unknown = [];
+    $ignored = [];
     foreach ($headers as $i => $header) {
         $norm = io_normalize_header((string) $header);
-        if ($norm === '' || in_array($norm, $ignored, true)) {
+        if ($norm === '') {
             continue;
         }
-        if (isset($aliases[$norm]) && !in_array($aliases[$norm], $map, true)) {
+        if (in_array($norm, $ignoredNames, true)) {
+            $ignored[$i] = (string) $header;
+        } elseif (isset($aliases[$norm]) && !in_array($aliases[$norm], $map, true)) {
             $map[$i] = $aliases[$norm];
         } else {
             $unknown[$i] = (string) $header; // Spaltenindex => Überschrift
         }
     }
-    return ['map' => $map, 'unknown' => $unknown];
+
+    // Manuelle Zuordnung hat Vorrang
+    $skipped = [];
+    foreach ($overrides as $i => $target) {
+        $i = (int) $i;
+        if (!isset($headers[$i]) || io_normalize_header((string) $headers[$i]) === '') {
+            continue;
+        }
+        unset($map[$i], $unknown[$i], $ignored[$i]);
+        if ($target === '-' || $target === '') {
+            $skipped[$i] = (string) $headers[$i];
+            continue;
+        }
+        if (!isset(MEMBER_IO_COLUMNS[$target])) {
+            continue;
+        }
+        // Ein Feld kann nur aus einer Spalte kommen: andere Spalte, die es bisher hatte, wird frei
+        foreach ($map as $other => $key) {
+            if ($key === $target && $other !== $i) {
+                unset($map[$other]);
+                $unknown[$other] = (string) $headers[$other];
+            }
+        }
+        $map[$i] = $target;
+    }
+
+    return ['map' => $map, 'unknown' => $unknown, 'ignored' => $ignored, 'skipped' => $skipped];
 }
 
 /**

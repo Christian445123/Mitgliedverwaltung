@@ -39,6 +39,7 @@ function member_import_find_header(array $table): ?int
  * zugeordnet werden können, aber Werte enthalten, werden ausdrücklich gemeldet.
  *
  * $kaderDefault: 'kader' oder 'nicht_im_kader' (Auswahl im Import-Dialog), null = nichts erzwingen.
+ * $overrides: manuelle Spaltenzuordnung (Spaltenindex => Feldname, '-' = nicht importieren).
  *
  * Zeilen-Aktionen: create | update | skip | error
  *
@@ -46,12 +47,10 @@ function member_import_find_header(array $table): ?int
  * @return array{rows: array<int, array<string, mixed>>, columns: array<int, array<string, mixed>>, unknown: array<int, string>, counts: array<string, int>, header_row: int}
  * @throws RuntimeException wenn die Datei grundsätzlich nicht verwendbar ist
  */
-function member_import_analyze(array $table, bool $updateExisting, ?string $kaderDefault = null): array
+function member_import_analyze(array $table, bool $updateExisting, ?string $kaderDefault = null, array $overrides = []): array
 {
-    $headerRow = member_import_find_header($table);
-    if ($headerRow === null) {
-        throw new RuntimeException('Keine Überschriftenzeile gefunden (es wurden weniger als 3 bekannte Spaltennamen erkannt). Tipp: Vorlage über "Vorlage herunterladen" verwenden.');
-    }
+    // Ohne erkannte Überschriften gilt die erste Zeile als Überschriftenzeile; die Spalten lassen sich dann manuell zuordnen
+    $headerRow = member_import_find_header($table) ?? (int) array_key_first($table);
 
     $header = $table[$headerRow];
     $dataRows = array_filter($table, static fn (int $rowNo) => $rowNo > $headerRow, ARRAY_FILTER_USE_KEY);
@@ -62,41 +61,52 @@ function member_import_analyze(array $table, bool $updateExisting, ?string $kade
         throw new RuntimeException('Zu viele Zeilen (maximal ' . MEMBER_IMPORT_MAX_ROWS . ' pro Import).');
     }
 
-    ['map' => $map, 'unknown' => $unknownCols] = io_map_headers($header);
+    ['map' => $map, 'unknown' => $unknownCols, 'ignored' => $ignoredCols, 'skipped' => $skippedCols] = io_map_headers($header, $overrides);
 
     $mapped = array_values($map);
+    $missing = [];
     foreach (['nachname', 'vorname', 'email'] as $required) {
         if (!in_array($required, $mapped, true)) {
-            throw new RuntimeException('Pflichtspalte fehlt: "' . MEMBER_IO_COLUMNS[$required][0] . '". Tipp: Vorlage über "Vorlage herunterladen" verwenden.');
+            $missing[] = MEMBER_IO_COLUMNS[$required][0];
         }
     }
 
-    // Spaltenübersicht: Überschrift -> Feld, Anzahl gefüllter Zellen
+    // Spaltenübersicht (für die manuelle Zuordnung): jede Spalte der Überschriftenzeile mit Status
     $clean = static fn (string $s): string => trim((string) preg_replace('/\s+/', ' ', $s));
     $columns = [];
-    foreach ($map as $col => $key) {
-        $filled = 0;
-        foreach ($dataRows as $cells) {
-            if (trim((string) ($cells[$col] ?? '')) !== '') {
-                $filled++;
-            }
-        }
-        $columns[] = ['header' => $clean((string) $header[$col]), 'field' => MEMBER_IO_COLUMNS[$key][0], 'values' => $filled];
-    }
-
-    // Nicht zugeordnete Spalten: nur melden, wenn dort Daten stehen
     $unknown = [];
-    foreach ($unknownCols as $col => $title) {
+    foreach ($header as $col => $title) {
+        if (trim((string) $title) === '') {
+            continue;
+        }
         $filled = 0;
         foreach ($dataRows as $cells) {
             if (trim((string) ($cells[$col] ?? '')) !== '') {
                 $filled++;
             }
         }
-        if ($filled > 0) {
-            $unknown[] = $clean($title) . ' (' . $filled . ' Werte)';
-            $columns[] = ['header' => $clean($title), 'field' => null, 'values' => $filled];
+
+        $state = 'unmapped';
+        $key = null;
+        if (isset($map[$col])) {
+            $state = 'mapped';
+            $key = $map[$col];
+        } elseif (isset($skippedCols[$col])) {
+            $state = 'skipped';
+        } elseif (isset($ignoredCols[$col])) {
+            $state = 'ignored';
+        } elseif ($filled > 0) {
+            $unknown[] = $clean((string) $title) . ' (' . $filled . ' Werte)';
         }
+
+        $columns[] = [
+            'index' => (int) $col,
+            'header' => $clean((string) $title),
+            'key' => $key,
+            'field' => $key !== null ? MEMBER_IO_COLUMNS[$key][0] : null,
+            'values' => $filled,
+            'state' => $state,
+        ];
     }
 
     $counts = ['create' => 0, 'update' => 0, 'skip' => 0, 'error' => 0, 'warning' => 0];
@@ -152,6 +162,8 @@ function member_import_analyze(array $table, bool $updateExisting, ?string $kade
         'unknown' => $unknown,
         'counts' => $counts,
         'header_row' => $headerRow,
+        'missing_required' => $missing,
+        'fields' => array_map(static fn (string $k) => ['key' => $k, 'label' => MEMBER_IO_COLUMNS[$k][0]], array_keys(MEMBER_IO_COLUMNS)),
     ];
 }
 
