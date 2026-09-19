@@ -54,6 +54,10 @@ function db_ensure_columns(PDO $pdo): void
             'rechte_pflichten_dokument_pfad' => 'VARCHAR(255) DEFAULT NULL',
             'bild_ecard_hinten_pfad' => 'VARCHAR(255) DEFAULT NULL',
             'pass_foto_hinten_pfad' => 'VARCHAR(255) DEFAULT NULL',
+            'fehlt_ecard' => 'TINYINT(1) NOT NULL DEFAULT 0',
+            'fehlt_pass' => 'TINYINT(1) NOT NULL DEFAULT 0',
+            'fehlt_nada' => 'TINYINT(1) NOT NULL DEFAULT 0',
+            'fehlt_rechte' => 'TINYINT(1) NOT NULL DEFAULT 0',
         ],
     ];
 

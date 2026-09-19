@@ -235,6 +235,8 @@ ob_start(); // Formular puffern, damit gesperrte Felder (Feld-Rechte) am Ende en
     <div class="form-group">
         <label for="rechte_pflichten_dokument">Unterschriebenes Dokument Rechte &amp; Pflichten<?= $docNote('rechte_pflichten_dokument_pfad', 'rechte') ?></label>
         <input type="file" id="rechte_pflichten_dokument" name="rechte_pflichten_dokument" accept=".jpg,.jpeg,.png,.pdf">
+        <?php if ($showAdminFields): ?><input type="hidden" name="docflags_present" value="1"><?php endif; ?>
+        <?php if ($showAdminFields): ?><label class="doc-missing"><input type="checkbox" name="fehlt_rechte" value="1" <?= $checked("fehlt_rechte") ?>> Fehlt</label><?php endif; ?>
     </div>
 </fieldset>
 
@@ -248,6 +250,7 @@ ob_start(); // Formular puffern, damit gesperrte Felder (Feld-Rechte) am Ende en
     <div class="form-group">
         <label for="bild_ecard_hinten">E-Card Rückseite<?= $docNote('bild_ecard_hinten_pfad', 'ecard_back') ?></label>
         <input type="file" id="bild_ecard_hinten" name="bild_ecard_hinten" accept=".jpg,.jpeg,.png,.pdf">
+        <?php if ($showAdminFields): ?><label class="doc-missing"><input type="checkbox" name="fehlt_ecard" value="1" <?= $checked("fehlt_ecard") ?>> Fehlt</label><?php endif; ?>
     </div>
     <div class="form-group">
         <label for="sozialversicherungsnummer">Sozial Ver. Nr.</label>
@@ -272,6 +275,7 @@ ob_start(); // Formular puffern, damit gesperrte Felder (Feld-Rechte) am Ende en
     <div class="form-group">
         <label for="nada_dokument">NADA-Zertifikat (Dokument)<?= $docNote('nada_dokument_pfad', 'nada') ?></label>
         <input type="file" id="nada_dokument" name="nada_dokument" accept=".jpg,.jpeg,.png,.pdf">
+        <?php if ($showAdminFields): ?><label class="doc-missing"><input type="checkbox" name="fehlt_nada" value="1" <?= $checked("fehlt_nada") ?>> Fehlt</label><?php endif; ?>
     </div>
 </fieldset>
 
@@ -285,6 +289,7 @@ ob_start(); // Formular puffern, damit gesperrte Felder (Feld-Rechte) am Ende en
     <div class="form-group">
         <label for="pass_foto_hinten">Reisepass Rückseite<?= $docNote('pass_foto_hinten_pfad', 'pass_back') ?></label>
         <input type="file" id="pass_foto_hinten" name="pass_foto_hinten" accept=".jpg,.jpeg,.png,.pdf">
+        <?php if ($showAdminFields): ?><label class="doc-missing"><input type="checkbox" name="fehlt_pass" value="1" <?= $checked("fehlt_pass") ?>> Fehlt</label><?php endif; ?>
     </div>
 
     <div class="form-group">

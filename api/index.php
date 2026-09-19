@@ -22,6 +22,7 @@ declare(strict_types=1);
  *   GET    /api/template.csv                        Import-Vorlage
  *   GET/POST/PUT/DELETE /api/staff[/{id}]           Staff (Coaches/Betreuer) lesen, anlegen, ändern, löschen
  *   GET/POST/DELETE     /api/staff/{id}/documents/rechte  Staff: unterschriebenes Dokument Rechte & Pflichten
+ *   POST/PUT            /api/members/{id}/document-flags     "Fehlt"-Markierung {nada, pass, ecard, rechte: true/false}
  *   GET    /api/roster.pdf|xlsx                     Alphabetischer Roster;  /api/roster-ifaf.pdf|xlsx?competition=&game=&team= IFAF-Roster
  *   GET    /api/members/{id}/documents/{typ}        Dokument laden (typ: ecard, ecard_back, pass, pass_back, nada, rechte)
  *   POST   /api/members/{id}/documents/{typ}        Dokument hochladen (multipart, Feld "file"; Schreib-Token)
@@ -78,6 +79,11 @@ function api_member(array $row): array
     $out['name_vorname'] = member_full_name($row); // automatisch: "Nachname Vorname"
     $out['weitere_camps'] = array_values(array_map(static fn (array $c) => $c['name'], array_filter(camps_all(), static fn (array $c) => !empty($row['camp:' . $c['id']]))));
     $out['dokumente'] = member_documents_present($row);
+    $out['dokumente_fehlen'] = array_keys(member_documents_missing($row)); // fehlende Pflichtdokumente
+    $out['dokumente_markiert_fehlt'] = [];
+    foreach (array_keys(MEMBER_DOCUMENT_REQUIRED) as $reqType) {
+        $out['dokumente_markiert_fehlt'][$reqType] = !empty($row['fehlt_' . $reqType]);
+    }
     $out['bestaetigt_am'] = $row['verified_at'] ?? null;
     $out['angelegt_am'] = $row['created_at'] ?? null;
     $out['geaendert_am'] = $row['updated_at'] ?? null;
@@ -229,6 +235,31 @@ if ($path === 'update' && $method === 'POST') {
     $result = perform_update(APP_ROOT);
     app_log('system.update', $result['success'] ? 'Server-Update per API erfolgreich' : 'Server-Update per API fehlgeschlagen', ['success' => $result['success']], $result['success'] ? 'info' : 'error');
     api_json(200, $result);
+}
+
+// "Fehlt"-Markierung der Pflichtdokumente: POST/PUT /members/{id}/document-flags  {"nada": true, "ecard": false, ...}
+if (preg_match('#^members/(\d+)/document-flags$#', $path, $fm) === 1 && in_array($method, ['POST', 'PUT', 'PATCH'], true)) {
+    $requireWrite();
+    $flagId = (int) $fm[1];
+    if (member_find_by_id($flagId) === false) {
+        api_error(404, 'Mitglied nicht gefunden.');
+    }
+    $flagBody = json_decode((string) file_get_contents('php://input'), true);
+    if (!is_array($flagBody)) {
+        api_error(400, 'Erwartet wird ein JSON-Objekt, z. B. {"nada": true}.');
+    }
+    $flagData = [];
+    foreach (array_keys(MEMBER_DOCUMENT_REQUIRED) as $reqType) {
+        if (array_key_exists($reqType, $flagBody)) {
+            $flagData['fehlt_' . $reqType] = $flagBody[$reqType] === true ? 1 : 0;
+        }
+    }
+    if ($flagData === []) {
+        api_error(422, 'Keine bekannten Dokumenttypen (nada, pass, ecard, rechte).');
+    }
+    upsert_child_row('member_documents', DOCUMENT_COLUMNS, $flagId, $flagData, false);
+    app_log('document.flag', '"Fehlt"-Markierung per API geändert', ['target_type' => 'member', 'target_id' => $flagId, 'flags' => $flagData]);
+    api_json(200, api_member(member_find_by_id($flagId)));
 }
 
 // Dokumente eines Mitglieds (E-Card, Pass, NADA, Rechte & Pflichten)

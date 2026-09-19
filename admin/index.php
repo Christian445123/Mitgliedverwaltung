@@ -73,6 +73,43 @@ $listUrl = static fn (array $extra = []) => 'index.php?' . http_build_query(arra
 </section>
 <?php endif; ?>
 
+<?php $docsMissing = documents_missing_report(); ?>
+<?php if ($docsMissing['total'] > 0): ?>
+<section class="panel expiry-panel">
+    <h2 class="section-title">📄 Fehlende Dokumente (<?= (int) $docsMissing['total'] ?>)</h2>
+    <p class="muted">Aktive Spieler im Kader, bei denen NADA-Zertifikat, Reisepass, E-Card oder Rechte &amp; Pflichten fehlen
+        (keine Datei hochgeladen oder mit „Fehlt“ markiert). Bei E-Card und Reisepass genügt Vorder- <em>oder</em> Rückseite.</p>
+    <div class="expiry-columns">
+        <?php if ($docsMissing['players'] !== []): ?>
+        <div>
+            <h3>Spieler (<?= count($docsMissing['players']) ?>)</h3>
+            <ul class="missing-list">
+                <?php foreach ($docsMissing['players'] as $p): ?>
+                    <li>
+                        <a href="member-form.php?id=<?= (int) $p['id'] ?>"><?= h($p['name']) ?></a>
+                        <?php foreach ($p['missing'] as $d): ?>
+                            <span class="badge <?= $d['marked'] ? 'badge-marked' : 'badge-orange' ?>" title="<?= $d['marked'] ? 'Von Hand als fehlend markiert' : 'Keine Datei hochgeladen' ?>"><?= h($d['label']) ?></span>
+                        <?php endforeach; ?>
+                    </li>
+                <?php endforeach; ?>
+            </ul>
+        </div>
+        <?php endif; ?>
+        <?php if ($docsMissing['staff'] !== []): ?>
+        <div>
+            <h3>Staff: Rechte &amp; Pflichten (<?= count($docsMissing['staff']) ?>)</h3>
+            <ul class="missing-list">
+                <?php foreach ($docsMissing['staff'] as $s): ?>
+                    <li><a href="staff-form.php?id=<?= (int) $s['id'] ?>"><?= h($s['name']) ?></a> <span class="badge badge-orange">Rechte &amp; Pflichten</span></li>
+                <?php endforeach; ?>
+            </ul>
+        </div>
+        <?php endif; ?>
+    </div>
+</section>
+<?php endif; ?>
+
+
 <?php if ($info): ?><p class="alert alert-success"><?= h($info) ?></p><?php endif; ?>
 <?php if ($error): ?><p class="alert alert-error"><?= h($error) ?></p><?php endif; ?>
 
@@ -128,6 +165,7 @@ $listUrl = static fn (array $extra = []) => 'index.php?' . http_build_query(arra
                 <?php $exp = expiry_states_for_row($mRow); ?>
                 <?php if ($exp['nada']): ?><span class="badge badge-<?= expiry_badge_class($exp['nada']['state']) ?>" title="NADA-Zertifikat: <?= h(expiry_text($exp['nada'])) ?>">NADA <?= h(expiry_badge_label($exp['nada'])) ?></span><?php endif; ?>
                 <?php if ($exp['pass']): ?><span class="badge badge-<?= expiry_badge_class($exp['pass']['state']) ?>" title="Reisepass: <?= h(expiry_text($exp['pass'])) ?>">Pass <?= h(expiry_badge_label($exp['pass'])) ?></span><?php endif; ?>
+                <?php $docMiss = member_documents_missing($mRow); if ($docMiss !== []): ?><span class="badge badge-orange" title="Fehlt: <?= h(implode(", ", array_column($docMiss, "label"))) ?>">Doku fehlt (<?= count($docMiss) ?>)</span><?php endif; ?>
             </td>
             <td data-label="Verein"><?= h($mRow['verein'] ?? '') ?></td>
             <td data-label="Position"><?= h($mRow['position'] ?? '') ?></td>

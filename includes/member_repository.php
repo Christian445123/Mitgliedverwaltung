@@ -18,7 +18,7 @@ const MEMBERS_COLUMNS = ['jersey_nr', 'nachname', 'vorname', 'sz', 'bezirk', 'po
 const CAMPS_COLUMNS = ['camp_1', 'spanien', 'camp_2', 'tschechien'];
 const GUARDIAN_COLUMNS = ['erz_name', 'erz_telefon', 'erz_email'];
 const CONSENT_COLUMNS = ['rechte_pflichten_akzeptiert', 'rechte_pflichten_am'];
-const DOCUMENT_COLUMNS = ['bild_ecard_pfad', 'sozialversicherungsnummer', 'nada_zertifikat', 'nada_gueltig_bis', 'pass_foto_pfad', 'reisepass_nr', 'reisepass_ausgestellt_am', 'reisepass_gueltig_bis', 'geburtsland', 'geburtsort', 'ausstellungsbehoerde', 'nada_dokument_pfad', 'rechte_pflichten_dokument_pfad', 'bild_ecard_hinten_pfad', 'pass_foto_hinten_pfad'];
+const DOCUMENT_COLUMNS = ['bild_ecard_pfad', 'sozialversicherungsnummer', 'nada_zertifikat', 'nada_gueltig_bis', 'pass_foto_pfad', 'reisepass_nr', 'reisepass_ausgestellt_am', 'reisepass_gueltig_bis', 'geburtsland', 'geburtsort', 'ausstellungsbehoerde', 'nada_dokument_pfad', 'rechte_pflichten_dokument_pfad', 'bild_ecard_hinten_pfad', 'pass_foto_hinten_pfad', 'fehlt_ecard', 'fehlt_pass', 'fehlt_nada', 'fehlt_rechte'];
 const ADDRESS_COLUMNS = ['plz', 'ort', 'strasse'];
 const EQUIPMENT_COLUMNS = ['essen', 'game_jersey_groesse', 'game_hosen_groesse', 'helm_groesse', 'helm_eigener', 'tshirt_polo_groesse', 'hoodie_groesse', 'mesh_shorts_groesse', 'socken_groesse', 'zimmer_nr', 'pract_jersey_nr', 'pract_hose_groesse'];
 
@@ -41,7 +41,7 @@ const MEMBER_JOIN_SQL = '
         co.rechte_pflichten_akzeptiert, co.rechte_pflichten_am,
         d.bild_ecard_pfad, d.sozialversicherungsnummer, d.nada_zertifikat, d.nada_gueltig_bis,
         d.pass_foto_pfad, d.reisepass_nr, d.reisepass_ausgestellt_am, d.reisepass_gueltig_bis,
-        d.geburtsland, d.geburtsort, d.ausstellungsbehoerde, d.nada_dokument_pfad, d.rechte_pflichten_dokument_pfad, d.bild_ecard_hinten_pfad, d.pass_foto_hinten_pfad,
+        d.geburtsland, d.geburtsort, d.ausstellungsbehoerde, d.nada_dokument_pfad, d.rechte_pflichten_dokument_pfad, d.bild_ecard_hinten_pfad, d.pass_foto_hinten_pfad, d.fehlt_ecard, d.fehlt_pass, d.fehlt_nada, d.fehlt_rechte,
         a.plz, a.ort, a.strasse,
         e.essen, e.game_jersey_groesse, e.game_hosen_groesse, e.helm_groesse, e.helm_eigener,
         e.tshirt_polo_groesse, e.hoodie_groesse, e.mesh_shorts_groesse, e.socken_groesse, e.zimmer_nr, e.pract_jersey_nr, e.pract_hose_groesse,
@@ -283,7 +283,94 @@ function member_collect_input(array $existing = [], string $audience = 'admin'):
         'hoodie_groesse' => post_str('hoodie_groesse'),
         'mesh_shorts_groesse' => post_str('mesh_shorts_groesse'),
         'socken_groesse' => post_str('socken_groesse'),
-    ] + member_collect_admin_equipment() + member_collect_camps();
+    ] + member_collect_admin_equipment() + member_collect_doc_flags() + member_collect_camps();
+}
+
+/**
+ * "Fehlt"-Häkchen der Dokumente (nur im Admin-Formular): werden nur übernommen, wenn das Formular
+ * sie mitgesendet hat (Marker docflags_present), damit der persönliche Spieler-Link sie nicht leert.
+ *
+ * @return array<string, mixed>
+ */
+function member_collect_doc_flags(): array
+{
+    if (!isset($_POST['docflags_present'])) {
+        return [];
+    }
+    $data = [];
+    foreach (array_keys(MEMBER_DOCUMENT_REQUIRED) as $type) {
+        $data['fehlt_' . $type] = post_checkbox('fehlt_' . $type) ? 1 : 0;
+    }
+    return $data;
+}
+
+/**
+ * Pflichtdokumente: Typ => Beschriftung und die Dateien, von denen mindestens eine vorhanden sein muss
+ * (bei E-Card und Reisepass Vorder- oder Rückseite).
+ */
+const MEMBER_DOCUMENT_REQUIRED = [
+    'nada' => ['label' => 'NADA-Zertifikat', 'files' => ['nada']],
+    'pass' => ['label' => 'Reisepass', 'files' => ['pass', 'pass_back']],
+    'ecard' => ['label' => 'E-Card', 'files' => ['ecard', 'ecard_back']],
+    'rechte' => ['label' => 'Rechte & Pflichten', 'files' => ['rechte']],
+];
+
+/**
+ * Fehlende Pflichtdokumente eines Mitglieds. Ein Dokument fehlt, wenn keine Datei hochgeladen ist
+ * oder es von Hand mit "Fehlt" markiert wurde.
+ *
+ * @param array<string, mixed> $member
+ * @return array<string, array{label: string, marked: bool, missing_file: bool}> Typ => Details
+ */
+function member_documents_missing(array $member): array
+{
+    $missing = [];
+    foreach (MEMBER_DOCUMENT_REQUIRED as $type => $def) {
+        $hasFile = false;
+        foreach ($def['files'] as $fileType) {
+            if (!empty($member[MEMBER_DOCUMENT_TYPES[$fileType]['column']])) {
+                $hasFile = true;
+                break;
+            }
+        }
+        $marked = !empty($member['fehlt_' . $type]);
+        if (!$hasFile || $marked) {
+            $missing[$type] = ['label' => $def['label'], 'marked' => $marked, 'missing_file' => !$hasFile];
+        }
+    }
+    return $missing;
+}
+
+/**
+ * Aktive Spieler im Kader mit fehlenden Dokumenten (für die Meldung im Dashboard) und Staff ohne
+ * Rechte-&-Pflichten-Dokument.
+ *
+ * @return array{players: array<int, array<string, mixed>>, staff: array<int, array<string, mixed>>, total: int}
+ */
+function documents_missing_report(): array
+{
+    $players = [];
+    foreach (member_all('aktiv', 'kader') as $m) {
+        $missing = member_documents_missing($m);
+        if ($missing !== []) {
+            $players[] = ['id' => (int) $m['id'], 'name' => member_full_name($m), 'missing' => $missing];
+        }
+    }
+
+    $staff = [];
+    try {
+        require_once __DIR__ . '/staff.php';
+        $stmt = db()->query("SELECT * FROM staff WHERE status = 'aktiv' ORDER BY nachname, vorname");
+        foreach ($stmt->fetchAll() as $row) {
+            if (staff_document_path($row, 'rechte') === null) {
+                $staff[] = ['id' => (int) $row['id'], 'name' => member_full_name($row)];
+            }
+        }
+    } catch (Throwable $e) {
+        // Staff-Tabelle existiert noch nicht
+    }
+
+    return ['players' => $players, 'staff' => $staff, 'total' => count($players) + count($staff)];
 }
 
 /**
