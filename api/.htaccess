@@ -1,0 +1,10 @@
+# Authorization-Header an PHP durchreichen (bei Apache/FastCGI sonst oft entfernt)
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    # Alle Pfade wie /api/members/12 an index.php leiten
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^ index.php [L]
+</IfModule>

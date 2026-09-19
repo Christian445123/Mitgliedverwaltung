@@ -559,3 +559,70 @@ form.member-form button[type=submit] { margin-top: 24px; }
     .form-row { flex-direction: column; gap: 0; }
     .content { padding: 22px 18px 36px; }
 }
+
+/* ══════════════════ Dashboard, Import/Export, API ══════════════════ */
+.header-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 14px;
+    margin-bottom: 22px;
+}
+.stat-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    flex-direction: column;
+    animation: riseIn 0.35s ease both;
+}
+.stat-value { font-size: 1.9rem; font-weight: 800; letter-spacing: -0.02em; line-height: 1.1; }
+.stat-label { font-size: 0.8rem; color: var(--color-muted); font-weight: 500; }
+.stat-warn .stat-value { color: var(--accent-dark); }
+
+.chip-group { display: inline-flex; gap: 6px; margin-left: auto; }
+.chip {
+    padding: 7px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-muted);
+    font-size: 0.85rem;
+    font-weight: 500;
+    text-decoration: none;
+}
+.chip:hover { border-color: var(--accent); color: var(--accent-dark); }
+.chip.active { background: var(--navy-900); border-color: var(--navy-900); color: #fff; }
+
+.table-scroll { overflow-x: auto; border-radius: var(--radius); }
+
+.panel-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 18px;
+}
+.panel {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    padding: 20px 22px;
+    box-shadow: var(--shadow-sm);
+    min-width: 0;
+}
+.section-title { font-size: 1.05rem; font-weight: 700; margin: 0 0 12px; }
+.stack { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.muted { color: var(--color-muted); font-size: 0.88rem; }
+.code-block {
+    background: var(--navy-900);
+    color: #e6e9f5;
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    font-family: 'SF Mono', Menlo, Consolas, monospace;
+    font-size: 0.8rem;
+    overflow-x: auto;
+    white-space: pre;
+}
+.panel code { background: var(--color-bg); padding: 1px 5px; border-radius: 4px; font-size: 0.85em; word-break: break-all; }

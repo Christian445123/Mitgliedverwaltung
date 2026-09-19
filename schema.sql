@@ -123,3 +123,15 @@ CREATE TABLE IF NOT EXISTS member_access (
     UNIQUE KEY uniq_verify_token (verify_token),
     CONSTRAINT fk_member_access_member FOREIGN KEY (member_id) REFERENCES members (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- API-Zugänge für PC-Anwendungen (werden bei Bedarf auch automatisch angelegt)
+CREATE TABLE IF NOT EXISTS api_tokens (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    token_hash CHAR(64) NOT NULL,
+    can_write TINYINT(1) NOT NULL DEFAULT 0,
+    created_by INT UNSIGNED DEFAULT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_used_at DATETIME DEFAULT NULL,
+    UNIQUE KEY uniq_token_hash (token_hash)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

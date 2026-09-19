@@ -254,18 +254,13 @@ function upsert_child_row(string $table, array $columns, int $memberId, array $d
         return;
     }
 
-    if ($insert) {
-        $cols = array_merge(['member_id'], array_keys($values));
-        $placeholders = array_map(static fn (string $c) => ':' . $c, $cols);
-        $stmt = db()->prepare(
-            "INSERT INTO {$table} (" . implode(', ', $cols) . ') VALUES (' . implode(', ', $placeholders) . ')'
-        );
-        $stmt->execute($values + ['member_id' => $memberId]);
-        return;
-    }
-
-    $setClause = implode(', ', array_map(static fn (string $c) => "{$c} = :{$c}", array_keys($values)));
-    $stmt = db()->prepare("UPDATE {$table} SET {$setClause} WHERE member_id = :member_id");
+    // Immer als Upsert: legt fehlende Teiltabellen-Zeilen (z.B. bei Import/API-Updates) an.
+    $cols = array_merge(['member_id'], array_keys($values));
+    $placeholders = array_map(static fn (string $c) => ':' . $c, $cols);
+    $updates = implode(', ', array_map(static fn (string $c) => "{$c} = VALUES({$c})", array_keys($values)));
+    $stmt = db()->prepare(
+        "INSERT INTO {$table} (" . implode(', ', $cols) . ') VALUES (' . implode(', ', $placeholders) . ") ON DUPLICATE KEY UPDATE {$updates}"
+    );
     $stmt->execute($values + ['member_id' => $memberId]);
 }
 
@@ -351,43 +346,130 @@ function member_delete(int $id): void
 }
 
 /**
- * @return array<int, array<string, mixed>>
+ * Baut WHERE-Klausel + Parameter für Suche (Freitext) und Statusfilter.
+ *
+ * @return array{0: string, 1: array<string, string>}
  */
-function member_search(string $query, int $limit, int $offset): array
+function member_where(string $query, ?string $status): array
 {
-    if ($query === '') {
-        $stmt = db()->prepare(MEMBER_JOIN_SQL . ' ORDER BY m.nachname, m.vorname LIMIT ? OFFSET ?');
-        $stmt->bindValue(1, $limit, PDO::PARAM_INT);
-        $stmt->bindValue(2, $offset, PDO::PARAM_INT);
-        $stmt->execute();
-        return $stmt->fetchAll();
+    $conditions = [];
+    $params = [];
+
+    if ($query !== '') {
+        $conditions[] = '(m.nachname LIKE :q OR m.vorname LIKE :q OR m.email LIKE :q OR m.verein LIKE :q OR m.jersey_nr LIKE :q)';
+        $params['q'] = '%' . $query . '%';
+    }
+    if ($status === 'aktiv' || $status === 'inaktiv') {
+        $conditions[] = 'm.status = :status';
+        $params['status'] = $status;
     }
 
-    $like = '%' . $query . '%';
-    $stmt = db()->prepare(
-        MEMBER_JOIN_SQL . '
-         WHERE m.nachname LIKE :q OR m.vorname LIKE :q OR m.email LIKE :q OR m.verein LIKE :q OR m.jersey_nr LIKE :q
-         ORDER BY m.nachname, m.vorname LIMIT :limit OFFSET :offset'
-    );
-    $stmt->bindValue('q', $like, PDO::PARAM_STR);
+    return [$conditions === [] ? '' : ' WHERE ' . implode(' AND ', $conditions), $params];
+}
+
+/**
+ * @return array<int, array<string, mixed>>
+ */
+function member_search(string $query, int $limit, int $offset, ?string $status = null): array
+{
+    [$where, $params] = member_where($query, $status);
+    $stmt = db()->prepare(MEMBER_JOIN_SQL . $where . ' ORDER BY m.nachname, m.vorname LIMIT :limit OFFSET :offset');
+    foreach ($params as $name => $value) {
+        $stmt->bindValue($name, $value, PDO::PARAM_STR);
+    }
     $stmt->bindValue('limit', $limit, PDO::PARAM_INT);
     $stmt->bindValue('offset', $offset, PDO::PARAM_INT);
     $stmt->execute();
     return $stmt->fetchAll();
 }
 
-function member_count(string $query): int
+function member_count(string $query, ?string $status = null): int
 {
-    if ($query === '') {
-        return (int) db()->query('SELECT COUNT(*) FROM members')->fetchColumn();
+    [$where, $params] = member_where($query, $status);
+    $stmt = db()->prepare('SELECT COUNT(*) FROM members m' . $where);
+    foreach ($params as $name => $value) {
+        $stmt->bindValue($name, $value, PDO::PARAM_STR);
     }
-
-    $like = '%' . $query . '%';
-    $stmt = db()->prepare(
-        'SELECT COUNT(*) FROM members
-         WHERE nachname LIKE :q OR vorname LIKE :q OR email LIKE :q OR verein LIKE :q OR jersey_nr LIKE :q'
-    );
-    $stmt->bindValue('q', $like, PDO::PARAM_STR);
     $stmt->execute();
     return (int) $stmt->fetchColumn();
+}
+
+/**
+ * Kennzahlen für das Dashboard.
+ *
+ * @return array{total: int, aktiv: int, bestaetigt: int, ausstehend: int}
+ */
+function member_stats(): array
+{
+    $row = db()->query(
+        "SELECT COUNT(*) AS total,
+                COALESCE(SUM(m.status = 'aktiv'), 0) AS aktiv,
+                COALESCE(SUM(ac.verified_at IS NOT NULL), 0) AS bestaetigt
+         FROM members m LEFT JOIN member_access ac ON ac.member_id = m.id"
+    )->fetch();
+
+    $total = (int) $row['total'];
+    return [
+        'total' => $total,
+        'aktiv' => (int) $row['aktiv'],
+        'bestaetigt' => (int) $row['bestaetigt'],
+        'ausstehend' => $total - (int) $row['bestaetigt'],
+    ];
+}
+
+/**
+ * Alle Mitglieder (für Export), sortiert nach Name.
+ *
+ * @return array<int, array<string, mixed>>
+ */
+function member_all(?string $status = null): array
+{
+    return member_search('', PHP_INT_MAX >> 1, 0, $status);
+}
+
+/**
+ * Setzt den Zeitpunkt der Zustimmung passend zum Häkchen (bestehender
+ * Zeitpunkt bleibt erhalten).
+ *
+ * @param array<string, mixed> $data
+ * @param array<string, mixed>|null $existing
+ * @return array<string, mixed>
+ */
+function member_apply_consent_timestamp(array $data, ?array $existing): array
+{
+    if (!isset($data['rechte_pflichten_akzeptiert'])) {
+        return $data;
+    }
+    if ((int) $data['rechte_pflichten_akzeptiert'] === 1) {
+        $data['rechte_pflichten_am'] = ($existing['rechte_pflichten_am'] ?? null) ?: (new DateTimeImmutable())->format('Y-m-d H:i:s');
+    } else {
+        $data['rechte_pflichten_am'] = null;
+    }
+    return $data;
+}
+
+/**
+ * Für den Import: Mitglied anlegen oder (per E-Mail) aktualisieren.
+ *
+ * @param array<string, mixed> $data Werte laut io_convert_row()
+ * @return string 'created' | 'updated'
+ */
+function member_import_save(array $data, bool $updateExisting): string
+{
+    $existing = member_find_by_email((string) $data['email']);
+    $data = member_apply_consent_timestamp($data, $existing === false ? null : $existing);
+
+    $status = $data['status'] ?? null;
+    unset($data['status']);
+
+    if ($existing !== false) {
+        if (!$updateExisting) {
+            throw new RuntimeException('Mitglied mit dieser E-Mail existiert bereits.');
+        }
+        member_upsert($data, (int) $existing['id'], $status);
+        return 'updated';
+    }
+
+    member_upsert($data, null, $status);
+    return 'created';
 }
