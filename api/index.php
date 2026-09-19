@@ -20,6 +20,7 @@ declare(strict_types=1);
  *   POST   /api/import                              CSV/XLSX-Import (Schreib-Token; commit=1 speichert)
  *   POST   /api/update                              Server-Update per git pull --ff-only (Schreib-Token)
  *   GET    /api/template.csv                        Import-Vorlage
+ *   GET/POST/PUT/DELETE /api/staff[/{id}]           Staff (Coaches/Betreuer) lesen, anlegen, ändern, löschen
  *   GET    /api/roster.pdf|xlsx                     Alphabetischer Roster;  /api/roster-ifaf.pdf|xlsx?competition=&game=&team= IFAF-Roster
  *   GET    /api/members/{id}/documents/{typ}        Dokument laden (typ: ecard, pass, nada, rechte)
  *   POST   /api/members/{id}/documents/{typ}        Dokument hochladen (multipart, Feld "file"; Schreib-Token)
@@ -290,6 +291,94 @@ if ($path === 'members/bulk-delete' && $method === 'POST') {
         api_json(200, ['deleted' => $deleted]);
     } catch (RuntimeException $e) {
         api_error(409, $e->getMessage());
+    }
+}
+
+// Staff (Coaches/Betreuer): GET /staff, GET /staff/{id}, POST /staff, PUT /staff/{id}, DELETE /staff/{id}
+if (preg_match('#^staff(?:/(\d+))?$#', $path, $sm) === 1) {
+    require_once __DIR__ . '/../includes/staff.php';
+    $staffId = isset($sm[1]) ? (int) $sm[1] : null;
+
+    $apiStaff = static function (array $row): array {
+        $out = ['id' => (int) $row['id']];
+        foreach (STAFF_IO_COLUMNS as $key => [$label, $type]) {
+            $value = $row[$key] ?? null;
+            $out[$key] = $value === '' ? null : $value;
+        }
+        $out['name_vorname'] = trim((string) ($row['nachname'] ?? '') . ' ' . (string) ($row['vorname'] ?? ''));
+        return $out;
+    };
+    $readStaffBody = static function (): array {
+        $body = json_decode((string) file_get_contents('php://input'), true);
+        if (!is_array($body) || $body === [] || array_is_list($body)) {
+            api_error(400, 'Erwartet wird ein JSON-Objekt mit Staff-Feldern im Request-Body.');
+        }
+        return $body;
+    };
+
+    try {
+        staff_ensure_table(db());
+        io_entity('staff');
+
+        if ($method === 'GET' && $staffId === null) {
+            $q = trim((string) ($_GET['q'] ?? ''));
+            $status = in_array($_GET['status'] ?? '', ['aktiv', 'inaktiv'], true) ? $_GET['status'] : null;
+            $limit = min(500, max(1, (int) ($_GET['limit'] ?? 100)));
+            $offset = max(0, (int) ($_GET['offset'] ?? 0));
+            api_json(200, [
+                'total' => staff_count($q, $status),
+                'limit' => $limit,
+                'offset' => $offset,
+                'data' => array_map($apiStaff, staff_search($q, $limit, $offset, $status)),
+            ]);
+        }
+        if ($method === 'GET') {
+            $row = staff_find_by_id($staffId);
+            $row === false ? api_error(404, 'Person nicht gefunden.') : api_json(200, $apiStaff($row));
+        }
+        if ($method === 'POST' && $staffId === null) {
+            $requireWrite();
+            ['data' => $data, 'errors' => $errors] = io_convert_row($readStaffBody());
+            foreach (io_required_keys() as $required) {
+                if (!isset($data[$required])) {
+                    $errors[] = member_io_columns()[$required][0] . ' ist ein Pflichtfeld';
+                }
+            }
+            if ($errors !== []) {
+                api_error(422, 'Ungültige Daten.', $errors);
+            }
+            $newId = staff_upsert($data, null);
+            app_log('staff.create', 'Staff per API angelegt', ['target_type' => 'staff', 'target_id' => $newId]);
+            api_json(201, $apiStaff(staff_find_by_id($newId)));
+        }
+        if (($method === 'PUT' || $method === 'PATCH') && $staffId !== null) {
+            $requireWrite();
+            if (staff_find_by_id($staffId) === false) {
+                api_error(404, 'Person nicht gefunden.');
+            }
+            ['data' => $data, 'errors' => $errors] = io_convert_row($readStaffBody(), true);
+            if ($errors !== []) {
+                api_error(422, 'Ungültige Daten.', $errors);
+            }
+            staff_upsert($data, $staffId);
+            app_log('staff.update', 'Staff per API geändert', ['target_type' => 'staff', 'target_id' => $staffId, 'fields' => array_keys($data)]);
+            api_json(200, $apiStaff(staff_find_by_id($staffId)));
+        }
+        if ($method === 'DELETE' && $staffId !== null) {
+            $requireWrite();
+            if (staff_find_by_id($staffId) === false) {
+                api_error(404, 'Person nicht gefunden.');
+            }
+            staff_delete_many([$staffId]);
+            app_log('staff.delete', 'Staff per API gelöscht', ['target_type' => 'staff', 'target_id' => $staffId], 'warning');
+            api_json(200, ['deleted' => $staffId]);
+        }
+        header('Allow: GET, POST, PUT, PATCH, DELETE');
+        api_error(405, 'Methode nicht erlaubt.');
+    } catch (RuntimeException $e) {
+        api_error(409, $e->getMessage());
+    } catch (Throwable $e) {
+        api_error(500, APP_DEBUG ? $e->getMessage() : 'Interner Serverfehler.');
     }
 }
 
