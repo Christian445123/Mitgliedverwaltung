@@ -16,6 +16,7 @@ declare(strict_types=1);
  *   POST   /api/members                             Anlegen        (Schreib-Token)
  *   PUT    /api/members/{id}                        Ändern         (Schreib-Token)
  *   DELETE /api/members/{id}                        Löschen        (Schreib-Token)
+ *   POST   /api/members/bulk-delete                 Mehrere löschen {ids:[..]} oder alle {all:true, confirm:"ALLE LÖSCHEN"} (Schreib-Token)
  *   POST   /api/import                              CSV/XLSX-Import (Schreib-Token; commit=1 speichert)
  *   POST   /api/update                              Server-Update per git pull --ff-only (Schreib-Token)
  *   GET    /api/template.csv                        Import-Vorlage
@@ -220,6 +221,31 @@ if (preg_match('#^members/(\d+)/documents/(ecard|pass|nada|rechte)$#', $path, $d
     }
     header('Allow: GET, POST, DELETE');
     api_error(405, 'Methode nicht erlaubt.');
+}
+
+// Mehrere Mitglieder löschen: {"ids": [1, 2, 3]} oder alle: {"all": true, "confirm": "ALLE LÖSCHEN"}
+if ($path === 'members/bulk-delete' && $method === 'POST') {
+    $requireWrite();
+    $body = json_decode((string) file_get_contents('php://input'), true);
+    if (!is_array($body)) {
+        api_error(400, 'Erwartet wird ein JSON-Objekt mit "ids" oder "all" und "confirm".');
+    }
+
+    try {
+        if (($body['all'] ?? false) === true) {
+            if (($body['confirm'] ?? '') !== 'ALLE LÖSCHEN') {
+                api_error(422, 'Zum Löschen aller Mitglieder muss "confirm" genau "ALLE LÖSCHEN" lauten.');
+            }
+            api_json(200, ['deleted' => member_delete_all()]);
+        }
+        $ids = $body['ids'] ?? null;
+        if (!is_array($ids) || $ids === []) {
+            api_error(422, '"ids" muss eine nicht leere Liste von Mitglieds-IDs sein.');
+        }
+        api_json(200, ['deleted' => member_delete_many($ids)]);
+    } catch (RuntimeException $e) {
+        api_error(409, $e->getMessage());
+    }
 }
 
 if (!preg_match('#^members(?:/(\d+))?$#', $path, $m)) {

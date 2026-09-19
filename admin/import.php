@@ -231,13 +231,16 @@ $actionBadges = ['create' => 'green', 'update' => 'blue', 'skip' => 'gray', 'err
                         Vorhandene Mitglieder (gleiche E-Mail) aktualisieren – leere Zellen überschreiben nichts</label>
                 </div>
                 <div class="form-group">
-                    <label for="kader_default">Kader-Status der importierten Spieler</label>
-                    <select id="kader_default" name="kader_default">
-                        <option value="">Aus der Datei (Spalte „Kader“), sonst „Im Kader“</option>
-                        <option value="kader">Alle als „Im Kader“ importieren</option>
-                        <option value="nicht_im_kader">Alle als „Spieler nicht im Kader“ importieren</option>
-                    </select>
-                    <p class="muted">Gilt für alle Zeilen, die keinen eigenen Wert in einer Spalte „Kader“ haben – auch für bereits vorhandene Spieler, die aktualisiert werden.</p>
+                    <label>Kader-Status der importierten Spieler</label>
+                    <div class="radio-group">
+                        <label class="radio-option"><input type="radio" name="kader_default" value="kader">
+                            Alle importierten Spieler <strong>sind im Kader</strong></label>
+                        <label class="radio-option"><input type="radio" name="kader_default" value="nicht_im_kader">
+                            Alle importierten Spieler sind <strong>nicht im Kader</strong></label>
+                        <label class="radio-option"><input type="radio" name="kader_default" value="" checked>
+                            Aus der Datei übernehmen (Spalte „Kader“), sonst „Im Kader“</label>
+                    </div>
+                    <p class="muted">Gilt für alle Zeilen ohne eigenen Wert in einer Spalte „Kader“ – auch für bereits vorhandene Spieler, die aktualisiert werden.</p>
                 </div>
                 <button type="submit" class="btn btn-primary">Vorschau anzeigen</button>
             </form>

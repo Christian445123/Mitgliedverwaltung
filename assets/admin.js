@@ -38,3 +38,39 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 });
+
+// Mehrfachauswahl in der Mitgliederliste: "Alle auswählen" und Zähler am Lösch-Button
+document.addEventListener('DOMContentLoaded', function () {
+    var form = document.getElementById('bulk-form');
+    if (!form) {
+        return;
+    }
+    var boxes = function () { return form.querySelectorAll('input[data-row-check]'); };
+    var all = form.querySelector('input[data-select-all]');
+    var button = document.getElementById('bulk-delete');
+    var counter = document.getElementById('bulk-count');
+
+    function update() {
+        var checked = 0;
+        boxes().forEach(function (box) { if (box.checked) { checked++; } });
+        counter.textContent = String(checked);
+        button.disabled = checked === 0;
+        if (all) {
+            all.checked = checked > 0 && checked === boxes().length;
+            all.indeterminate = checked > 0 && checked < boxes().length;
+        }
+    }
+
+    if (all) {
+        all.addEventListener('change', function () {
+            boxes().forEach(function (box) { box.checked = all.checked; });
+            update();
+        });
+    }
+    form.addEventListener('change', function (event) {
+        if (event.target && event.target.matches('input[data-row-check]')) {
+            update();
+        }
+    });
+    update();
+});

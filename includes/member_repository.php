@@ -618,3 +618,32 @@ function member_document_send(array $member, string $type, bool $inline = true):
     readfile($path);
     exit;
 }
+
+/**
+ * Löscht mehrere Mitglieder samt hochgeladener Dokumente.
+ *
+ * @param array<int, int|string> $ids
+ * @return int Anzahl tatsächlich gelöschter Mitglieder
+ */
+function member_delete_many(array $ids): int
+{
+    $deleted = 0;
+    foreach (array_unique(array_filter(array_map('intval', $ids), static fn (int $id) => $id > 0)) as $id) {
+        if (member_find_by_id($id) !== false) {
+            member_delete($id);
+            $deleted++;
+        }
+    }
+    return $deleted;
+}
+
+/**
+ * Löscht ALLE Mitglieder samt Dokumenten (Admin-Benutzer und API-Zugänge bleiben erhalten).
+ *
+ * @return int Anzahl gelöschter Mitglieder
+ */
+function member_delete_all(): int
+{
+    $ids = db()->query('SELECT id FROM members')->fetchAll(PDO::FETCH_COLUMN);
+    return member_delete_many($ids);
+}

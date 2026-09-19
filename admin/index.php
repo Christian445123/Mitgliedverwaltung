@@ -65,10 +65,20 @@ $listUrl = static fn (array $extra = []) => 'index.php?' . http_build_query(arra
     </span>
 </form>
 
+<form method="post" action="members-delete.php" id="bulk-form" data-confirm="Die ausgewählten Mitglieder samt Dokumenten wirklich endgültig löschen?">
+    <?= csrf_field() ?>
+    <div class="filter-bar bulk-bar">
+        <button type="submit" class="btn btn-danger" id="bulk-delete" disabled>Ausgewählte löschen (<span id="bulk-count">0</span>)</button>
+        <?php if (is_administrator()): ?>
+            <a href="delete-all.php" class="btn btn-danger-outline">Alle Daten löschen …</a>
+        <?php endif; ?>
+    </div>
+
 <div class="table-scroll">
 <table class="table">
     <thead>
         <tr>
+            <th class="check-col"><input type="checkbox" data-select-all aria-label="Alle auf dieser Seite auswählen"></th>
             <th>Name</th>
             <th>Verein</th>
             <th>Position</th>
@@ -81,10 +91,11 @@ $listUrl = static fn (array $extra = []) => 'index.php?' . http_build_query(arra
     </thead>
     <tbody>
     <?php if (empty($members)): ?>
-        <tr><td colspan="8" class="empty">Keine Mitglieder gefunden.</td></tr>
+        <tr><td colspan="9" class="empty">Keine Mitglieder gefunden.</td></tr>
     <?php endif; ?>
     <?php foreach ($members as $mRow): ?>
         <tr>
+            <td class="check-col"><input type="checkbox" name="ids[]" value="<?= (int) $mRow['id'] ?>" data-row-check aria-label="Mitglied auswählen"></td>
             <td><?= h($mRow['nachname']) ?>, <?= h($mRow['vorname']) ?><?php if (($mRow['kader'] ?? 'kader') === 'nicht_im_kader'): ?> <span class="badge badge-gray">nicht im Kader</span><?php endif; ?></td>
             <td><?= h($mRow['verein'] ?? '') ?></td>
             <td><?= h($mRow['position'] ?? '') ?></td>
@@ -107,6 +118,7 @@ $listUrl = static fn (array $extra = []) => 'index.php?' . http_build_query(arra
     </tbody>
 </table>
 </div>
+</form>
 
 <?php if ($totalPages > 1): ?>
 <div class="filter-bar" style="margin-top:16px;">
