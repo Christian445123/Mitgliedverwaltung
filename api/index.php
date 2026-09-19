@@ -141,7 +141,7 @@ if ($path === 'template.csv' && $method === 'GET') {
 }
 
 // Roster als Datei: GET /roster.pdf|xlsx (alphabetisch) und /roster-ifaf.pdf|xlsx?competition=&game=&team=
-if (preg_match('#^roster(-ifaf)?\.(pdf|xlsx)$#', $path, $rm) === 1 && $method === 'GET') {
+if (preg_match('#^roster(-ifaf|-bekleidung)?\.(pdf|xlsx)$#', $path, $rm) === 1 && $method === 'GET') {
     require_once __DIR__ . '/../includes/roster.php';
     try {
         if ($rm[1] === '-ifaf') {
@@ -154,7 +154,8 @@ if (preg_match('#^roster(-ifaf)?\.(pdf|xlsx)$#', $path, $rm) === 1 && $method ==
         } else {
             $kader = in_array($_GET['kader'] ?? 'kader', ['kader', 'nicht_im_kader'], true) ? (string) ($_GET['kader'] ?? 'kader') : null;
             $status = ($_GET['status'] ?? 'aktiv') === 'alle' ? null : 'aktiv';
-            [$contentType, $filename, $binary] = roster_generate_alphabetical($rm[2], $kader, $status);
+            $generate = $rm[1] === '-bekleidung' ? 'roster_generate_clothing' : 'roster_generate_alphabetical';
+            [$contentType, $filename, $binary] = $generate($rm[2], $kader, $status);
         }
     } catch (RuntimeException $e) {
         api_error(500, $e->getMessage());

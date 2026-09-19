@@ -44,19 +44,20 @@ function roster_columns(): array
  * @param array<int, string> $excludeKeys             Spalten, die nicht ausgegeben werden dürfen (Feld-Rechte)
  * @return array{columns: array<int, array<string, mixed>>, rows: array<int, array<int, string>>}
  */
-function roster_table(array $members, array $excludeKeys = []): array
+function roster_table(array $members, array $excludeKeys = [], ?array $allColumns = null): array
 {
     $hiddenForName = in_array('nachname', $excludeKeys, true) || in_array('vorname', $excludeKeys, true);
     $columns = array_values(array_filter(
-        roster_columns(),
+        $allColumns ?? roster_columns(),
         static fn (array $c) => $c['key'] === 'name' ? !$hiddenForName : !in_array($c['key'], $excludeKeys, true)
     ));
 
     $rows = [];
-    foreach ($members as $m) {
+    foreach (array_values($members) as $i => $m) {
         $line = [];
         foreach ($columns as $c) {
             $value = match ($c['key']) {
+                'lfd' => (string) ($i + 1),
                 'name' => member_full_name($m),
                 'geburtsdatum' => !empty($m['geburtsdatum']) ? date('d.m.Y', (int) strtotime((string) $m['geburtsdatum'])) : '',
                 default => trim((string) ($m[$c['key']] ?? '')),
@@ -489,6 +490,45 @@ function roster_generate_alphabetical(string $format, ?string $kader, ?string $s
 
     if ($format === 'xlsx') {
         return ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', $base . '.xlsx', roster_build_xlsx($table, $title, $subtitle)];
+    }
+    return ['application/pdf', $base . '.pdf', roster_build_pdf($table, $title, $subtitle)];
+}
+
+/** Spalten des Bekleidungs-Rosters (Größen für Bestellung/Ausgabe). */
+function roster_columns_clothing(): array
+{
+    return [
+        ['key' => 'lfd', 'label' => 'Nr.', 'width' => 10.0, 'align' => 'C', 'xl' => 6.0],
+        ['key' => 'nachname', 'label' => 'Nachname', 'width' => 34.0, 'align' => 'L', 'xl' => 22.0],
+        ['key' => 'vorname', 'label' => 'Vorname', 'width' => 32.0, 'align' => 'L', 'xl' => 20.0],
+        ['key' => 'tshirt_polo_groesse', 'label' => 'Shirt', 'width' => 15.0, 'align' => 'C', 'xl' => 9.0],
+        ['key' => 'mesh_shorts_groesse', 'label' => 'Short', 'width' => 15.0, 'align' => 'C', 'xl' => 9.0],
+        ['key' => 'socken_groesse', 'label' => 'Socken', 'width' => 17.0, 'align' => 'C', 'xl' => 10.0],
+        ['key' => 'pract_hose_groesse', 'label' => 'Practice Hose', 'pdf_label' => 'Pr. Hose', 'width' => 19.0, 'align' => 'C', 'xl' => 14.0],
+        ['key' => 'pract_jersey_nr', 'label' => 'Practice Jersey Nr.', 'pdf_label' => 'Pr. Nr.', 'width' => 17.0, 'align' => 'C', 'xl' => 18.0],
+        ['key' => 'game_jersey_groesse', 'label' => 'Jersey Größe', 'pdf_label' => 'Jersey', 'width' => 19.0, 'align' => 'C', 'xl' => 13.0],
+    ];
+}
+
+/**
+ * Erzeugt den Bekleidungs-Roster (alphabetisch) und liefert [Inhaltstyp, Dateiname, Binärdaten].
+ *
+ * @param array<int, string> $excludeKeys Spalten, die nicht ausgegeben werden dürfen
+ * @return array{0: string, 1: string, 2: string}
+ */
+function roster_generate_clothing(string $format, ?string $kader, ?string $status, array $excludeKeys = []): array
+{
+    require_once __DIR__ . '/member_repository.php';
+
+    $members = member_all($status, $kader);
+    $table = roster_table($members, $excludeKeys, roster_columns_clothing());
+    $title = 'Rosterbekleidung ' . roster_team_name();
+    $scope = $kader === 'kader' ? 'Spieler im Kader' : ($kader === 'nicht_im_kader' ? 'Spieler nicht im Kader' : 'Alle Spieler');
+    $subtitle = 'Alphabetisch nach Nachname · ' . $scope . ' · ' . count($members) . ' Spieler';
+    $base = 'roster-bekleidung-' . date('Y-m-d');
+
+    if ($format === 'xlsx') {
+        return ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', $base . '.xlsx', roster_build_xlsx($table, $title, $subtitle, 'Bekleidung')];
     }
     return ['application/pdf', $base . '.pdf', roster_build_pdf($table, $title, $subtitle)];
 }

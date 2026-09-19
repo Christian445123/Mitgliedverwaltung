@@ -10,7 +10,7 @@ require_once __DIR__ . '/../includes/field_access.php';
 
 require_permission('members.export');
 
-$type = ($_GET['type'] ?? '') === 'ifaf' ? 'ifaf' : 'alpha';
+$type = in_array($_GET['type'] ?? '', ['ifaf', 'clothing'], true) ? (string) $_GET['type'] : 'alpha';
 $format = in_array($_GET['format'] ?? '', ['pdf', 'xlsx'], true) ? (string) $_GET['format'] : null;
 $error = null;
 
@@ -36,8 +36,9 @@ if ($format !== null) {
             $status = ($_GET['status'] ?? 'aktiv') === 'alle' ? null : 'aktiv';
             // Bearbeiter erhalten nur die Spalten, die für sie freigegeben sind (Feld-Rechte)
             $exclude = field_access_admin_audience() === 'admin' ? [] : field_access_hidden_export_keys('editor');
-            [$contentType, $filename, $binary] = roster_generate_alphabetical($format, $kader, $status, $exclude);
-            app_log('export.roster', 'Alphabetischer Roster erstellt (' . $format . ')', ['kader' => $kader, 'status' => $status]);
+            $generate = $type === 'clothing' ? 'roster_generate_clothing' : 'roster_generate_alphabetical';
+            [$contentType, $filename, $binary] = $generate($format, $kader, $status, $exclude);
+            app_log('export.roster', ($type === 'clothing' ? 'Bekleidungs-Roster' : 'Alphabetischer Roster') . ' erstellt (' . $format . ')', ['kader' => $kader, 'status' => $status]);
         }
 
         header('Content-Type: ' . $contentType);
@@ -81,6 +82,27 @@ require __DIR__ . '/../includes/admin_header.php';
                 <select id="status" name="status">
                     <option value="aktiv">Nur aktive Mitglieder</option>
                     <option value="alle">Aktive und inaktive</option>
+                </select>
+            </div>
+            <div class="filter-bar">
+                <button type="submit" name="format" value="pdf" class="btn btn-primary">PDF erstellen</button>
+                <button type="submit" name="format" value="xlsx" class="btn">Excel erstellen</button>
+            </div>
+        </form>
+    </section>
+
+    <section class="panel">
+        <h2 class="section-title">Rosterbekleidung</h2>
+        <p class="muted">Alphabetische Liste für Bestellung und Ausgabe: Nachname, Vorname, Shirt, Short, Socken,
+            Practice Hose, Practice Jersey Nr. und Jersey Größe.</p>
+        <form method="get" action="roster.php">
+            <input type="hidden" name="type" value="clothing">
+            <div class="form-group">
+                <label for="kader_c">Welche Spieler?</label>
+                <select id="kader_c" name="kader">
+                    <option value="kader">Nur Spieler im Kader</option>
+                    <option value="alle">Alle Spieler</option>
+                    <option value="nicht_im_kader">Nur Spieler nicht im Kader</option>
                 </select>
             </div>
             <div class="filter-bar">
