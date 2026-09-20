@@ -41,7 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <body>
 <div class="split-auth">
     <div class="split-auth-brand">
-        <span class="brand-mark">U19</span>
+        <span class="brand-mark"><img src="../assets/logo.png" alt="AFBÖ"></span>
         <h1>AFBÖ U19</h1>
         <p>Mitgliederverwaltung des Vereins – Stammdaten, Ausrüstung, Dokumente und Zugangslinks an einem Ort.</p>
     </div>

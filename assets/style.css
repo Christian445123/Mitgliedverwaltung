@@ -87,10 +87,11 @@ svg.icon { width: 18px; height: 18px; flex-shrink: 0; }
 }
 
 .sidebar-brand .brand-mark {
-    width: 34px;
-    height: 34px;
+    width: auto;
+    height: 38px;
+    padding: 0 9px;
     border-radius: 9px;
-    background: var(--accent);
+    background: #fff;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -222,10 +223,11 @@ svg.icon { width: 18px; height: 18px; flex-shrink: 0; }
 }
 
 .split-auth-brand .brand-mark {
-    width: 52px;
-    height: 52px;
-    border-radius: 12px;
-    background: var(--accent);
+    width: auto;
+    height: 68px;
+    padding: 0 22px;
+    border-radius: 14px;
+    background: #fff;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -893,3 +895,14 @@ input:focus, select:focus, textarea:focus { box-shadow: 0 0 0 3px rgba(249, 115,
 .missing-list li:last-child { border-bottom: none; }
 .missing-list .badge-marked { background: var(--color-error-bg); color: var(--color-error-text); }
 .cell-empty { background: var(--color-error-bg); color: var(--color-error-text); }
+
+/* AFBÖ-Logo in der Marke (Seitenleiste und Anmeldeseiten) */
+.brand-mark img {
+    display: block;
+    height: 26px;
+    width: auto;
+}
+
+.split-auth-brand .brand-mark img {
+    height: 46px;
+}

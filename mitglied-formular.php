@@ -90,7 +90,7 @@ if (!$unlocked) {
     <body>
     <div class="split-auth">
         <div class="split-auth-brand">
-            <span class="brand-mark">U19</span>
+            <span class="brand-mark"><img src="assets/logo.png" alt="AFBÖ"></span>
             <h1>AFBÖ U19</h1>
             <p>Hallo <?= h($member['vorname']) ?>! Bitte bestätige deine Identität, um deine Mitgliedsdaten zu bearbeiten.</p>
         </div>
