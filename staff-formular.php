@@ -92,9 +92,9 @@ if (!$unlocked) {
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= h($pageTitle) ?> – AFBÖ U19</title>
-    <link rel="icon" href="assets/favicon.ico" sizes="any">
-    <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
-    <link rel="apple-touch-icon" href="assets/app-icon.png">
+    <link rel="icon" href="assets/favicon.ico?v=<?= asset_version('favicon.ico') ?>" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png?v=<?= asset_version('favicon-32.png') ?>">
+    <link rel="apple-touch-icon" href="assets/app-icon.png?v=<?= asset_version('app-icon.png') ?>">
     <link rel="stylesheet" href="assets/style.css?v=<?= asset_version('style.css') ?>">
     </head>
     <body>
