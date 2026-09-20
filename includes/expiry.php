@@ -153,20 +153,17 @@ function expiry_report(): array
         }
     }
 
-    // Staff: NADA und Reisepass (gleiche Fristen und Farben wie bei den Spielern)
-    $report['staff_nada'] = [];
+    // Staff: nur Reisepass (keine NADA; gleiche Fristen und Farben wie bei den Spielern)
     $report['staff_pass'] = [];
     try {
         $stmt = db()->prepare(
-            "SELECT id, nachname, vorname, nada_gueltig_bis, reisepass_gueltig_bis FROM staff
+            "SELECT id, nachname, vorname, reisepass_gueltig_bis FROM staff
              WHERE status = 'aktiv'
-               AND ((nada_gueltig_bis IS NOT NULL AND nada_gueltig_bis <= ?)
-                 OR (reisepass_gueltig_bis IS NOT NULL AND reisepass_gueltig_bis <= ?))"
+               AND reisepass_gueltig_bis IS NOT NULL AND reisepass_gueltig_bis <= ?"
         );
-        $stmt->execute([$nadaLimit->format('Y-m-d'), $passLimit->format('Y-m-d')]);
+        $stmt->execute([$passLimit->format('Y-m-d')]);
         foreach ($stmt->fetchAll() as $row) {
             $states = [
-                'staff_nada' => expiry_nada_state($row['nada_gueltig_bis'], $today),
                 'staff_pass' => expiry_pass_state($row['reisepass_gueltig_bis'], $today),
             ];
             foreach ($states as $type => $state) {
@@ -188,7 +185,7 @@ function expiry_report(): array
         // Staff-Tabelle existiert noch nicht: keine Staff-Hinweise
     }
 
-    foreach (['nada', 'pass', 'staff_nada', 'staff_pass'] as $type) {
+    foreach (['nada', 'pass', 'staff_pass'] as $type) {
         usort($report[$type], static fn (array $a, array $b) => $a['days'] <=> $b['days']);
     }
 

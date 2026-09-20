@@ -81,7 +81,6 @@ $error = flash_get('error');
             <th>Position</th>
             <th>Telefon</th>
             <th>Mail</th>
-            <th>NADA gültig bis</th>
             <th>Reisepass</th>
             <th>Status</th>
             <th>Bestätigt</th>
@@ -90,21 +89,16 @@ $error = flash_get('error');
     </thead>
     <tbody>
     <?php if (empty($people)): ?>
-        <tr><td colspan="10" class="empty">Keine Personen gefunden.</td></tr>
+        <tr><td colspan="9" class="empty">Keine Personen gefunden.</td></tr>
     <?php endif; ?>
     <?php foreach ($people as $p): ?>
         <?php $passState = expiry_pass_state($p['reisepass_gueltig_bis'] ?? null); ?>
-        <?php $nadaState = expiry_nada_state($p['nada_gueltig_bis'] ?? null); ?>
         <tr>
             <?php if ($canSelect): ?><td class="check-col" data-label="Auswahl"><input type="checkbox" name="ids[]" value="<?= (int) $p['id'] ?>" data-row-check aria-label="Person auswählen"></td><?php endif; ?>
             <td data-label="Name &amp; Vorname"><?= h(member_full_name($p)) ?></td>
             <td data-label="Position"><?= h((string) ($p['position'] ?? '')) ?></td>
             <td data-label="Telefon"><?= h((string) ($p['telefon'] ?? '')) ?></td>
             <td data-label="Mail"><?= h((string) ($p['email'] ?? '')) ?></td>
-            <td data-label="NADA gültig bis">
-                <?= !empty($p['nada_gueltig_bis']) ? h(date('d.m.Y', (int) strtotime((string) $p['nada_gueltig_bis']))) : '' ?>
-                <?php if ($nadaState): ?><span class="badge badge-<?= expiry_badge_class($nadaState['state']) ?>" title="<?= h(expiry_text($nadaState)) ?>"><?= h(expiry_badge_label($nadaState)) ?></span><?php endif; ?>
-            </td>
             <td data-label="Reisepass">
                 <?= !empty($p['reisepass_gueltig_bis']) ? h(date('d.m.Y', (int) strtotime((string) $p['reisepass_gueltig_bis']))) : '' ?>
                 <?php if ($passState): ?><span class="badge badge-<?= expiry_badge_class($passState['state']) ?>" title="<?= h(expiry_text($passState)) ?>"><?= h(expiry_badge_label($passState)) ?></span><?php endif; ?>

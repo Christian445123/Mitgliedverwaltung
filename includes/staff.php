@@ -19,8 +19,6 @@ const STAFF_IO_COLUMNS = [
     'nachname' => ['Nachname', 'str'],
     'vorname' => ['Vorname', 'str'],
     'position' => ['Position', 'str'],
-    'nada' => ['Nada', 'str'],
-    'nada_gueltig_bis' => ['Nada gültig bis', 'date'],
     'geburtsdatum' => ['Geburtsdatum', 'date'],
     'telefon' => ['Telefon', 'str'],
     'email' => ['Mail', 'str'],
@@ -45,7 +43,7 @@ const STAFF_IO_COLUMNS = [
 
 /** Gruppen für das Formular: Überschrift => Feldschlüssel. */
 const STAFF_FORM_GROUPS = [
-    'Person' => ['nachname', 'vorname', 'position', 'nada', 'nada_gueltig_bis', 'geburtsdatum'],
+    'Person' => ['nachname', 'vorname', 'position', 'geburtsdatum'],
     'Kontakt' => ['telefon', 'email', 'telefon_angehoeriger'],
     'Reisepass' => ['reisepass_nr', 'reisepass_ausgestellt_am', 'reisepass_gueltig_bis', 'geburtsland', 'ausstellungsbehoerde'],
     'Adresse' => ['plz', 'ort', 'strasse'],
