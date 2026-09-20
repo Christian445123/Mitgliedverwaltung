@@ -91,6 +91,12 @@ $expiryTotal = (int) (expiry_report()['counts']['total'] ?? 0); // abgelaufene b
                 Protokoll
             </a>
             <?php endif; ?>
+            <?php if (user_can('dsgvo.manage')): ?>
+            <a href="dsgvo.php" class="<?= $navActive('dsgvo.php') . $navActive('dsgvo-export.php') ?>">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                Datenschutz
+            </a>
+            <?php endif; ?>
             <?php if (user_can('system.update')): ?>
             <a href="update.php" class="<?= $navActive('update.php') ?>">
                 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 3 21 9 15 9"/></svg>

@@ -153,6 +153,9 @@ function api_required_permission(string $method, string $path): ?string
     if ($path === 'staff.csv') {
         return null; // wird im Endpunkt geprüft (staff.view + members.export)
     }
+    if (preg_match('#^(members|staff)/\d+/dsgvo$#', $path) === 1) {
+        return 'dsgvo.manage';
+    }
     if (preg_match('#^members/\d+/link$#', $path) === 1 || $path === 'members/verification/reset' || $path === 'members/send-links') {
         return 'members.links';
     }

@@ -131,6 +131,10 @@ seine E-Mail-Adresse und den Zugangscode.</p>
     <p class="alert alert-warning">Die Daten wurden von diesem Mitglied noch nicht bestätigt.</p>
 <?php endif; ?>
 
+<?php if (user_can("dsgvo.manage")): require_once __DIR__ . "/../includes/dsgvo.php"; $consentRow = dsgvo_consent_current("members", (int) $id); ?>
+    <p class="alert alert-<?= $consentRow ? "success" : "warning" ?>">Datenschutz-Einwilligung: <?= $consentRow ? "erteilt am " . h(date("d.m.Y H:i", (int) strtotime((string) $consentRow["accepted_at"]))) . ($consentRow["kind"] === "guardian" ? " (durch " . h((string) $consentRow["guardian_name"]) . ")" : "") : "noch nicht erteilt" ?>
+    · <a href="dsgvo-export.php?entity=members&amp;id=<?= (int) $id ?>&amp;format=html">Auskunft (Datei)</a></p>
+<?php endif; ?>
 <?php if ((int) $member['failed_verify_attempts'] > 0): ?>
     <p class="alert alert-error">
         <?= (int) $member['failed_verify_attempts'] ?> fehlgeschlagene(r) Zugangsversuch(e).

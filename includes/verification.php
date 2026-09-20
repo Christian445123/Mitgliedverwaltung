@@ -176,7 +176,7 @@ function verif_send_link(string $entity, int $id): array
         . '<p><a href="' . h($link) . '">' . h($link) . '</a></p>'
         . '<p>Zum Öffnen benötigst du zusätzlich deine E-Mail-Adresse und folgenden Zugangscode:</p>'
         . '<p style="font-size:1.2em;font-weight:bold;letter-spacing:1px;">' . h($code) . '</p>'
-        . '<p>Bitte prüfe deine Angaben und speichere sie. Falls du diesen Link nicht erwartest, wende dich bitte an den Verein.</p>';
+        . '<p>Beim ersten Öffnen bittet dich der Verein, der <a href="' . h(APP_BASE_URL . '/datenschutz.php') . '">Datenschutzerklärung</a> zuzustimmen (bei Minderjährigen: durch die Erziehungsberechtigten). Bitte prüfe danach deine Angaben und speichere sie. Falls du diesen Link nicht erwartest, wende dich bitte an den Verein.</p>';
 
     try {
         (new Mailer())->send((string) $person['email'], $name, 'Bitte prüfe deine Daten – AFBÖ U19', $html);

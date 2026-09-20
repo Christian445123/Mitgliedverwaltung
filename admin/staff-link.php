@@ -5,6 +5,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/verification.php';
+require_once __DIR__ . '/../includes/dsgvo.php';
 
 require_permission('staff.edit');
 
@@ -90,6 +91,10 @@ Zum Öffnen benötigt sie zusätzlich <?= !empty($person['email']) ? 'ihre E-Mai
     <p class="alert alert-warning">Die Daten wurden von dieser Person noch nicht bestätigt.</p>
 <?php endif; ?>
 
+<?php if (user_can("dsgvo.manage")): $consentRow = dsgvo_consent_current("staff", (int) $id); ?>
+    <p class="alert alert-<?= $consentRow ? "success" : "warning" ?>">Datenschutz-Einwilligung: <?= $consentRow ? "erteilt am " . h(date("d.m.Y H:i", (int) strtotime((string) $consentRow["accepted_at"]))) : "noch nicht erteilt" ?>
+    · <a href="dsgvo-export.php?entity=staff&amp;id=<?= (int) $id ?>&amp;format=html">Auskunft (Datei)</a></p>
+<?php endif; ?>
 <?php if ($access['verified_at']): ?>
 <form method="post" action="staff-link.php?id=<?= (int) $id ?>"
       data-confirm="Bestätigung zurücksetzen? Die Person muss ihre Daten danach erneut bestätigen.">

@@ -54,6 +54,7 @@ function permissions_registry(): array
         'logs.view' => ['Protokoll ansehen und exportieren', 'System'],
         'logs.purge' => ['Protokoll bereinigen/löschen', 'System'],
         'system.update' => ['Anwendung aktualisieren (Update per git pull)', 'System'],
+        'dsgvo.manage' => ['Datenschutz verwalten (Verzeichnis, Anfragen, Löschfristen, Datenpannen, Auskunft)', 'System'],
     ];
 }
 

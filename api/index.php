@@ -322,6 +322,17 @@ if (preg_match('#^(members|staff)/(\d+)/link$#', $path, $lm) === 1 && in_array($
     }
 }
 
+// Auskunft (Art. 15/20): alle gespeicherten Daten einer Person als JSON (Recht "dsgvo.manage")
+if (preg_match('#^(members|staff)/(\d+)/dsgvo$#', $path, $dm) === 1 && $method === 'GET') {
+    require_once __DIR__ . '/../includes/dsgvo.php';
+    try {
+        app_log('privacy.export', 'Auskunft erstellt (Desktop-App)', ['target_type' => $dm[1] === 'staff' ? 'staff' : 'member', 'target_id' => (int) $dm[2]]);
+        api_json(200, dsgvo_export($dm[1], (int) $dm[2]));
+    } catch (RuntimeException $e) {
+        api_error(404, $e->getMessage());
+    }
+}
+
 // Bestätigung zurücksetzen: POST {ids:[..]}  -> {reset: n}
 // Massenmail (Link + neuer Zugangscode): POST {ids:[..]} (höchstens 10 pro Aufruf) -> {results:[{id,name,status,message}]}
 if (preg_match('#^(members|staff)/(verification/reset|send-links)$#', $path, $vm) === 1 && $method === 'POST') {

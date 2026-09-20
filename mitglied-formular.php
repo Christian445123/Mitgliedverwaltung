@@ -117,7 +117,7 @@ if (!$unlocked) {
 
                 <p class="privacy-note">
                     Hinweis zum Datenschutz: Deine Angaben werden ausschließlich zur Mitgliederverwaltung
-                    des Vereins verarbeitet und nicht an Dritte weitergegeben.
+                    des Vereins verarbeitet und nicht an Dritte weitergegeben. <a href="datenschutz.php">Datenschutzerklärung</a>
                 </p>
             </div>
         </div>
@@ -129,6 +129,9 @@ if (!$unlocked) {
 }
 
 // --- Stufe 2: freigeschaltet - Daten anzeigen/bearbeiten --------------------
+require_once __DIR__ . '/includes/privacy_gate.php';
+privacy_gate('members', $memberId, $member, 'mitglied-formular.php?token=' . $token); // Einwilligung, Auskunft, Löschantrag
+
 $error = null;
 $saved = false;
 
@@ -169,4 +172,5 @@ require __DIR__ . '/includes/public_header.php';
         <button type="submit" class="btn btn-primary">Speichern</button>
     </form>
 </div>
+<?php privacy_self_service_box('mitglied-formular.php?token=' . $token); ?>
 <?php require __DIR__ . '/includes/public_footer.php'; ?>
