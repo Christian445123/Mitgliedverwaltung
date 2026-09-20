@@ -50,6 +50,7 @@ function permissions_registry(): array
 
         'users.manage' => ['Benutzer und Rollen verwalten', 'System'],
         'api.manage' => ['API-Zugänge verwalten', 'System'],
+        'license.manage' => ['Lizenzen der Desktop-Anwendung verwalten (Schlüssel erzeugen, sperren, Geräte freigeben)', 'System'],
         'logs.view' => ['Protokoll ansehen und exportieren', 'System'],
         'logs.purge' => ['Protokoll bereinigen/löschen', 'System'],
         'system.update' => ['Anwendung aktualisieren (Update per git pull)', 'System'],

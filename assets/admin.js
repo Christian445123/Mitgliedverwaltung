@@ -9,6 +9,15 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
+    // Buttons mit Rückfrage (data-confirm-button), z. B. Lizenz sperren
+    document.querySelectorAll("button[data-confirm-button]").forEach(function (button) {
+        button.addEventListener("click", function (event) {
+            if (!window.confirm(button.dataset.confirmButton)) {
+                event.preventDefault();
+            }
+        });
+    });
+
     document.querySelectorAll('input[data-select-on-click]').forEach(function (input) {
         input.addEventListener('click', function () {
             input.select();

@@ -20,6 +20,7 @@ declare(strict_types=1);
  *   POST   /api/import                              CSV/XLSX-Import (Schreib-Token; commit=1 speichert)
  *   POST   /api/update                              Server-Update per git pull --ff-only (Schreib-Token)
  *   GET    /api/template.csv                        Import-Vorlage
+ *   POST   /api/license/validate                    Lizenzschlüssel der Desktop-Anwendung prüfen (signierte Offline-Freigabe, max. 3 Tage)
  *   GET/POST/PUT/DELETE /api/staff[/{id}]           Staff (Coaches/Betreuer) lesen, anlegen, ändern, löschen
  *   GET/POST/DELETE     /api/staff/{id}/documents/rechte  Staff: unterschriebenes Dokument Rechte & Pflichten
  *   POST/PUT            /api/members/{id}/document-flags     "Fehlt"-Markierung {nada, pass, ecard, rechte: true/false}
@@ -146,6 +147,31 @@ if ($path === 'template.csv' && $method === 'GET') {
     member_export_csv($out, []);
     fclose($out);
     exit;
+}
+
+// Lizenzprüfung der Desktop-Anwendung: POST /license/validate {"key","machine_id","machine_name","app_version"}
+// Antwort immer mit HTTP 200: {"valid": true/false, "reason", "message", ...}. Auch mit Lese-Token erlaubt.
+if ($path === 'license/validate' && $method === 'POST') {
+    require_once __DIR__ . '/../includes/licenses.php';
+    $licBody = json_decode((string) file_get_contents('php://input'), true);
+    if (!is_array($licBody)) {
+        api_error(400, 'Erwartet wird ein JSON-Objekt mit key, machine_id, machine_name und app_version.');
+    }
+    try {
+        $licResult = license_check(
+            (string) ($licBody['key'] ?? ''),
+            (string) ($licBody['machine_id'] ?? ''),
+            (string) ($licBody['machine_name'] ?? ''),
+            (string) ($licBody['app_version'] ?? ''),
+            (string) ($_SERVER['REMOTE_ADDR'] ?? '')
+        );
+    } catch (RuntimeException $e) {
+        api_error(500, $e->getMessage());
+    }
+    if (empty($licResult['valid'])) {
+        app_log('license.denied', 'Lizenzprüfung abgelehnt: ' . ($licResult['reason'] ?? ''), ['machine' => (string) ($licBody['machine_name'] ?? '')], 'warning');
+    }
+    api_json(200, $licResult);
 }
 
 // Roster als Datei: GET /roster.pdf|xlsx (alphabetisch) und /roster-ifaf.pdf|xlsx?competition=&game=&team=

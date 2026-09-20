@@ -69,6 +69,12 @@ $expiryTotal = (int) (expiry_report()['counts']['total'] ?? 0); // abgelaufene b
                 Feld-Rechte
             </a>
             <?php endif; ?>
+            <?php if (user_can('license.manage')): ?>
+            <a href="licenses.php" class="<?= $navActive('licenses.php') ?>">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="4"/><path d="m10.85 12.15 8.4-8.4"/><path d="m18 5 3 3"/><path d="m15 8 2 2"/></svg>
+                Lizenzen
+            </a>
+            <?php endif; ?>
             <?php if (user_can('api.manage')): ?>
             <a href="api.php" class="<?= $navActive('api.php') ?>">
                 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
