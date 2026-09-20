@@ -81,48 +81,6 @@ $listUrl = static fn (array $extra = []) => 'index.php?' . http_build_query(arra
 </section>
 <?php endif; ?>
 
-<?php $docsMissing = documents_missing_report(); ?>
-<?php if ($docsMissing['total'] > 0): ?>
-<section class="panel expiry-panel">
-    <h2 class="section-title">📄 Fehlende Dokumente (<?= (int) $docsMissing['total'] ?>)</h2>
-    <?php if (user_can('members.export') && user_can('staff.view')): ?>
-    <p class="filter-bar">
-        <a class="btn btn-primary" href="roster.php?type=missing&amp;kader=kader&amp;format=pdf">Liste als PDF</a>
-        <a class="btn" href="roster.php?type=missing&amp;kader=kader&amp;format=xlsx">Liste als Excel</a>
-        <span class="muted">Spieler und Staff getrennt</span>
-    </p>
-    <?php endif; ?>
-    <p class="muted">Aktive Spieler im Kader, bei denen NADA-Zertifikat, Reisepass, E-Card oder Rechte &amp; Pflichten fehlen
-        (keine Datei hochgeladen oder mit „Fehlt“ markiert). E-Card und Reisepass haben nur eine Vorderseite.</p>
-    <div class="expiry-columns">
-        <?php if ($docsMissing['players'] !== []): ?>
-        <div>
-            <h3>Spieler (<?= count($docsMissing['players']) ?>)</h3>
-            <ul class="missing-list">
-                <?php foreach ($docsMissing['players'] as $p): ?>
-                    <li>
-                        <a href="member-form.php?id=<?= (int) $p['id'] ?>"><?= h($p['name']) ?></a>
-                        <?php foreach ($p['missing'] as $d): ?>
-                            <span class="badge <?= $d['marked'] ? 'badge-marked' : 'badge-orange' ?>" title="<?= $d['marked'] ? 'Von Hand als fehlend markiert' : 'Keine Datei hochgeladen' ?>"><?= h($d['label']) ?></span>
-                        <?php endforeach; ?>
-                    </li>
-                <?php endforeach; ?>
-            </ul>
-        </div>
-        <?php endif; ?>
-        <?php if ($docsMissing['staff'] !== []): ?>
-        <div>
-            <h3>Staff: noch nicht hochgeladen, freiwillig (<?= count($docsMissing['staff']) ?>)</h3>
-            <ul class="missing-list">
-                <?php foreach ($docsMissing['staff'] as $s): ?>
-                    <li><a href="staff-form.php?id=<?= (int) $s['id'] ?>"><?= h($s['name']) ?></a> <?php foreach ($s['open'] as $openDoc): ?><span class="badge badge-gray"><?= h($openDoc) ?></span> <?php endforeach; ?></li>
-                <?php endforeach; ?>
-            </ul>
-        </div>
-        <?php endif; ?>
-    </div>
-</section>
-<?php endif; ?>
 
 
 <?php if ($info): ?><p class="alert alert-success"><?= h($info) ?></p><?php endif; ?>
