@@ -169,3 +169,18 @@ document.addEventListener('DOMContentLoaded', function () {
     });
     update();
 });
+
+// "Name & Vorname (automatisch)": zuerst Nachname, dann Vorname, live beim Tippen
+document.addEventListener('DOMContentLoaded', function () {
+    var auto = document.getElementById('name_vorname_auto');
+    var last = document.getElementById('nachname');
+    var first = document.getElementById('vorname');
+    if (!auto || !last || !first) {
+        return;
+    }
+    var update = function () {
+        auto.value = (last.value.trim() + ' ' + first.value.trim()).trim();
+    };
+    last.addEventListener('input', update);
+    first.addEventListener('input', update);
+});

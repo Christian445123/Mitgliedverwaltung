@@ -88,6 +88,12 @@ $v = static fn (string $key): string => h((string) ($values[$key] ?? ''));
                                    id="<?= h($key) ?>" name="<?= h($key) ?>" value="<?= $v($key) ?>" maxlength="<?= (int) (MEMBER_IO_MAXLEN[$key] ?? 100) ?>" <?= $required ? 'required' : '' ?>>
                         <?php endif; ?>
                     </div>
+                    <?php if ($key === 'vorname'): ?>
+                    <div class="form-group">
+                        <label for="name_vorname_auto">Name &amp; Vorname (automatisch)</label>
+                        <input type="text" id="name_vorname_auto" value="<?= h(member_full_name($values)) ?>" readonly tabindex="-1">
+                    </div>
+                    <?php endif; ?>
                 <?php endforeach; ?>
             </div>
         </fieldset>
