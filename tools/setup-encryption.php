@@ -65,9 +65,6 @@ if (!is_writable($envFile)) {
 // 1. Schlüssel
 $keyFile = crypto_key_create();
 echo "1. Masterschlüssel: {$keyFile}\n";
-if (str_starts_with(realpath($keyFile) ?: $keyFile, realpath($root) ?: $root)) {
-    echo "   WARNUNG: Die Schlüsseldatei liegt im Anwendungsordner. Bitte APP_KEY_FILE auf einen Pfad außerhalb des Webverzeichnisses setzen.\n";
-}
 
 // 2. .env verschlüsseln
 $secretNames = static fn (string $n): bool => (bool) preg_match('/(^DB_PASS$|PASSWORD|SECRET|TOKEN|API_KEY)/i', $n);

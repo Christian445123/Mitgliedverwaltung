@@ -19,13 +19,50 @@ declare(strict_types=1);
 const CRYPTO_ENV_PREFIX = 'enc:v1:';
 const CRYPTO_FILE_MAGIC = "U19ENC1\n";
 
-function crypto_key_file(): string
+/** Schutzzeile am Anfang der Schlüsseldatei: Wird die Datei versehentlich über das Web aufgerufen, führt PHP sie nur aus und gibt nichts aus. */
+const CRYPTO_KEY_GUARD = "<?php exit; ?>\n";
+
+/**
+ * Mögliche Orte der Schlüsseldatei in der Reihenfolge der Suche: APP_KEY_FILE aus der .env, dann der Ordner neben dem
+ * Anwendungsordner, dann ein Ordner im Anwendungsordner (falls PHP nicht außerhalb des Website-Ordners lesen darf).
+ *
+ * @return array<int, string>
+ */
+function crypto_key_candidates(): array
 {
+    $list = [];
     $custom = getenv('APP_KEY_FILE');
     if (is_string($custom) && $custom !== '') {
-        return $custom;
+        $list[] = $custom;
     }
-    return dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . '.u19-keys' . DIRECTORY_SEPARATOR . 'master.key';
+    $list[] = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . '.u19-keys' . DIRECTORY_SEPARATOR . 'master.key';
+    $list[] = dirname(__DIR__) . DIRECTORY_SEPARATOR . '.u19-keys' . DIRECTORY_SEPARATOR . 'master.key';
+    return array_values(array_unique($list));
+}
+
+/** Die verwendete Schlüsseldatei (erste lesbare), sonst der erste Kandidat (Ort zum Anlegen). */
+function crypto_key_file(): string
+{
+    foreach (crypto_key_candidates() as $file) {
+        if (@is_readable($file) && @is_file($file)) {
+            return $file;
+        }
+    }
+    return crypto_key_candidates()[0];
+}
+
+/** Liest 32 Byte aus einer Schlüsseldatei (mit oder ohne Schutzzeile) oder false. */
+function crypto_key_parse(string $file): string|false
+{
+    $content = @file_get_contents($file);
+    if ($content === false) {
+        return false;
+    }
+    if (str_starts_with($content, CRYPTO_KEY_GUARD)) {
+        $content = substr($content, strlen(CRYPTO_KEY_GUARD));
+    }
+    $raw = base64_decode(trim($content), true);
+    return $raw !== false && strlen($raw) === 32 ? $raw : false;
 }
 
 /** Legt den Masterschlüssel an, falls noch keiner existiert (nur für das Einrichtungsskript). */
@@ -39,11 +76,30 @@ function crypto_key_create(): string
     if (!is_dir($dir) && !mkdir($dir, 0700, true) && !is_dir($dir)) {
         throw new RuntimeException("Ordner für den Schlüssel konnte nicht angelegt werden: {$dir} (Alternativ APP_KEY_FILE setzen.)");
     }
-    if (file_put_contents($file, base64_encode(random_bytes(32)) . "\n", LOCK_EX) === false) {
+    if (file_put_contents($file, CRYPTO_KEY_GUARD . base64_encode(random_bytes(32)) . "\n", LOCK_EX) === false) {
         throw new RuntimeException("Schlüsseldatei konnte nicht geschrieben werden: {$file}");
     }
     @chmod($file, 0600);
     return $file;
+}
+
+/**
+ * Zustand der Schlüsseldatei für die Fehlersuche (Webpanel).
+ *
+ * @return array{tried: array<int, array{path: string, exists: bool, readable: bool, valid: bool}>, open_basedir: string}
+ */
+function crypto_key_status(): array
+{
+    $tried = [];
+    foreach (crypto_key_candidates() as $file) {
+        $tried[] = [
+            'path' => $file,
+            'exists' => @file_exists($file),
+            'readable' => @is_readable($file),
+            'valid' => @is_readable($file) && crypto_key_parse($file) !== false,
+        ];
+    }
+    return ['tried' => $tried, 'open_basedir' => (string) ini_get('open_basedir')];
 }
 
 /** @throws RuntimeException wenn kein gültiger Schlüssel vorhanden ist */
@@ -54,9 +110,9 @@ function crypto_master_key(): string
         return $key;
     }
     $file = crypto_key_file();
-    $raw = is_readable($file) ? base64_decode(trim((string) file_get_contents($file)), true) : false;
-    if ($raw === false || strlen($raw) !== 32) {
-        throw new RuntimeException('Der Schlüssel für die Verschlüsselung fehlt oder ist ungültig (' . $file . '). Bitte tools/setup-encryption.php ausführen.');
+    $raw = @is_readable($file) ? crypto_key_parse($file) : false;
+    if ($raw === false) {
+        throw new RuntimeException('Der Schlüssel für die Verschlüsselung fehlt oder ist ungültig (gesucht: ' . implode(', ', crypto_key_candidates()) . '). Bitte tools/setup-encryption.php ausführen oder die Datei master.key hochladen.');
     }
     return $key = $raw;
 }

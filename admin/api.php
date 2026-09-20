@@ -116,8 +116,28 @@ try {
         <button type="button" class="btn" data-copy-target="transportKey">Kopieren</button>
     </div>
 <?php else: ?>
-    <p class="alert alert-warning">Die Verschlüsselung ist noch nicht eingerichtet. Auf dem Server <code>php tools/setup-encryption.php</code>
-    ausführen (verschlüsselt auch die Passwörter in der .env und die hochgeladenen Dokumente).</p>
+    <?php $keyStatus = crypto_key_status(); ?>
+    <p class="alert alert-warning">Die Verschlüsselung ist noch nicht eingerichtet: Der Server findet die Schlüsseldatei <code>master.key</code> nicht.
+    Lege sie an einen der folgenden Orte (oder führe auf dem Server <code>php tools/setup-encryption.php</code> aus):</p>
+    <div class="table-scroll">
+    <table class="table">
+        <thead><tr><th>Ort</th><th>Vorhanden</th><th>Lesbar</th><th>Gültig</th></tr></thead>
+        <tbody>
+        <?php foreach ($keyStatus['tried'] as $t): ?>
+            <tr>
+                <td><code><?= h($t['path']) ?></code></td>
+                <td><?= $t['exists'] ? 'ja' : 'nein' ?></td>
+                <td><?= $t['readable'] ? 'ja' : 'nein' ?></td>
+                <td><?= $t['valid'] ? 'ja' : 'nein' ?></td>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
+    </div>
+    <?php if ($keyStatus['open_basedir'] !== ''): ?>
+        <p class="muted">PHP darf nur in diesen Ordnern lesen (open_basedir): <code><?= h($keyStatus['open_basedir']) ?></code> –
+        die Schlüsseldatei muss innerhalb davon liegen.</p>
+    <?php endif; ?>
 <?php endif; ?>
 
 <h2 class="section-title" style="margin-top:28px;">Aktive Zugänge (<?= count($tokens) ?>)</h2>

@@ -6,3 +6,6 @@
 
 # Protokolldateien
 /logs/
+
+# Schlüsseldatei der Verschlüsselung (falls im Anwendungsordner)
+/.u19-keys/
