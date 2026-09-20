@@ -53,6 +53,13 @@ $listUrl = static fn (array $extra = []) => 'index.php?' . http_build_query(arra
 <?php if ($expiry['counts']['total'] > 0): ?>
 <section class="panel expiry-panel">
     <h2 class="section-title">⚠ Ablaufende Dokumente (<?= (int) $expiry['counts']['total'] ?>)</h2>
+    <?php if (user_can('members.export') && user_can('staff.view')): ?>
+    <p class="filter-bar">
+        <a class="btn btn-primary" href="roster.php?type=expired&amp;kader=kader&amp;format=pdf">Liste als PDF</a>
+        <a class="btn" href="roster.php?type=expired&amp;kader=kader&amp;format=xlsx">Liste als Excel</a>
+        <span class="muted">Spieler und Staff getrennt</span>
+    </p>
+    <?php endif; ?>
     <div class="expiry-columns">
         <?php foreach (['nada' => 'NADA-Zertifikat (gelb ab ' . expiry_nada_months() . ' Monat vorher, blau ab ' . expiry_nada_urgent_days() . ' Tagen, rot am Ablauftag)', 'pass' => 'Reisepass (Hinweis ' . expiry_pass_months() . ' Monate vorher)', 'staff_pass' => 'Staff: Reisepass (Hinweis ' . expiry_pass_months() . ' Monate vorher)'] as $type => $title): ?>
             <?php if (!empty($expiry[$type])): ?>
@@ -78,6 +85,13 @@ $listUrl = static fn (array $extra = []) => 'index.php?' . http_build_query(arra
 <?php if ($docsMissing['total'] > 0): ?>
 <section class="panel expiry-panel">
     <h2 class="section-title">📄 Fehlende Dokumente (<?= (int) $docsMissing['total'] ?>)</h2>
+    <?php if (user_can('members.export') && user_can('staff.view')): ?>
+    <p class="filter-bar">
+        <a class="btn btn-primary" href="roster.php?type=missing&amp;kader=kader&amp;format=pdf">Liste als PDF</a>
+        <a class="btn" href="roster.php?type=missing&amp;kader=kader&amp;format=xlsx">Liste als Excel</a>
+        <span class="muted">Spieler und Staff getrennt</span>
+    </p>
+    <?php endif; ?>
     <p class="muted">Aktive Spieler im Kader, bei denen NADA-Zertifikat, Reisepass, E-Card oder Rechte &amp; Pflichten fehlen
         (keine Datei hochgeladen oder mit „Fehlt“ markiert). Bei E-Card und Reisepass genügt Vorder- <em>oder</em> Rückseite.</p>
     <div class="expiry-columns">
