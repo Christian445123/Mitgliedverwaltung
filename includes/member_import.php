@@ -61,9 +61,12 @@ function member_import_analyze(array $table, bool $updateExisting, ?string $kade
         throw new RuntimeException('Zu viele Zeilen (maximal ' . MEMBER_IMPORT_MAX_ROWS . ' pro Import).');
     }
 
-    ['map' => $map, 'unknown' => $unknownCols, 'ignored' => $ignoredCols, 'skipped' => $skippedCols] = io_map_headers($header, $overrides);
+    ['map' => $map, 'unknown' => $unknownCols, 'ignored' => $ignoredCols, 'skipped' => $skippedCols, 'combined' => $combinedCol] = io_map_headers($header, $overrides);
 
     $mapped = array_values($map);
+    if ($combinedCol !== null) {
+        $mapped[] = 'vorname'; // kommt aus der geteilten Spalte "Name & Vorname"
+    }
     $missing = [];
     foreach (io_required_keys() as $required) {
         if (!in_array($required, $mapped, true)) {
@@ -103,7 +106,7 @@ function member_import_analyze(array $table, bool $updateExisting, ?string $kade
             'index' => (int) $col,
             'header' => $clean((string) $title),
             'key' => $key,
-            'field' => $key !== null ? member_io_columns()[$key][0] : null,
+            'field' => $key !== null ? ($combinedCol === $col ? 'Nachname + Vorname (geteilt)' : member_io_columns()[$key][0]) : null,
             'values' => $filled,
             'state' => $state,
         ];
@@ -119,8 +122,21 @@ function member_import_analyze(array $table, bool $updateExisting, ?string $kade
         foreach ($map as $col => $key) {
             $raw[$key] = $cells[$col] ?? '';
         }
+        $splitWarning = null;
+        if ($combinedCol !== null) {
+            // Spalte "Name & Vorname" (Nachname zuerst) in Nachname und Vorname teilen
+            [$lastName, $firstName, $uncertain] = io_split_full_name((string) ($cells[$combinedCol] ?? ''));
+            $raw['nachname'] = $lastName;
+            $raw['vorname'] = $firstName;
+            if ($uncertain) {
+                $splitWarning = 'Name "' . trim((string) $cells[$combinedCol]) . '" geteilt in Nachname "' . $lastName . '" und Vorname "' . $firstName . '" - bitte prüfen';
+            }
+        }
 
         ['data' => $data, 'errors' => $errors, 'warnings' => $warnings] = io_convert_row($raw, false, true);
+        if ($splitWarning !== null) {
+            $warnings[] = $splitWarning;
+        }
 
         // Gewählter Kader-Status gilt für alle Zeilen, die keinen eigenen Wert in der Datei haben
         if ($kaderDefault !== null && io_entity() === 'members' && !isset($data['kader'])) {

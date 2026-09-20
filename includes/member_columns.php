@@ -213,6 +213,19 @@ function io_map_headers(array $headers, array $overrides = []): array
         }
     }
 
+    // Staff-Listen haben oft nur eine Spalte "Name & Vorname" (Nachname zuerst): sie wird beim Import in Nachname und Vorname geteilt
+    $combined = null;
+    if (io_entity() === 'staff' && !in_array('nachname', $map, true) && !in_array('vorname', $map, true)) {
+        foreach ($ignored as $i => $title) {
+            if (io_normalize_header($title) === io_normalize_header('Name & Vorname')) {
+                $combined = $i;
+                $map[$i] = 'nachname';
+                unset($ignored[$i]);
+                break;
+            }
+        }
+    }
+
     // Manuelle Zuordnung hat Vorrang
     $skipped = [];
     foreach ($overrides as $i => $target) {
@@ -238,7 +251,39 @@ function io_map_headers(array $headers, array $overrides = []): array
         $map[$i] = $target;
     }
 
-    return ['map' => $map, 'unknown' => $unknown, 'ignored' => $ignored, 'skipped' => $skipped];
+    if ($combined !== null && ($map[$combined] ?? null) !== 'nachname') {
+        $combined = null; // wurde manuell anders zugeordnet
+    }
+
+    return ['map' => $map, 'unknown' => $unknown, 'ignored' => $ignored, 'skipped' => $skipped, 'combined' => $combined];
+}
+
+/**
+ * Teilt "Nachname Vorname" (z. B. "Schubert Hans") in [Nachname, Vorname]. Auch "Schubert, Hans" und Nachnamen mit
+ * Vorsilben ("De Mare Jakob", "van der Bellen Alexander") werden erkannt; alles nach dem Nachnamen ist der Vorname.
+ *
+ * @return array{0: string, 1: string, 2: bool} Nachname, Vorname und ob die Aufteilung unsicher ist (mehr als zwei Wörter)
+ */
+function io_split_full_name(string $full): array
+{
+    $full = trim((string) preg_replace('/\s+/u', ' ', $full));
+    if ($full === '') {
+        return ['', '', false];
+    }
+    if (str_contains($full, ',')) {
+        [$last, $first] = array_map('trim', explode(',', $full, 2));
+        return [$last, $first, false];
+    }
+    $tokens = explode(' ', $full);
+    if (count($tokens) === 1) {
+        return [$full, '', false];
+    }
+    $particles = ['de', 'da', 'di', 'del', 'della', 'van', 'von', 'vom', 'der', 'den', 'ter', 'ten', 'le', 'la', 'el', 'al', 'mc', 'mac', 'bin', 'ben', 'dos', 'das', 'do', 'du', 'zu', 'zur', 'st.'];
+    $lastParts = [array_shift($tokens)];
+    while (count($tokens) > 1 && in_array(mb_strtolower(end($lastParts)), $particles, true)) {
+        $lastParts[] = array_shift($tokens);
+    }
+    return [implode(' ', $lastParts), implode(' ', $tokens), count($lastParts) + count($tokens) > 2];
 }
 
 /**
