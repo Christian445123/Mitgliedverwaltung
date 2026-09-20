@@ -100,25 +100,16 @@ Invoke-RestMethod "<?= h($baseUrl) ?>/members?limit=500" -Headers $h |
     </section>
 </div>
 
-<h2 class="section-title" style="margin-top:28px;">Verschlüsselungsschlüssel für die Desktop-App</h2>
-<?php
-$transportKey = null;
-try {
-    $transportKey = crypto_transport_key_b64();
-} catch (RuntimeException $e) {
-}
-?>
-<?php if ($transportKey !== null): ?>
-    <p>Die Desktop-Anwendung verschlüsselt jede Anfrage und Antwort zusätzlich mit diesem Schlüssel. Er wird einmal in den
-    Einstellungen der Anwendung (bzw. bei der Installation) eingetragen. Nicht weitergeben und nicht per E-Mail versenden.</p>
-    <div class="link-box">
-        <input type="password" readonly value="<?= h($transportKey) ?>" id="transportKey" data-select-on-click>
-        <button type="button" class="btn" data-copy-target="transportKey">Kopieren</button>
-    </div>
+<h2 class="section-title" style="margin-top:28px;">Verschlüsselung</h2>
+<p><strong>Übertragung:</strong> Die Desktop-Anwendung verschlüsselt jede Anfrage und Antwort automatisch mit einem Schlüssel, der aus dem
+API-Schlüssel abgeleitet wird. Es muss nichts zusätzlich eingetragen werden; ein widerrufener API-Schlüssel sperrt auch die Verschlüsselung.</p>
+<?php $keyStatus = crypto_key_status(); $keyOk = array_filter($keyStatus['tried'], static fn (array $t) => $t['valid']) !== []; ?>
+<?php if ($keyOk): ?>
+    <p class="alert alert-success"><strong>Passwörter in der .env und hochgeladene Dokumente:</strong> Die Schlüsseldatei ist vorhanden, Dokumente werden verschlüsselt gespeichert.</p>
 <?php else: ?>
-    <?php $keyStatus = crypto_key_status(); ?>
-    <p class="alert alert-warning">Die Verschlüsselung ist noch nicht eingerichtet: Der Server findet die Schlüsseldatei <code>master.key</code> nicht.
-    Lege sie an einen der folgenden Orte (oder führe auf dem Server <code>php tools/setup-encryption.php</code> aus):</p>
+    <p class="alert alert-warning"><strong>Passwörter in der .env und hochgeladene Dokumente:</strong> Noch nicht verschlüsselt, weil die Schlüsseldatei
+    <code>master.key</code> fehlt. Das betrifft nicht die Anmeldung oder die App. Zum Einrichten <code>server-upload</code>-Paket hochladen oder auf dem Server
+    <code>php tools/setup-encryption.php</code> ausführen. Der Server sucht die Datei an diesen Orten:</p>
     <div class="table-scroll">
     <table class="table">
         <thead><tr><th>Ort</th><th>Vorhanden</th><th>Lesbar</th><th>Gültig</th></tr></thead>
@@ -135,8 +126,7 @@ try {
     </table>
     </div>
     <?php if ($keyStatus['open_basedir'] !== ''): ?>
-        <p class="muted">PHP darf nur in diesen Ordnern lesen (open_basedir): <code><?= h($keyStatus['open_basedir']) ?></code> –
-        die Schlüsseldatei muss innerhalb davon liegen.</p>
+        <p class="muted">PHP darf nur in diesen Ordnern lesen (open_basedir): <code><?= h($keyStatus['open_basedir']) ?></code></p>
     <?php endif; ?>
 <?php endif; ?>
 

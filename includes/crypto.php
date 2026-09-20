@@ -11,7 +11,8 @@ declare(strict_types=1);
  * Daraus werden per HKDF getrennte Teilschlüssel abgeleitet:
  *   secrets   - Werte in der .env  ("enc:v1:...")
  *   files     - hochgeladene Dokumente
- *   transport - Übertragung zwischen Desktop-App und API (wird der App als "Verschlüsselungsschlüssel" mitgegeben)
+ *
+ * Die Übertragung zwischen App und API nutzt einen Schlüssel, der aus dem API-Schlüssel abgeleitet wird (kein Eintrag nötig).
  *
  * Diese Datei darf keine Abhängigkeit zu config.php haben (wird von dort beim Einlesen der .env benötigt).
  */
@@ -123,11 +124,6 @@ function crypto_subkey(string $label): string
     return $cache[$label] ??= hash_hkdf('sha256', crypto_master_key(), 32, 'u19-' . $label . '-v1');
 }
 
-/** Verschlüsselungsschlüssel für die Desktop-App (Base64). */
-function crypto_transport_key_b64(): string
-{
-    return base64_encode(crypto_subkey('transport'));
-}
 
 /** @return string nonce(12) | tag(16) | ciphertext */
 function crypto_encrypt(string $plain, string $label, string $aad = ''): string
@@ -148,6 +144,42 @@ function crypto_decrypt(string $blob, string $label, string $aad = ''): string|f
         return false;
     }
     return openssl_decrypt(substr($blob, 28), 'aes-256-gcm', crypto_subkey($label), OPENSSL_RAW_DATA, substr($blob, 0, 12), substr($blob, 12, 16), $aad);
+}
+
+
+// ── Übertragung (Schlüssel wird aus dem API-Schlüssel abgeleitet) ────────
+
+/** Übertragungsschlüssel aus dem SHA-256-Hash des API-Schlüssels (der Server kennt nur den Hash; die App berechnet ihn ebenso). */
+function crypto_transport_key_from_hash(string $tokenHashHex): string
+{
+    return hash_hkdf('sha256', (string) hex2bin($tokenHashHex), 32, 'u19-transport-v2');
+}
+
+/** Kennung des Schlüssels (verrät den Schlüssel nicht), damit der Server den passenden API-Zugang findet. */
+function crypto_transport_kid(string $key): string
+{
+    return substr(hash('sha256', 'kid' . $key), 0, 16);
+}
+
+/** @return string nonce(12) | tag(16) | ciphertext */
+function crypto_seal(string $key, string $plain, string $aad = ''): string
+{
+    $nonce = random_bytes(12);
+    $tag = '';
+    $cipher = openssl_encrypt($plain, 'aes-256-gcm', $key, OPENSSL_RAW_DATA, $nonce, $tag, $aad, 16);
+    if ($cipher === false) {
+        throw new RuntimeException('Verschlüsselung fehlgeschlagen.');
+    }
+    return $nonce . $tag . $cipher;
+}
+
+/** @return string|false false bei falschem Schlüssel oder manipulierten Daten */
+function crypto_open(string $key, string $blob, string $aad = ''): string|false
+{
+    if (strlen($blob) < 28) {
+        return false;
+    }
+    return openssl_decrypt(substr($blob, 28), 'aes-256-gcm', $key, OPENSSL_RAW_DATA, substr($blob, 0, 12), substr($blob, 12, 16), $aad);
 }
 
 // ── Geheimnisse in der .env ──────────────────────────────────────────

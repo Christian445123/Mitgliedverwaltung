@@ -6,7 +6,7 @@ declare(strict_types=1);
  * Verschlüsselte Übertragung der API (zusätzlich zu HTTPS).
  *
  * Die Desktop-App schickt jede Anfrage als POST mit Header "X-Enc: 1". Der Body ist ein AES-256-GCM-Paket
- * (Schlüssel: Teilschlüssel "transport", siehe includes/crypto.php) mit folgendem Klartext:
+ * (Schlüssel: aus dem API-Schlüssel abgeleitet, siehe crypto_transport_key_from_hash; Header X-Enc-Kid nennt die Kennung) mit folgendem Klartext:
  *
  *   uint32 (Big Endian) Länge der Metadaten | Metadaten (JSON) | Nutzdaten
  *
@@ -51,13 +51,26 @@ function transport_bootstrap(): void
         transport_reject(400, 'Verschlüsselte Anfragen werden per POST gesendet.');
     }
 
-    try {
-        $plain = crypto_decrypt((string) file_get_contents('php://input'), 'transport', 'U19-REQ');
-    } catch (RuntimeException $e) {
-        transport_reject(503, 'Die Verschlüsselung ist auf dem Server nicht eingerichtet.');
+    // Schlüssel aus dem API-Schlüssel: Die App nennt die Kennung des abgeleiteten Schlüssels, der Server sucht den passenden Zugang
+    $kid = (string) ($_SERVER['HTTP_X_ENC_KID'] ?? '');
+    $key = null;
+    if (preg_match('/^[a-f0-9]{16}$/', $kid) === 1) {
+        require_once __DIR__ . '/../includes/api_tokens.php';
+        api_tokens_ensure_table();
+        foreach (db()->query('SELECT token_hash FROM api_tokens')->fetchAll(PDO::FETCH_COLUMN) as $hash) {
+            $candidate = crypto_transport_key_from_hash((string) $hash);
+            if (hash_equals(crypto_transport_kid($candidate), $kid)) {
+                $key = $candidate;
+                break;
+            }
+        }
     }
+    if ($key === null) {
+        transport_reject(401, 'Ungültiger oder widerrufener API-Schlüssel.');
+    }
+    $plain = crypto_open($key, (string) file_get_contents('php://input'), 'U19-REQ');
     if ($plain === false || strlen($plain) < 4) {
-        transport_reject(400, 'Die Anfrage konnte nicht entschlüsselt werden (falscher Verschlüsselungsschlüssel?).');
+        transport_reject(400, 'Die Anfrage konnte nicht entschlüsselt werden.');
     }
     $metaLen = unpack('N', substr($plain, 0, 4))[1];
     $meta = json_decode(substr($plain, 4, $metaLen), true);
@@ -113,7 +126,7 @@ function transport_bootstrap(): void
     $rid = (string) $meta['rid'];
     $level = ob_get_level();
     ob_start();
-    register_shutdown_function(static function () use ($rid, $level): void {
+    register_shutdown_function(static function () use ($rid, $level, $key): void {
         $body = '';
         while (ob_get_level() > $level) {
             $body = (string) ob_get_clean() . $body;
@@ -135,6 +148,6 @@ function transport_bootstrap(): void
         header('Content-Type: application/octet-stream');
         header('Cache-Control: no-store');
         header('X-Enc: 1');
-        echo crypto_encrypt(pack('N', strlen($metaJson)) . $metaJson . $body, 'transport', 'U19-RES');
+        echo crypto_seal($key, pack('N', strlen($metaJson)) . $metaJson . $body, 'U19-RES');
     });
 }

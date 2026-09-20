@@ -6,7 +6,6 @@ declare(strict_types=1);
  * Einrichtung der Verschlüsselung (einmal auf dem Server ausführen, danach bei Bedarf erneut):
  *
  *   php tools/setup-encryption.php            richtet alles ein
- *   php tools/setup-encryption.php --show-key zeigt nur den Verschlüsselungsschlüssel für die Desktop-App
  *
  * Was passiert:
  *   1. Ein Masterschlüssel wird erzeugt und AUSSERHALB des Webverzeichnisses abgelegt
@@ -15,7 +14,7 @@ declare(strict_types=1);
  *      Wer nur die .env besitzt, kann damit nichts anfangen.
  *   3. Die Datenbankverbindung wird mit TLS getestet; bei Erfolg wird DB_SSL=true gesetzt.
  *   4. Bereits hochgeladene Dokumente werden verschlüsselt.
- *   5. Der Verschlüsselungsschlüssel für die Desktop-App wird angezeigt.
+
  *
  * WICHTIG: Den Ordner mit dem Schlüssel (Datei master.key) zusätzlich sicher sichern, z. B. im Passwortmanager.
  * Ohne diesen Schlüssel sind die verschlüsselten Passwörter und Dokumente nicht mehr lesbar.
@@ -52,10 +51,6 @@ if (!empty($raw['APP_KEY_FILE'])) {
     putenv('APP_KEY_FILE=' . $raw['APP_KEY_FILE']);
 }
 
-if (in_array('--show-key', $argv, true)) {
-    echo "Verschlüsselungsschlüssel für die Desktop-App:\n" . crypto_transport_key_b64() . "\n";
-    exit(0);
-}
 
 if (!is_writable($envFile)) {
     fwrite(STDERR, "Die .env ist nicht beschreibbar: {$envFile}\n");
@@ -145,5 +140,4 @@ if (is_dir($uploads)) {
 }
 echo "4. Dokumente: {$count} Datei(en) verschlüsselt.\n\n";
 
-echo "5. Verschlüsselungsschlüssel für die Desktop-App (in den Einstellungen der App eintragen):\n   " . crypto_transport_key_b64() . "\n\n";
 echo "Bitte die Schlüsseldatei {$keyFile} zusätzlich sicher aufbewahren.\n";
