@@ -53,6 +53,10 @@ $expiryTotal = (int) (expiry_report()['counts']['total'] ?? 0); // abgelaufene b
                 Camps
             </a>
             <?php endif; ?>
+            <a href="download.php" class="<?= $navActive('download.php') ?>">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8"/><path d="M12 16v4"/></svg>
+                Desktop-App
+            </a>
             <a href="account.php" class="<?= $navActive('account.php') ?>">
                 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/></svg>
                 Konto
