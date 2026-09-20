@@ -22,6 +22,7 @@ declare(strict_types=1);
  *   GET    /api/template.csv                        Import-Vorlage
  *   POST   /api/license/validate                    Lizenzschlüssel der Desktop-Anwendung prüfen (signierte Offline-Freigabe, max. 3 Tage)
  *   POST   /api/auth/login, /api/auth/logout      Anmeldung der Desktop-App mit den Web-Benutzerdaten (Header X-User-Token bei allen weiteren Anfragen)
+ *   GET/POST/PUT/DELETE /api/admin/users|roles[/{id}], GET /api/admin/permissions   Benutzer, Rollen und Rechte (Recht users.manage, nur mit Benutzeranmeldung)
  *   GET/POST/PUT/DELETE /api/staff[/{id}]           Staff (Coaches/Betreuer) lesen, anlegen, ändern, löschen
  *   GET/POST/DELETE     /api/staff/{id}/documents/rechte  Staff: unterschriebenes Dokument Rechte & Pflichten
  *   POST/PUT            /api/members/{id}/document-flags     "Fehlt"-Markierung {nada, pass, ecard, rechte: true/false}
@@ -184,6 +185,69 @@ if ($apiUser !== null) {
         app_log('auth.forbidden', 'Zugriff verweigert (Desktop-App): ' . $neededPermission, ['permission' => $neededPermission, 'path' => $path], 'warning');
         api_error(403, 'Keine Berechtigung: ' . (permissions_registry()[$neededPermission][0] ?? $neededPermission));
     }
+}
+
+// ── Benutzer-, Rollen- und Rechteverwaltung (nur mit Benutzeranmeldung und Recht "users.manage") ──
+if (str_starts_with($path, 'admin/')) {
+    if ($apiUser === null) {
+        api_error(403, 'Die Benutzerverwaltung ist nur mit Benutzeranmeldung möglich.');
+    }
+    if (!$apiCan('users.manage')) {
+        api_error(403, 'Keine Berechtigung: ' . (permissions_registry()['users.manage'][0] ?? 'users.manage'));
+    }
+    require_once __DIR__ . '/../includes/user_admin.php';
+    $actorId = (int) $apiUser['id'];
+    $adminBody = in_array($method, ['POST', 'PUT', 'PATCH'], true) ? json_decode((string) file_get_contents('php://input'), true) : null;
+    if (in_array($method, ['POST', 'PUT', 'PATCH'], true) && !is_array($adminBody)) {
+        api_error(400, 'Erwartet wird ein JSON-Objekt.');
+    }
+
+    try {
+        if ($path === 'admin/permissions' && $method === 'GET') {
+            api_json(200, ['permissions' => ua_permission_list()]);
+        }
+        if ($path === 'admin/roles' && $method === 'GET') {
+            api_json(200, ['roles' => ua_roles()]);
+        }
+        if (preg_match('#^admin/roles(?:/(\d+))?$#', $path, $rm2) === 1) {
+            $roleIdParam = isset($rm2[1]) ? (int) $rm2[1] : 0;
+            if ($method === 'POST' && $roleIdParam === 0 || (($method === 'PUT' || $method === 'PATCH') && $roleIdParam > 0)) {
+                $savedRole = ua_role_save($actorId, $roleIdParam, (string) ($adminBody['name'] ?? ''), (string) ($adminBody['description'] ?? ''), (array) ($adminBody['permissions'] ?? []));
+                api_json($method === 'POST' ? 201 : 200, ['id' => $savedRole, 'roles' => ua_roles()]);
+            }
+            if ($method === 'DELETE' && $roleIdParam > 0) {
+                ua_role_delete($roleIdParam);
+                api_json(200, ['deleted' => $roleIdParam]);
+            }
+        }
+        if ($path === 'admin/users' && $method === 'GET') {
+            api_json(200, ['users' => ua_users(), 'you' => $actorId, 'you_are_admin' => ua_is_admin($actorId)]);
+        }
+        if (preg_match('#^admin/users(?:/(\d+))?$#', $path, $um) === 1) {
+            $userIdParam = isset($um[1]) ? (int) $um[1] : 0;
+            if ($method === 'GET' && $userIdParam > 0) {
+                api_json(200, ua_user_get($actorId, $userIdParam));
+            }
+            if (($method === 'POST' && $userIdParam === 0) || (($method === 'PUT' || $method === 'PATCH') && $userIdParam > 0)) {
+                $savedUser = ua_user_save(
+                    $actorId,
+                    $userIdParam,
+                    (string) ($adminBody['username'] ?? ''),
+                    (string) ($adminBody['password'] ?? ''),
+                    (int) ($adminBody['role_id'] ?? 0),
+                    (array) ($adminBody['overrides'] ?? [])
+                );
+                api_json($method === 'POST' ? 201 : 200, ['id' => $savedUser, 'users' => ua_users()]);
+            }
+            if ($method === 'DELETE' && $userIdParam > 0) {
+                ua_user_delete($actorId, $userIdParam);
+                api_json(200, ['deleted' => $userIdParam]);
+            }
+        }
+    } catch (RuntimeException $e) {
+        api_error(422, $e->getMessage());
+    }
+    api_error(404, 'Unbekannter Endpunkt.');
 }
 
 if ($path === '' || $path === 'ping') {

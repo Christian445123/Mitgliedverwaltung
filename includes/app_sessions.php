@@ -141,6 +141,9 @@ function app_sessions_revoke_all(int $adminId): void
  */
 function api_required_permission(string $method, string $path): ?string
 {
+    if (str_starts_with($path, 'admin/')) {
+        return null; // wird im Endpunkt selbst geprüft (users.manage)
+    }
     if ($path === '' || $path === 'ping' || $path === 'license/validate' || str_starts_with($path, 'auth/')) {
         return null;
     }
