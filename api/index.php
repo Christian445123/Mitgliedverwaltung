@@ -182,6 +182,26 @@ if ($path === 'auth/login' && $method === 'POST') {
     ]);
 }
 
+// Erstes Passwort festlegen: Benutzer, die im Web-Panel neu angelegt wurden, müssen ihr Passwort ändern, bevor sie sich
+// anmelden dürfen. Die App macht das mit Benutzername, bisherigem Passwort und neuem Passwort (ohne Sitzung).
+if ($path === 'auth/first-password' && $method === 'POST') {
+    require_once __DIR__ . '/../includes/manage_api.php';
+    $fpBody = json_decode((string) api_body(), true);
+    if (!is_array($fpBody)) {
+        api_error(400, 'Erwartet wird ein JSON-Objekt mit username, password und new_password.');
+    }
+    $fpResult = app_user_authenticate(trim((string) ($fpBody['username'] ?? '')), (string) ($fpBody['password'] ?? ''));
+    if (!$fpResult['ok'] && $fpResult['reason'] !== 'must_change_password') {
+        api_json(401, ['error' => 'Benutzername oder Passwort ist falsch.', 'code' => 'invalid_credentials']);
+    }
+    try {
+        mg_password_change((int) $fpResult['admin']['id'], (string) $fpBody['password'], (string) ($fpBody['new_password'] ?? ''), 0);
+    } catch (RuntimeException $e) {
+        api_error(422, $e->getMessage());
+    }
+    api_json(200, ['ok' => true]);
+}
+
 if ($path === 'auth/logout' && $method === 'POST') {
     if ($userTokenHeader !== '') {
         app_session_delete($userTokenHeader);

@@ -112,8 +112,8 @@ if (in_array($host, ['localhost', '127.0.0.1', '::1'], true)) {
     try {
         $pdo = new PDO($dsn, $env['DB_USER'] ?? '', $env['DB_PASS'] ?? '', [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT => false,
-            PDO::MYSQL_ATTR_SSL_CIPHER => 'DEFAULT',
+            (int) constant(class_exists("Pdo\Mysql", false) ? "Pdo\Mysql::ATTR_SSL_VERIFY_SERVER_CERT" : "PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT") => false,
+            (int) constant(class_exists("Pdo\Mysql", false) ? "Pdo\Mysql::ATTR_SSL_CIPHER" : "PDO::MYSQL_ATTR_SSL_CIPHER") => "DEFAULT",
         ]);
         $cipher = (string) ($pdo->query("SHOW STATUS LIKE 'Ssl_cipher'")->fetch(PDO::FETCH_NUM)[1] ?? '');
         if ($cipher !== '') {

@@ -32,11 +32,11 @@ function db(): PDO
         if ($sslMode !== 'false' && !$isLocal) {
             $ca = (string) getenv('DB_SSL_CA');
             if ($ca !== '') {
-                $sslOptions[PDO::MYSQL_ATTR_SSL_CA] = $ca;
-                $sslOptions[PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT] = true;
+                $sslOptions[db_mysql_option("SSL_CA")] = $ca;
+                $sslOptions[db_mysql_option("SSL_VERIFY_SERVER_CERT")] = true;
             } else {
-                $sslOptions[PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT] = false; // verschlüsselt, Server aber nicht geprüft
-                $sslOptions[PDO::MYSQL_ATTR_SSL_CIPHER] = 'DEFAULT';
+                $sslOptions[db_mysql_option("SSL_VERIFY_SERVER_CERT")] = false; // verschlüsselt, Server aber nicht geprüft
+                $sslOptions[db_mysql_option("SSL_CIPHER")] = 'DEFAULT';
             }
         }
         try {
@@ -134,4 +134,10 @@ function db_ensure_columns(PDO $pdo): void
     } catch (Throwable $e) {
         error_log('staff_ensure_table: ' . $e->getMessage());
     }
+}
+
+/** MySQL-Verbindungsoption: ab PHP 8.5 als Pdo\Mysql::ATTR_*, davor als PDO::MYSQL_ATTR_* (die alten Namen sind veraltet). */
+function db_mysql_option(string $name): int
+{
+    return (int) constant(class_exists('Pdo\Mysql', false) ? 'Pdo\Mysql::ATTR_' . $name : 'PDO::MYSQL_ATTR_' . $name);
 }
