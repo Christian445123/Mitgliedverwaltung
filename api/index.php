@@ -80,6 +80,9 @@ function api_member(array $row): array
         $out[$key] = $value;
     }
     $out['name_vorname'] = member_full_name($row); // automatisch: "Nachname Vorname"
+    foreach ($GLOBALS['api_hidden_keys'] ?? [] as $hiddenKey) {
+        unset($out[$hiddenKey]); // Feld-Rechte: für Bearbeiter ausgeblendete Felder
+    }
     $out['weitere_camps'] = array_values(array_map(static fn (array $c) => $c['name'], array_filter(camps_all(), static fn (array $c) => !empty($row['camp:' . $c['id']]))));
     $out['dokumente'] = member_documents_present($row);
     $out['dokumente_fehlen'] = array_keys(member_documents_missing($row)); // fehlende Pflichtdokumente
@@ -124,6 +127,10 @@ if ($userTokenHeader !== '') {
         api_json(401, ['error' => 'Die Anmeldung ist abgelaufen. Bitte neu anmelden.', 'code' => 'session_expired']);
     }
     $GLOBALS['log_actor'] = 'user:' . $apiUser['username'];
+    require_once __DIR__ . '/../includes/field_access.php';
+    if ($apiUser['role'] !== 'administrator') {
+        $GLOBALS['api_hidden_keys'] = field_access_hidden_export_keys('editor'); // Felder, die Bearbeiter nicht sehen/ändern dürfen (Feld-Rechte)
+    }
     // Schreiben nur, wenn Token UND Benutzer es dürfen
     $userPermissions = user_permissions($apiUser['id']);
     $canWrite = $canWrite && (isset($userPermissions['members.edit']) || isset($userPermissions['members.create']) || isset($userPermissions['members.delete']));
@@ -250,6 +257,132 @@ if (str_starts_with($path, 'admin/')) {
     api_error(404, 'Unbekannter Endpunkt.');
 }
 
+// ── Weitere Verwaltungsfunktionen der Desktop-App ─────────────────────────
+if ($path === 'auth/password' && $method === 'POST') {
+    if ($apiUser === null) {
+        api_error(403, 'Das Passwort lässt sich nur mit Benutzeranmeldung ändern.');
+    }
+    $pwBody = json_decode((string) file_get_contents('php://input'), true);
+    require_once __DIR__ . '/../includes/manage_api.php';
+    try {
+        mg_password_change((int) $apiUser['id'], (string) ($pwBody['current_password'] ?? ''), (string) ($pwBody['new_password'] ?? ''), (int) $apiUser['session_id']);
+        api_json(200, ['ok' => true]);
+    } catch (RuntimeException $e) {
+        api_error(422, $e->getMessage());
+    }
+}
+
+// Camps zum Ankreuzen im Mitgliedsformular (lesen)
+if ($path === 'camps' && $method === 'GET') {
+    require_once __DIR__ . '/../includes/camps.php';
+    api_json(200, ['camps' => camps_all(), 'fixed' => CAMPS_FIXED_NAMES]);
+}
+
+// Persönlicher Zugangslink eines Mitglieds: GET = ansehen, POST {action: regenerate_link|regenerate_password|send_email}
+if (preg_match('#^members/(\d+)/link$#', $path, $lm) === 1 && in_array($method, ['GET', 'POST'], true)) {
+    require_once __DIR__ . '/../includes/manage_api.php';
+    $linkAction = '';
+    if ($method === 'POST') {
+        if (!$canWrite) {
+            api_error(403, 'Dieser Zugang hat nur Leserechte.');
+        }
+        $linkBody = json_decode((string) file_get_contents('php://input'), true);
+        $linkAction = in_array($linkBody['action'] ?? '', ['regenerate_link', 'regenerate_password', 'send_email'], true) ? (string) $linkBody['action'] : '';
+    }
+    try {
+        api_json(200, mg_member_link((int) $lm[1], $linkAction));
+    } catch (RuntimeException $e) {
+        api_error(422, $e->getMessage());
+    }
+}
+
+if (str_starts_with($path, 'manage/')) {
+    if ($apiUser === null) {
+        api_error(403, 'Diese Verwaltung ist nur mit Benutzeranmeldung möglich.');
+    }
+    require_once __DIR__ . '/../includes/manage_api.php';
+    $denied = static function (string $permission): never {
+        api_error(403, 'Keine Berechtigung: ' . (permissions_registry()[$permission][0] ?? $permission));
+    };
+    $manageBody = in_array($method, ['POST', 'PUT', 'PATCH'], true) ? json_decode((string) file_get_contents('php://input'), true) : null;
+
+    try {
+        // Feld-Rechte
+        if ($path === 'manage/field-permissions') {
+            if (!$apiCan('fields.manage')) {
+                $denied('fields.manage');
+            }
+            if ($method === 'GET') {
+                api_json(200, ['fields' => mg_field_permissions()]);
+            }
+            if ($method === 'PUT' && is_array($manageBody)) {
+                $changed = mg_field_permissions_save((array) ($manageBody['fields'] ?? []), (string) $apiUser['username']);
+                api_json(200, ['changed' => $changed, 'fields' => mg_field_permissions()]);
+            }
+        }
+        if ($path === 'manage/field-permissions/reset' && $method === 'POST') {
+            if (!$apiCan('fields.manage')) {
+                $denied('fields.manage');
+            }
+            field_access_reset();
+            app_log('permissions.reset', 'Feld-Rechte auf Standard zurückgesetzt (Desktop-App)', [], 'warning');
+            api_json(200, ['fields' => mg_field_permissions()]);
+        }
+
+        // Camps
+        if (preg_match('#^manage/camps(?:/(\d+))?$#', $path, $cm) === 1) {
+            if (!$apiCan('camps.manage')) {
+                $denied('camps.manage');
+            }
+            $campId = isset($cm[1]) ? (int) $cm[1] : 0;
+            if ($method === 'GET' && $campId === 0) {
+                api_json(200, ['fixed' => CAMPS_FIXED_NAMES, 'camps' => mg_camps()]);
+            }
+            if ($method === 'POST' && $campId === 0 && is_array($manageBody)) {
+                camp_create((string) ($manageBody['name'] ?? ''));
+                api_json(201, ['camps' => mg_camps()]);
+            }
+            if (($method === 'PUT' || $method === 'PATCH') && $campId > 0 && is_array($manageBody)) {
+                camp_rename($campId, (string) ($manageBody['name'] ?? ''));
+                api_json(200, ['camps' => mg_camps()]);
+            }
+            if ($method === 'DELETE' && $campId > 0) {
+                if (!$apiCan('camps.delete')) {
+                    $denied('camps.delete');
+                }
+                camp_delete($campId);
+                api_json(200, ['camps' => mg_camps()]);
+            }
+        }
+
+        // Protokoll
+        if ($path === 'manage/logs' && $method === 'GET') {
+            if (!$apiCan('logs.view')) {
+                $denied('logs.view');
+            }
+            api_json(200, mg_logs($_GET));
+        }
+        if ($path === 'manage/logs.csv' && $method === 'GET') {
+            if (!$apiCan('logs.view')) {
+                $denied('logs.view');
+            }
+            mg_logs_csv($_GET);
+        }
+        if ($path === 'manage/logs/purge' && $method === 'POST' && is_array($manageBody)) {
+            if (!$apiCan('logs.purge')) {
+                $denied('logs.purge');
+            }
+            $days = (int) ($manageBody['days'] ?? 0);
+            $deleted = log_purge($days);
+            app_log('log.purge', $days > 0 ? "Protokoll bereinigt (älter als {$days} Tage, Desktop-App)" : 'Protokoll komplett geleert (Desktop-App)', ['deleted' => $deleted, 'days' => $days], 'warning');
+            api_json(200, ['deleted' => $deleted]);
+        }
+    } catch (RuntimeException $e) {
+        api_error(422, $e->getMessage());
+    }
+    api_error(404, 'Unbekannter Endpunkt.');
+}
+
 if ($path === '' || $path === 'ping') {
     api_json(200, ['ok' => true, 'token' => $auth['name'], 'write' => $canWrite]
         + ($apiUser !== null ? ['user' => api_user_info($apiUser['id'], $apiUser['username'], $apiUser['role'])] : []));
@@ -261,7 +394,7 @@ if ($path === 'members.csv' && $method === 'GET') {
     header('Content-Disposition: attachment; filename="mitglieder-' . date('Y-m-d') . '.csv"');
     header('Cache-Control: no-store');
     $out = fopen('php://output', 'w');
-    member_export_csv($out, member_all($status, $kaderFilter));
+    member_export_csv($out, member_all($status, $kaderFilter), $GLOBALS['api_hidden_keys'] ?? []);
     fclose($out);
     exit;
 }
@@ -273,10 +406,33 @@ $requireWrite = static function () use ($canWrite): void {
 };
 
 if ($path === 'template.csv' && $method === 'GET') {
+    $templateStaff = ($_GET['entity'] ?? '') === 'staff';
+    if ($templateStaff) {
+        require_once __DIR__ . '/../includes/staff.php';
+        io_entity('staff');
+    }
     header('Content-Type: text/csv; charset=utf-8');
-    header('Content-Disposition: attachment; filename="mitglieder-vorlage.csv"');
+    header('Content-Disposition: attachment; filename="' . ($templateStaff ? 'staff' : 'mitglieder') . '-vorlage.csv"');
     $out = fopen('php://output', 'w');
     member_export_csv($out, []);
+    fclose($out);
+    exit;
+}
+
+// Staff als CSV (wie der Staff-Export im Admin-Bereich)
+if ($path === 'staff.csv' && $method === 'GET') {
+    if (!$apiCan('staff.view') || !$apiCan('members.export')) {
+        api_error(403, 'Keine Berechtigung: Staff ansehen und Export');
+    }
+    require_once __DIR__ . '/../includes/staff.php';
+    staff_ensure_table(db());
+    io_entity('staff');
+    $staffStatus = in_array($_GET['status'] ?? '', ['aktiv', 'inaktiv'], true) ? $_GET['status'] : null;
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="staff-' . date('Y-m-d') . '.csv"');
+    header('Cache-Control: no-store');
+    $out = fopen('php://output', 'w');
+    member_export_csv($out, staff_all($staffStatus));
     fclose($out);
     exit;
 }
@@ -321,7 +477,7 @@ if (preg_match('#^roster(-ifaf|-bekleidung|-vereine)?\.(pdf|xlsx)$#', $path, $rm
             $kader = in_array($_GET['kader'] ?? 'kader', ['kader', 'nicht_im_kader'], true) ? (string) ($_GET['kader'] ?? 'kader') : null;
             $status = ($_GET['status'] ?? 'aktiv') === 'alle' ? null : 'aktiv';
             $generate = ['-bekleidung' => 'roster_generate_clothing', '-vereine' => 'roster_generate_clubs'][$rm[1]] ?? 'roster_generate_alphabetical';
-            [$contentType, $filename, $binary] = $generate($rm[2], $kader, $status);
+            [$contentType, $filename, $binary] = $generate($rm[2], $kader, $status, $GLOBALS['api_hidden_keys'] ?? []);
         }
     } catch (RuntimeException $e) {
         api_error(500, $e->getMessage());
@@ -338,6 +494,15 @@ if (preg_match('#^roster(-ifaf|-bekleidung|-vereine)?\.(pdf|xlsx)$#', $path, $rm
 // Import einer CSV/XLSX-Datei (multipart: file, update_existing, commit=1 zum Speichern, sonst nur Vorschau)
 if ($path === 'import' && $method === 'POST') {
     $requireWrite();
+    // Spieler (Standard) oder Staff importieren
+    if (($_POST['entity'] ?? '') === 'staff') {
+        if (!$apiCan('staff.edit')) {
+            api_error(403, 'Keine Berechtigung: ' . (permissions_registry()['staff.edit'][0] ?? 'staff.edit'));
+        }
+        require_once __DIR__ . '/../includes/staff.php';
+        staff_ensure_table(db());
+        io_entity('staff');
+    }
     $file = $_FILES['file'] ?? null;
     if ($file === null || $file['error'] !== UPLOAD_ERR_OK) {
         api_error(400, 'Datei fehlt oder Upload ist fehlgeschlagen.');
@@ -626,7 +791,8 @@ $readBody = static function (): array {
     if (!is_array($body) || $body === [] || array_is_list($body)) {
         api_error(400, 'Erwartet wird ein JSON-Objekt mit Mitgliedsfeldern im Request-Body.');
     }
-    return $body;
+    // Feld-Rechte: für Bearbeiter ausgeblendete Felder lassen sich nicht ändern
+    return array_diff_key($body, array_flip($GLOBALS['api_hidden_keys'] ?? []));
 };
 
 try {

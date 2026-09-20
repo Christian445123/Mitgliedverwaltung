@@ -141,8 +141,17 @@ function app_sessions_revoke_all(int $adminId): void
  */
 function api_required_permission(string $method, string $path): ?string
 {
-    if (str_starts_with($path, 'admin/')) {
-        return null; // wird im Endpunkt selbst geprüft (users.manage)
+    if (str_starts_with($path, 'admin/') || str_starts_with($path, 'manage/')) {
+        return null; // wird im Endpunkt selbst geprüft (users.manage, fields.manage, camps.manage, logs.view ...)
+    }
+    if ($path === 'camps') {
+        return 'members.view';
+    }
+    if ($path === 'staff.csv') {
+        return null; // wird im Endpunkt geprüft (staff.view + members.export)
+    }
+    if (preg_match('#^members/\d+/link$#', $path) === 1) {
+        return 'members.links';
     }
     if ($path === '' || $path === 'ping' || $path === 'license/validate' || str_starts_with($path, 'auth/')) {
         return null;
