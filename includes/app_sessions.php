@@ -8,8 +8,10 @@ declare(strict_types=1);
  * - POST /api/auth/login prüft Benutzername und Passwort wie der Web-Login (Tabelle admins) und liefert einen
  *   Sitzungs-Token. Die Anwendung schickt ihn bei jeder Anfrage im Header "X-User-Token" mit.
  * - Der Server prüft dann bei jeder Anfrage die Rechte dieses Benutzers (Rollen und Einzelrechte wie im Web-Panel).
- * - Sitzungen laufen bei Nichtbenutzung ab (12 Stunden, mit "Angemeldet bleiben" 30 Tage) und werden beim
- *   Ändern des Passworts oder Löschen des Benutzers beendet.
+ * - Ohne "Anmeldedaten speichern" läuft eine Sitzung bei Nichtbenutzung nach 12 Stunden ab (wird bei Benutzung verlängert).
+ *   Mit "Anmeldedaten speichern" gilt sie genau 21 Tage ab dem Login (feste Frist, keine Verlängerung), dann muss
+ *   neu angemeldet werden.
+ * - Sitzungen werden beim Ändern des Passworts oder Löschen des Benutzers beendet.
  * - Die Tokens werden nur als SHA-256 gespeichert.
  */
 
@@ -17,7 +19,7 @@ require_once __DIR__ . '/../db.php';
 require_once __DIR__ . '/permissions.php';
 
 const APP_SESSION_TTL_SHORT = 12 * 3600;
-const APP_SESSION_TTL_LONG = 30 * 86400;
+const APP_SESSION_TTL_LONG = 21 * 86400; // gespeicherte Anmeldung: feste 3 Wochen
 
 function app_sessions_ensure_table(): void
 {
@@ -107,8 +109,9 @@ function app_session_verify(string $token): ?array
         return null;
     }
 
-    // höchstens einmal pro Minute verlängern
-    if (time() - (int) strtotime((string) $row['last_used_at']) > 60) {
+    // Kurze Sitzungen (ohne Speichern) werden bei Benutzung verlängert, höchstens einmal pro Minute.
+    // Gespeicherte Anmeldungen (21 Tage) laufen zur festen Frist ab.
+    if ((int) $row['ttl_seconds'] < APP_SESSION_TTL_LONG && time() - (int) strtotime((string) $row['last_used_at']) > 60) {
         $upd = db()->prepare('UPDATE app_sessions SET last_used_at = NOW(), expires_at = DATE_ADD(NOW(), INTERVAL ? SECOND) WHERE id = ?');
         $upd->execute([(int) $row['ttl_seconds'], (int) $row['session_id']]);
     }
