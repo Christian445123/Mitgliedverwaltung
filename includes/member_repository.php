@@ -349,18 +349,42 @@ function member_documents_missing(array $member): array
  */
 function documents_missing_report(): array
 {
+    require_once __DIR__ . '/roster.php';
+
     $players = [];
     foreach (member_all('aktiv', 'kader') as $m) {
+        if (roster_is_staff_member($m)) {
+            continue; // Personen mit Staff-Position (HC, OC, DC, TM ...) gehören zum Staff, nicht zu den Spielern
+        }
         $missing = member_documents_missing($m);
         if ($missing !== []) {
             $players[] = ['id' => (int) $m['id'], 'name' => member_full_name($m), 'missing' => $missing];
         }
     }
 
-    // Staff: Rechte & Pflichten und Foto des Reisepasses sind freiwillig – es gibt keine fehlenden Pflichtdokumente
+    // Staff: Rechte & Pflichten und Foto des Reisepasses sind freiwillig. Die Liste zeigt nur, was noch nicht hochgeladen ist
+    // (Hinweis, kein Pflichtdokument); sie zählt nicht zur Summe der fehlenden Pflichtdokumente.
     $staff = [];
+    try {
+        require_once __DIR__ . '/staff.php';
+        $stmt = db()->query("SELECT * FROM staff WHERE status = 'aktiv' ORDER BY nachname, vorname");
+        foreach ($stmt->fetchAll() as $row) {
+            $open = [];
+            if (staff_document_path($row, 'rechte') === null) {
+                $open[] = 'Rechte & Pflichten';
+            }
+            if (staff_document_path($row, 'pass') === null && staff_document_path($row, 'pass_back') === null) {
+                $open[] = 'Foto Reisepass';
+            }
+            if ($open !== []) {
+                $staff[] = ['id' => (int) $row['id'], 'name' => member_full_name($row), 'open' => $open];
+            }
+        }
+    } catch (Throwable $e) {
+        // Staff-Tabelle existiert noch nicht
+    }
 
-    return ['players' => $players, 'staff' => $staff, 'total' => count($players) + count($staff)];
+    return ['players' => $players, 'staff' => $staff, 'total' => count($players)];
 }
 
 /**

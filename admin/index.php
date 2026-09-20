@@ -112,10 +112,10 @@ $listUrl = static fn (array $extra = []) => 'index.php?' . http_build_query(arra
         <?php endif; ?>
         <?php if ($docsMissing['staff'] !== []): ?>
         <div>
-            <h3>Staff: Rechte &amp; Pflichten (<?= count($docsMissing['staff']) ?>)</h3>
+            <h3>Staff: noch nicht hochgeladen, freiwillig (<?= count($docsMissing['staff']) ?>)</h3>
             <ul class="missing-list">
                 <?php foreach ($docsMissing['staff'] as $s): ?>
-                    <li><a href="staff-form.php?id=<?= (int) $s['id'] ?>"><?= h($s['name']) ?></a> <span class="badge badge-orange">Rechte &amp; Pflichten</span></li>
+                    <li><a href="staff-form.php?id=<?= (int) $s['id'] ?>"><?= h($s['name']) ?></a> <?php foreach ($s['open'] as $openDoc): ?><span class="badge badge-gray"><?= h($openDoc) ?></span> <?php endforeach; ?></li>
                 <?php endforeach; ?>
             </ul>
         </div>

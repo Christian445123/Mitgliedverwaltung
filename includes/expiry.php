@@ -116,8 +116,9 @@ function expiry_report(): array
     $report = ['nada' => [], 'pass' => [], 'counts' => ['total' => 0, 'expired' => 0]];
 
     try {
+        require_once __DIR__ . '/roster.php';
         $stmt = db()->prepare(
-            "SELECT m.id, m.nachname, m.vorname, m.kader, d.nada_gueltig_bis, d.reisepass_gueltig_bis
+            "SELECT m.id, m.nachname, m.vorname, m.kader, m.position, d.nada_gueltig_bis, d.reisepass_gueltig_bis
              FROM members m JOIN member_documents d ON d.member_id = m.id
              WHERE m.status = 'aktiv'
                AND ((d.nada_gueltig_bis IS NOT NULL AND d.nada_gueltig_bis <= ?)
@@ -131,6 +132,9 @@ function expiry_report(): array
     }
 
     foreach ($rows as $row) {
+        if (roster_is_staff_member($row)) {
+            continue; // Staff-Position (HC, OC, DC, TM ...): gehört zum Staff, nicht zu den Spielern
+        }
         $states = [
             'nada' => expiry_nada_state($row['nada_gueltig_bis'], $today),
             'pass' => expiry_pass_state($row['reisepass_gueltig_bis'], $today),
