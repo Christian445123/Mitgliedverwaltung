@@ -969,3 +969,11 @@ input:focus, select:focus, textarea:focus { box-shadow: 0 0 0 3px rgba(249, 115,
 @media (max-width: 640px) {
     .table-list td { white-space: normal !important; max-width: none !important; min-width: 0 !important; overflow: visible !important; text-overflow: clip !important; }
 }
+
+/* Register (Tabs) im Staff-Formular */
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 18px; border-bottom: 1px solid var(--color-border); }
+.tabs .tab { appearance: none; border: 1px solid transparent; border-bottom: none; background: transparent; color: var(--color-muted); font: inherit; font-weight: 700; padding: 10px 16px; border-radius: 10px 10px 0 0; cursor: pointer; }
+.tabs .tab:hover { color: var(--accent); }
+.tabs .tab.active { color: var(--accent); background: var(--color-surface); border-color: var(--color-border); margin-bottom: -1px; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }

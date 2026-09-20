@@ -67,8 +67,42 @@ $v = static fn (string $key): string => h((string) ($values[$key] ?? ''));
 <form method="post" action="staff-form.php<?= $id !== null ? '?id=' . (int) $id : '' ?>" class="member-form" enctype="multipart/form-data" novalidate>
     <?= csrf_field() ?>
 
+    <?php
+    // Register wie bei den Spielern: Gruppen aus STAFF_FORM_GROUPS und freiwillige Dokumente je Register
+    $staffTabs = [
+        'Stammdaten' => ['groups' => ['Person'], 'docs' => [], 'status' => true],
+        'Kontakt & Adresse' => ['groups' => ['Kontakt', 'Adresse'], 'docs' => [], 'status' => false],
+        'Sozialversicherung' => ['groups' => ['Sozialversicherung'], 'docs' => ['ecard'], 'status' => false],
+        'Reisepass' => ['groups' => ['Reisepass'], 'docs' => ['pass'], 'status' => false],
+        'Dokumente' => ['groups' => [], 'docs' => ['rechte'], 'status' => false],
+        'Ausrüstung & Essen' => ['groups' => ['Essen', 'Ausrüstungsgrößen'], 'docs' => [], 'status' => false],
+    ];
+    $renderDoc = static function (string $docType) use ($values, $isNew, $id, $mayChange): void {
+        $docDef = STAFF_DOCUMENT_TYPES[$docType];
+        $hasDoc = !empty($values[$docDef['column']]);
+        ?>
+        <div class="form-group">
+            <label for="<?= h($docType) ?>_dokument"><?= h($docDef['label']) ?> (freiwillig)<?php if ($hasDoc): ?>
+                – vorhanden<?php if (!$isNew && user_can('documents.view')): ?> – <a href="staff-document.php?id=<?= (int) $id ?>&amp;type=<?= h($docType) ?>" target="_blank" rel="noopener">ansehen</a><?php endif; ?>
+                – neu hochladen zum Ersetzen<?php endif; ?></label>
+            <input type="file" id="<?= h($docType) ?>_dokument" name="<?= h($docType) ?>_dokument" accept=".jpg,.jpeg,.png,.pdf">
+            <?php if ($hasDoc && $mayChange): ?>
+                <label style="font-weight:400;margin-top:6px;"><input type="checkbox" name="remove_<?= h($docType) ?>" value="1"> Vorhandenes Dokument entfernen</label>
+            <?php endif; ?>
+        </div>
+        <?php
+    };
+    ?>
+    <div class="tabs" role="tablist" data-tabs>
+        <?php $tabIndex = 0; foreach ($staffTabs as $tabTitle => $tabDef): ?>
+            <button type="button" class="tab <?= $tabIndex === 0 ? 'active' : '' ?>" role="tab" data-tab-target="staff-tab-<?= $tabIndex ?>"><?= h($tabTitle) ?></button>
+        <?php $tabIndex++; endforeach; ?>
+    </div>
+
     <fieldset class="form-locked" style="border:0;padding:0;margin:0;background:none;" <?= $mayChange ? '' : 'disabled' ?>>
-    <?php foreach (STAFF_FORM_GROUPS as $group => $keys): ?>
+    <?php $tabIndex = 0; foreach ($staffTabs as $tabTitle => $tabDef): ?>
+    <div class="tab-panel <?= $tabIndex === 0 ? 'active' : '' ?>" id="staff-tab-<?= $tabIndex ?>" role="tabpanel">
+        <?php foreach ($tabDef['groups'] as $group): $keys = STAFF_FORM_GROUPS[$group]; ?>
         <fieldset>
             <legend><?= h($group) ?></legend>
             <div class="form-row" style="flex-wrap:wrap;">
@@ -97,36 +131,32 @@ $v = static fn (string $key): string => h((string) ($values[$key] ?? ''));
                 <?php endforeach; ?>
             </div>
         </fieldset>
-    <?php endforeach; ?>
-
-    <fieldset>
-        <legend>Dokumente (freiwillig)</legend>
-        <p class="muted">Diese Dokumente sind <strong>keine Pflicht</strong>. Wer sie hat, kann sie hier hochladen (PDF, JPG oder PNG).</p>
-        <?php foreach (STAFF_DOCUMENT_TYPES as $docType => $docDef): ?>
-            <?php $hasDoc = !empty($values[$docDef['column']]); ?>
-            <div class="form-group">
-                <label for="<?= h($docType) ?>_dokument"><?= h($docDef['label']) ?><?php if ($hasDoc): ?>
-                    (vorhanden<?php if (!$isNew && user_can('documents.view')): ?> – <a href="staff-document.php?id=<?= (int) $id ?>&amp;type=<?= h($docType) ?>" target="_blank" rel="noopener">ansehen</a><?php endif; ?>
-                    – neu hochladen zum Ersetzen)<?php endif; ?></label>
-                <input type="file" id="<?= h($docType) ?>_dokument" name="<?= h($docType) ?>_dokument" accept=".jpg,.jpeg,.png,.pdf">
-                <?php if ($hasDoc && $mayChange): ?>
-                    <label style="font-weight:400;margin-top:6px;"><input type="checkbox" name="remove_<?= h($docType) ?>" value="1"> Vorhandenes Dokument entfernen</label>
-                <?php endif; ?>
-            </div>
         <?php endforeach; ?>
+
+        <?php if ($tabDef['docs'] !== []): ?>
+        <fieldset>
+            <legend><?= $tabTitle === 'Dokumente' ? 'Dokumente (freiwillig)' : 'Dokument (freiwillig)' ?></legend>
+            <?php foreach ($tabDef['docs'] as $docType) { $renderDoc($docType); } ?>
+            <p class="muted">Freiwillig – keine Pflicht. PDF, JPG oder PNG.</p>
+        </fieldset>
+        <?php endif; ?>
+
+        <?php if ($tabDef['status']): ?>
+        <fieldset>
+            <legend>Verwaltung</legend>
+            <div class="form-group">
+                <label for="status">Status</label>
+                <select id="status" name="status">
+                    <option value="aktiv" <?= ($values['status'] ?? 'aktiv') === 'aktiv' ? 'selected' : '' ?>>Aktiv</option>
+                    <option value="inaktiv" <?= ($values['status'] ?? '') === 'inaktiv' ? 'selected' : '' ?>>Inaktiv</option>
+                </select>
+            </div>
+        </fieldset>
+        <?php endif; ?>
+    </div>
+    <?php $tabIndex++; endforeach; ?>
     </fieldset>
 
-    <fieldset>
-        <legend>Verwaltung</legend>
-        <div class="form-group">
-            <label for="status">Status</label>
-            <select id="status" name="status">
-                <option value="aktiv" <?= ($values['status'] ?? 'aktiv') === 'aktiv' ? 'selected' : '' ?>>Aktiv</option>
-                <option value="inaktiv" <?= ($values['status'] ?? '') === 'inaktiv' ? 'selected' : '' ?>>Inaktiv</option>
-            </select>
-        </div>
-    </fieldset>
-    </fieldset>
 
     <?php if (!$mayChange): ?><p class="alert alert-warning">Sie dürfen diese Person ansehen, aber nicht ändern.</p><?php endif; ?>
     <?php if ($mayChange): ?><button type="submit" class="btn btn-primary"><?= $isNew ? 'Person anlegen' : 'Änderungen speichern' ?></button><?php endif; ?>

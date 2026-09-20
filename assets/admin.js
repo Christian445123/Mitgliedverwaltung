@@ -184,3 +184,19 @@ document.addEventListener('DOMContentLoaded', function () {
     last.addEventListener('input', update);
     first.addEventListener('input', update);
 });
+
+// Register (Tabs): Reiter wechseln, ohne Inline-Skript (CSP)
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('[data-tabs]').forEach(function (bar) {
+        var tabs = bar.querySelectorAll('[data-tab-target]');
+        tabs.forEach(function (tab) {
+            tab.addEventListener('click', function () {
+                tabs.forEach(function (t) {
+                    t.classList.toggle('active', t === tab);
+                    var panel = document.getElementById(t.dataset.tabTarget);
+                    if (panel) { panel.classList.toggle('active', t === tab); }
+                });
+            });
+        });
+    });
+});
