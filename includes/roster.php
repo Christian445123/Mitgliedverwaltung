@@ -407,10 +407,18 @@ function roster_build_pdf(array $table, string $title, string $subtitle): string
             $x += $widths[$k];
         }
 
-        // Datenzeilen
+        // Datenzeilen (Abschnittszeilen mit '__section' erscheinen als farbiges Band, z. B. "Spieler" / "Staff")
+        $zebra = 0;
         foreach ($pageRows as $n => $line) {
             $y -= $rowH;
-            if ($n % 2 === 1) {
+            if (isset($line['__section'])) {
+                $zebra = 0;
+                $c .= $rg(0xFF, 0xE4, 0xCC) . sprintf(" %.2f %.2f %.2f %.2f re f
+", $margin, $y, $usable, $rowH);
+                $c .= $text($margin + 2 * $mm, $y + 2.0 * $mm, $fontSize + 1, true, (string) $line['__section'], $rg(0x11, 0x15, 0x2A));
+                continue;
+            }
+            if ($zebra++ % 2 === 1) {
                 $c .= $rg(0xF3, 0xF4, 0xF8) . sprintf(" %.2f %.2f %.2f %.2f re f\n", $margin, $y, $usable, $rowH);
             }
             $c .= '0.890 0.898 0.925 RG 0.4 w ' . sprintf("%.2f %.2f m %.2f %.2f l S\n", $margin, $y, $margin + $usable, $y);
@@ -425,7 +433,7 @@ function roster_build_pdf(array $table, string $title, string $subtitle): string
         }
 
         // Fußzeile
-        $footerLeft = 'Stand ' . date('d.m.Y') . ' - ' . $total . ' Spieler';
+        $footerLeft = (string) ($table['footer'] ?? ('Stand ' . date('d.m.Y') . ' - ' . $total . ' Spieler'));
         $footerRight = 'Seite ' . ($p + 1) . ' von ' . $pageCount;
         $c .= $text($margin, 9 * $mm, 8, false, $footerLeft, $rg(0x6B, 0x72, 0x80));
         $c .= $text($pageW - $margin - roster_pdf_text_width($footerRight, 8), 9 * $mm, 8, false, $footerRight, $rg(0x6B, 0x72, 0x80));
@@ -1049,4 +1057,225 @@ function roster_generate_ifaf(string $format, array $opt): array
 
     $logo = dirname(__DIR__) . '/assets/ifaf-logo.jpg';
     return ['application/pdf', $base . '.pdf', roster_ifaf_pdf($players, $staff, $opt, is_file($logo) ? $logo : null)];
+}
+
+// ── Dokumenten-Listen: fehlende und abgelaufene Dokumente, Spieler und Staff getrennt ─────────
+
+/**
+ * Spieler (Filter Kader/Status) und Staff für die Dokumenten-Listen.
+ *
+ * @return array{0: array<int, array<string, mixed>>, 1: array<int, array<string, mixed>>}
+ */
+function roster_document_people(?string $kader, ?string $status): array
+{
+    require_once __DIR__ . '/member_repository.php';
+    require_once __DIR__ . '/staff.php';
+    require_once __DIR__ . '/expiry.php';
+
+    $players = member_all($status, $kader);
+    $staff = [];
+    try {
+        staff_ensure_table(db());
+        $staff = staff_all($status);
+    } catch (Throwable $e) {
+        // Staff-Tabelle fehlt noch: keine Staff-Zeilen
+    }
+    return [$players, $staff];
+}
+
+/**
+ * Fehlende Dokumente je Person. Spieler: NADA-Zertifikat, Reisepass, E-Card, Rechte & Pflichten; Staff: Rechte & Pflichten.
+ *
+ * @return array{players: array<int, array<string, mixed>>, staff: array<int, array<string, mixed>>}
+ */
+function roster_missing_data(?string $kader, ?string $status): array
+{
+    [$players, $staff] = roster_document_people($kader, $status);
+    $out = ['players' => [], 'staff' => []];
+    foreach ($players as $m) {
+        $missing = member_documents_missing($m);
+        if ($missing !== []) {
+            $out['players'][] = ['name' => member_full_name($m), 'info' => trim((string) ($m['verein'] ?? '')), 'missing' => array_keys($missing)];
+        }
+    }
+    foreach ($staff as $s) {
+        if (staff_document_path($s, 'rechte') === null) {
+            $out['staff'][] = ['name' => member_full_name($s), 'info' => trim((string) ($s['position'] ?? '')), 'missing' => ['rechte']];
+        }
+    }
+    return $out;
+}
+
+/**
+ * Abgelaufene (und bald ablaufende) NADA-Zertifikate und Reisepässe je Person, dringendste zuerst.
+ * Staff hat nur einen Reisepass, keine NADA.
+ *
+ * @return array{players: array<int, array<string, mixed>>, staff: array<int, array<string, mixed>>}
+ */
+function roster_expired_data(?string $kader, ?string $status, bool $onlyExpired): array
+{
+    [$players, $staff] = roster_document_people($kader, $status);
+    $today = new DateTimeImmutable('today');
+    $keep = static fn (?array $state): ?array => $state !== null && (!$onlyExpired || $state['state'] === 'expired') ? $state : null;
+
+    $out = ['players' => [], 'staff' => []];
+    foreach ($players as $m) {
+        $states = expiry_states_for_row($m);
+        $nada = $keep($states['nada']);
+        $pass = $keep($states['pass']);
+        if ($nada !== null || $pass !== null) {
+            $out['players'][] = [
+                'name' => member_full_name($m), 'info' => trim((string) ($m['verein'] ?? '')),
+                'nada' => $nada, 'pass' => $pass,
+                'days' => min($nada['days'] ?? PHP_INT_MAX, $pass['days'] ?? PHP_INT_MAX),
+            ];
+        }
+    }
+    foreach ($staff as $s) {
+        $pass = $keep(expiry_pass_state($s['reisepass_gueltig_bis'] ?? null, $today));
+        if ($pass !== null) {
+            $out['staff'][] = ['name' => member_full_name($s), 'info' => trim((string) ($s['position'] ?? '')), 'nada' => null, 'pass' => $pass, 'days' => $pass['days']];
+        }
+    }
+    foreach (['players', 'staff'] as $group) {
+        usort($out[$group], static fn (array $a, array $b): int => [$a['days'], mb_strtolower($a['name'])] <=> [$b['days'], mb_strtolower($b['name'])]);
+    }
+    return $out;
+}
+
+/** @return array{0: string, 1: string} Datum und Statustext ("abgelaufen seit 12 Tagen" / "läuft in 5 Tagen ab") */
+function roster_expiry_cell(?array $state): array
+{
+    if ($state === null) {
+        return ['', ''];
+    }
+    return [date('d.m.Y', (int) strtotime((string) $state['date'])), expiry_text($state)];
+}
+
+/** @return array{0: string, 1: string, 2: string} */
+function roster_generate_missing(string $format, ?string $kader, ?string $status, array $excludeKeys = []): array
+{
+    $data = roster_missing_data($kader, $status);
+    $labels = ['nada' => 'NADA-Zertifikat', 'pass' => 'Reisepass', 'ecard' => 'E-Card', 'rechte' => 'Rechte & Pflichten'];
+    $cell = static fn (array $row, string $type): string => in_array($type, $row['missing'], true) ? 'fehlt' : '';
+
+    // PDF: eine Tabelle mit den Abschnitten "Spieler" und "Staff"
+    $pdfColumns = [
+        ['key' => 'lfd', 'label' => 'Nr.', 'width' => 9.0, 'align' => 'C', 'xl' => 6.0],
+        ['key' => 'name', 'label' => 'Name', 'width' => 44.0, 'align' => 'L', 'xl' => 30.0],
+        ['key' => 'info', 'label' => 'Verein / Position', 'pdf_label' => 'Verein / Pos.', 'width' => 36.0, 'align' => 'L', 'xl' => 24.0],
+        ['key' => 'nada', 'label' => 'NADA', 'width' => 24.0, 'align' => 'C', 'xl' => 14.0],
+        ['key' => 'pass', 'label' => 'Reisepass', 'width' => 24.0, 'align' => 'C', 'xl' => 14.0],
+        ['key' => 'ecard', 'label' => 'E-Card', 'width' => 24.0, 'align' => 'C', 'xl' => 14.0],
+        ['key' => 'rechte', 'label' => 'Rechte & Pflichten', 'pdf_label' => 'Rechte/Pfl.', 'width' => 25.0, 'align' => 'C', 'xl' => 18.0],
+    ];
+    $rows = [['__section' => 'Spieler (' . count($data['players']) . ')' . ($data['players'] === [] ? ' - nichts fehlt' : '')]];
+    foreach ($data['players'] as $i => $r) {
+        $rows[] = [(string) ($i + 1), $r['name'], $r['info'], $cell($r, 'nada'), $cell($r, 'pass'), $cell($r, 'ecard'), $cell($r, 'rechte')];
+    }
+    $rows[] = ['__section' => 'Staff (' . count($data['staff']) . ')' . ($data['staff'] === [] ? ' - nichts fehlt' : '')];
+    foreach ($data['staff'] as $i => $r) {
+        $rows[] = [(string) ($i + 1), $r['name'], $r['info'], '-', '-', '-', 'fehlt'];
+    }
+    $title = 'Fehlende Dokumente ' . roster_team_name();
+    $scope = $kader === 'kader' ? 'Spieler im Kader' : ($kader === 'nicht_im_kader' ? 'Spieler nicht im Kader' : 'Alle Spieler');
+    $subtitle = $scope . ' und Staff getrennt · ' . count($data['players']) . ' Spieler, ' . count($data['staff']) . ' Staff mit fehlenden Dokumenten';
+    $base = 'roster-fehlende-dokumente-' . date('Y-m-d');
+
+    if ($format === 'xlsx') {
+        $playerColumns = [
+            ['key' => 'lfd', 'label' => 'Nr.', 'align' => 'C', 'xl' => 6.0], ['key' => 'name', 'label' => 'Name', 'align' => 'L', 'xl' => 30.0],
+            ['key' => 'info', 'label' => 'Verein', 'align' => 'L', 'xl' => 24.0], ['key' => 'nada', 'label' => $labels['nada'], 'align' => 'C', 'xl' => 18.0],
+            ['key' => 'pass', 'label' => $labels['pass'], 'align' => 'C', 'xl' => 14.0], ['key' => 'ecard', 'label' => $labels['ecard'], 'align' => 'C', 'xl' => 12.0],
+            ['key' => 'rechte', 'label' => $labels['rechte'], 'align' => 'C', 'xl' => 20.0],
+        ];
+        $playerRows = [];
+        foreach ($data['players'] as $i => $r) {
+            $playerRows[] = [(string) ($i + 1), $r['name'], $r['info'], $cell($r, 'nada'), $cell($r, 'pass'), $cell($r, 'ecard'), $cell($r, 'rechte')];
+        }
+        $staffColumns = [
+            ['key' => 'lfd', 'label' => 'Nr.', 'align' => 'C', 'xl' => 6.0], ['key' => 'name', 'label' => 'Name', 'align' => 'L', 'xl' => 30.0],
+            ['key' => 'info', 'label' => 'Position', 'align' => 'L', 'xl' => 24.0], ['key' => 'rechte', 'label' => $labels['rechte'], 'align' => 'C', 'xl' => 20.0],
+        ];
+        $staffRows = [];
+        foreach ($data['staff'] as $i => $r) {
+            $staffRows[] = [(string) ($i + 1), $r['name'], $r['info'], 'fehlt'];
+        }
+        return ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', $base . '.xlsx', roster_build_xlsx(
+            ['columns' => $playerColumns, 'rows' => $playerRows], $title . ' - Spieler', $subtitle, 'Spieler',
+            [['name' => 'Staff', 'table' => ['columns' => $staffColumns, 'rows' => $staffRows], 'title' => $title . ' - Staff', 'subtitle' => $subtitle]]
+        )];
+    }
+    $table = ['columns' => $pdfColumns, 'rows' => $rows, 'footer' => 'Stand ' . date('d.m.Y') . ' - ' . (count($data['players']) + count($data['staff'])) . ' Personen mit fehlenden Dokumenten'];
+    return ['application/pdf', $base . '.pdf', roster_build_pdf($table, $title, $subtitle)];
+}
+
+/**
+ * Abgelaufene (und bald ablaufende) Dokumente; mit $_GET['nur'] = 'abgelaufen' nur bereits abgelaufene.
+ *
+ * @return array{0: string, 1: string, 2: string}
+ */
+function roster_generate_expired(string $format, ?string $kader, ?string $status, array $excludeKeys = []): array
+{
+    $onlyExpired = ($_GET['nur'] ?? '') === 'abgelaufen';
+    $data = roster_expired_data($kader, $status, $onlyExpired);
+
+    $rowFor = static function (array $r, int $i): array {
+        [$nadaDate, $nadaText] = roster_expiry_cell($r['nada']);
+        [$passDate, $passText] = roster_expiry_cell($r['pass']);
+        return [(string) ($i + 1), $r['name'], $r['info'], $nadaDate, $nadaText, $passDate, $passText];
+    };
+    $pdfColumns = [
+        ['key' => 'lfd', 'label' => 'Nr.', 'width' => 8.0, 'align' => 'C', 'xl' => 6.0],
+        ['key' => 'name', 'label' => 'Name', 'width' => 36.0, 'align' => 'L', 'xl' => 28.0],
+        ['key' => 'info', 'label' => 'Verein / Position', 'pdf_label' => 'Verein / Pos.', 'width' => 28.0, 'align' => 'L', 'xl' => 22.0],
+        ['key' => 'nada_date', 'label' => 'NADA bis', 'width' => 18.0, 'align' => 'C', 'xl' => 12.0],
+        ['key' => 'nada_state', 'label' => 'NADA Status', 'width' => 34.0, 'align' => 'L', 'xl' => 26.0],
+        ['key' => 'pass_date', 'label' => 'Pass bis', 'width' => 18.0, 'align' => 'C', 'xl' => 12.0],
+        ['key' => 'pass_state', 'label' => 'Pass Status', 'width' => 34.0, 'align' => 'L', 'xl' => 26.0],
+    ];
+    $rows = [['__section' => 'Spieler (' . count($data['players']) . ')' . ($data['players'] === [] ? ' - nichts abgelaufen' : '')]];
+    foreach ($data['players'] as $i => $r) {
+        $rows[] = $rowFor($r, $i);
+    }
+    $rows[] = ['__section' => 'Staff (' . count($data['staff']) . ')' . ($data['staff'] === [] ? ' - nichts abgelaufen' : '')];
+    foreach ($data['staff'] as $i => $r) {
+        $line = $rowFor($r, $i);
+        $line[3] = $line[4] = '-'; // Staff hat keine NADA
+        $rows[] = $line;
+    }
+
+    $title = ($onlyExpired ? 'Abgelaufene Dokumente ' : 'Abgelaufene und bald ablaufende Dokumente ') . roster_team_name();
+    $scope = $kader === 'kader' ? 'Spieler im Kader' : ($kader === 'nicht_im_kader' ? 'Spieler nicht im Kader' : 'Alle Spieler');
+    $subtitle = $scope . ' und Staff getrennt · ' . count($data['players']) . ' Spieler, ' . count($data['staff']) . ' Staff · dringendste zuerst';
+    $base = 'roster-abgelaufene-dokumente-' . date('Y-m-d');
+
+    if ($format === 'xlsx') {
+        $playerRows = [];
+        foreach ($data['players'] as $i => $r) {
+            $playerRows[] = $rowFor($r, $i);
+        }
+        $staffRows = [];
+        foreach ($data['staff'] as $i => $r) {
+            [$passDate, $passText] = roster_expiry_cell($r['pass']);
+            $staffRows[] = [(string) ($i + 1), $r['name'], $r['info'], $passDate, $passText];
+        }
+        $playerColumns = [
+            ['key' => 'lfd', 'label' => 'Nr.', 'align' => 'C', 'xl' => 6.0], ['key' => 'name', 'label' => 'Name', 'align' => 'L', 'xl' => 30.0],
+            ['key' => 'info', 'label' => 'Verein', 'align' => 'L', 'xl' => 24.0], ['key' => 'nada_date', 'label' => 'NADA gültig bis', 'align' => 'C', 'xl' => 16.0],
+            ['key' => 'nada_state', 'label' => 'NADA Status', 'align' => 'L', 'xl' => 28.0], ['key' => 'pass_date', 'label' => 'Reisepass gültig bis', 'align' => 'C', 'xl' => 18.0],
+            ['key' => 'pass_state', 'label' => 'Reisepass Status', 'align' => 'L', 'xl' => 28.0],
+        ];
+        $staffColumns = [
+            ['key' => 'lfd', 'label' => 'Nr.', 'align' => 'C', 'xl' => 6.0], ['key' => 'name', 'label' => 'Name', 'align' => 'L', 'xl' => 30.0],
+            ['key' => 'info', 'label' => 'Position', 'align' => 'L', 'xl' => 24.0], ['key' => 'pass_date', 'label' => 'Reisepass gültig bis', 'align' => 'C', 'xl' => 18.0],
+            ['key' => 'pass_state', 'label' => 'Reisepass Status', 'align' => 'L', 'xl' => 28.0],
+        ];
+        return ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', $base . '.xlsx', roster_build_xlsx(
+            ['columns' => $playerColumns, 'rows' => $playerRows], $title . ' - Spieler', $subtitle, 'Spieler',
+            [['name' => 'Staff', 'table' => ['columns' => $staffColumns, 'rows' => $staffRows], 'title' => $title . ' - Staff', 'subtitle' => $subtitle]]
+        )];
+    }
+    $table = ['columns' => $pdfColumns, 'rows' => $rows, 'footer' => 'Stand ' . date('d.m.Y') . ' - ' . (count($data['players']) + count($data['staff'])) . ' Personen'];
+    return ['application/pdf', $base . '.pdf', roster_build_pdf($table, $title, $subtitle)];
 }

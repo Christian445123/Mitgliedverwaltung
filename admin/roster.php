@@ -10,13 +10,13 @@ require_once __DIR__ . '/../includes/field_access.php';
 
 require_permission('members.export');
 
-$type = in_array($_GET['type'] ?? '', ['ifaf', 'clothing', 'clubs'], true) ? (string) $_GET['type'] : 'alpha';
+$type = in_array($_GET['type'] ?? '', ['ifaf', 'clothing', 'clubs', 'missing', 'expired'], true) ? (string) $_GET['type'] : 'alpha';
 $format = in_array($_GET['format'] ?? '', ['pdf', 'xlsx'], true) ? (string) $_GET['format'] : null;
 $error = null;
 
 // Prüfen (Vorschau): zeigt den Roster als Tabelle, leere Felder sind markiert
 $check = null;
-if (($_GET['format'] ?? '') === 'check' && $type !== 'ifaf') {
+if (($_GET['format'] ?? '') === 'check' && !in_array($type, ['ifaf', 'missing', 'expired'], true)) {
     $kaderCheck = in_array($_GET['kader'] ?? 'kader', ['kader', 'nicht_im_kader'], true) ? (string) ($_GET['kader'] ?? 'kader') : null;
     $statusCheck = ($_GET['status'] ?? 'aktiv') === 'alle' ? null : 'aktiv';
     $excludeCheck = field_access_admin_audience() === 'admin' ? [] : field_access_hidden_export_keys('editor');
@@ -45,9 +45,12 @@ if ($format !== null) {
             $status = ($_GET['status'] ?? 'aktiv') === 'alle' ? null : 'aktiv';
             // Bearbeiter erhalten nur die Spalten, die für sie freigegeben sind (Feld-Rechte)
             $exclude = field_access_admin_audience() === 'admin' ? [] : field_access_hidden_export_keys('editor');
-            $generate = ['clothing' => 'roster_generate_clothing', 'clubs' => 'roster_generate_clubs'][$type] ?? 'roster_generate_alphabetical';
+            if (in_array($type, ['missing', 'expired'], true)) {
+                require_permission('staff.view'); // die Listen enthalten Spieler und Staff
+            }
+            $generate = ['clothing' => 'roster_generate_clothing', 'clubs' => 'roster_generate_clubs', 'missing' => 'roster_generate_missing', 'expired' => 'roster_generate_expired'][$type] ?? 'roster_generate_alphabetical';
             [$contentType, $filename, $binary] = $generate($format, $kader, $status, $exclude);
-            app_log('export.roster', (['clothing' => 'Bekleidungs-Roster', 'clubs' => 'Vereins-Roster'][$type] ?? 'Alphabetischer Roster') . ' erstellt (' . $format . ')', ['kader' => $kader, 'status' => $status]);
+            app_log('export.roster', (['clothing' => 'Bekleidungs-Roster', 'clubs' => 'Vereins-Roster', 'missing' => 'Liste fehlende Dokumente', 'expired' => 'Liste abgelaufene Dokumente'][$type] ?? 'Alphabetischer Roster') . ' erstellt (' . $format . ')', ['kader' => $kader, 'status' => $status]);
         }
 
         header('Content-Type: ' . $contentType);
@@ -171,6 +174,57 @@ require __DIR__ . '/../includes/admin_header.php';
             </div>
         </form>
     </section>
+
+    <?php if (user_can('staff.view')): ?>
+    <section class="panel">
+        <h2 class="section-title">Fehlende Dokumente</h2>
+        <p class="muted">Liste, bei wem welche Dokumente fehlen (NADA-Zertifikat, Reisepass, E-Card, Rechte &amp; Pflichten) –
+            <strong>Spieler und Staff getrennt</strong>. Staff: Rechte &amp; Pflichten. Excel mit je einem Blatt für Spieler und Staff.</p>
+        <form method="get" action="roster.php">
+            <input type="hidden" name="type" value="missing">
+            <div class="form-group">
+                <label for="kader_m">Welche Spieler?</label>
+                <select id="kader_m" name="kader">
+                    <option value="kader">Nur Spieler im Kader</option>
+                    <option value="alle">Alle Spieler</option>
+                    <option value="nicht_im_kader">Nur Spieler nicht im Kader</option>
+                </select>
+            </div>
+            <div class="filter-bar">
+                <button type="submit" name="format" value="pdf" class="btn btn-primary">PDF erstellen</button>
+                <button type="submit" name="format" value="xlsx" class="btn">Excel erstellen</button>
+            </div>
+        </form>
+    </section>
+
+    <section class="panel">
+        <h2 class="section-title">Abgelaufene Dokumente</h2>
+        <p class="muted">Liste, bei wem NADA-Zertifikat oder Reisepass abgelaufen sind bzw. bald ablaufen –
+            <strong>Spieler und Staff getrennt</strong>, dringendste zuerst. Staff hat nur den Reisepass.</p>
+        <form method="get" action="roster.php">
+            <input type="hidden" name="type" value="expired">
+            <div class="form-group">
+                <label for="kader_e">Welche Spieler?</label>
+                <select id="kader_e" name="kader">
+                    <option value="kader">Nur Spieler im Kader</option>
+                    <option value="alle">Alle Spieler</option>
+                    <option value="nicht_im_kader">Nur Spieler nicht im Kader</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="nur_e">Umfang</label>
+                <select id="nur_e" name="nur">
+                    <option value="">Abgelaufene und bald ablaufende</option>
+                    <option value="abgelaufen">Nur bereits abgelaufene</option>
+                </select>
+            </div>
+            <div class="filter-bar">
+                <button type="submit" name="format" value="pdf" class="btn btn-primary">PDF erstellen</button>
+                <button type="submit" name="format" value="xlsx" class="btn">Excel erstellen</button>
+            </div>
+        </form>
+    </section>
+    <?php endif; ?>
 
     <?php if (user_can('staff.view')): ?>
     <section class="panel">
