@@ -165,7 +165,7 @@ function api_required_permission(string $method, string $path): ?string
     if ($path === '' || $path === 'ping' || $path === 'license/validate' || str_starts_with($path, 'auth/')) {
         return null;
     }
-    if ($path === 'members.csv' || $path === 'template.csv' || preg_match('#^roster(-ifaf|-bekleidung|-vereine|-fehlend|-abgelaufen)?\.(pdf|xlsx)$#', $path) === 1) {
+    if ($path === 'members.csv' || $path === 'template.csv' || preg_match('#^roster(-ifaf|-bekleidung|-vereine|-fehlend|-abgelaufen|-staff)?\.(pdf|xlsx)$#', $path) === 1) {
         return 'members.export';
     }
     if ($path === 'import') {

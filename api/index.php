@@ -525,7 +525,7 @@ if ($path === 'license/validate' && $method === 'POST') {
 }
 
 // Roster als Datei: GET /roster.pdf|xlsx (alphabetisch) und /roster-ifaf.pdf|xlsx?competition=&game=&team=
-if (preg_match('#^roster(-ifaf|-bekleidung|-vereine|-fehlend|-abgelaufen)?\.(pdf|xlsx)$#', $path, $rm) === 1 && $method === 'GET') {
+if (preg_match('#^roster(-ifaf|-bekleidung|-vereine|-fehlend|-abgelaufen|-staff)?\.(pdf|xlsx)$#', $path, $rm) === 1 && $method === 'GET') {
     require_once __DIR__ . '/../includes/roster.php';
     try {
         if ($rm[1] === '-ifaf') {
@@ -538,7 +538,7 @@ if (preg_match('#^roster(-ifaf|-bekleidung|-vereine|-fehlend|-abgelaufen)?\.(pdf
         } else {
             $kader = in_array($_GET['kader'] ?? 'kader', ['kader', 'nicht_im_kader'], true) ? (string) ($_GET['kader'] ?? 'kader') : null;
             $status = ($_GET['status'] ?? 'aktiv') === 'alle' ? null : 'aktiv';
-            $generate = ['-bekleidung' => 'roster_generate_clothing', '-vereine' => 'roster_generate_clubs', '-fehlend' => 'roster_generate_missing', '-abgelaufen' => 'roster_generate_expired'][$rm[1]] ?? 'roster_generate_alphabetical';
+            $generate = ['-bekleidung' => 'roster_generate_clothing', '-vereine' => 'roster_generate_clubs', '-fehlend' => 'roster_generate_missing', '-abgelaufen' => 'roster_generate_expired', '-staff' => 'roster_generate_staff'][$rm[1]] ?? 'roster_generate_alphabetical';
             [$contentType, $filename, $binary] = $generate($rm[2], $kader, $status, $GLOBALS['api_hidden_keys'] ?? []);
         }
     } catch (Throwable $e) {

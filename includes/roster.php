@@ -1279,3 +1279,43 @@ function roster_generate_expired(string $format, ?string $kader, ?string $status
     $table = ['columns' => $pdfColumns, 'rows' => $rows, 'footer' => 'Stand ' . date('d.m.Y') . ' - ' . (count($data['players']) + count($data['staff'])) . ' Personen'];
     return ['application/pdf', $base . '.pdf', roster_build_pdf($table, $title, $subtitle)];
 }
+
+/** Spalten des Staff-Rosters. */
+function roster_columns_staff(): array
+{
+    return [
+        ['key' => 'lfd', 'label' => 'Nr.', 'width' => 10.0, 'align' => 'C', 'xl' => 6.0],
+        ['key' => 'name', 'label' => 'Name', 'width' => 46.0, 'align' => 'L', 'xl' => 30.0],
+        ['key' => 'position', 'label' => 'Position', 'width' => 30.0, 'align' => 'L', 'xl' => 18.0],
+        ['key' => 'geburtsdatum', 'label' => 'Geboren', 'width' => 22.0, 'align' => 'C', 'xl' => 12.0],
+        ['key' => 'telefon', 'label' => 'Telefon', 'width' => 34.0, 'align' => 'L', 'xl' => 20.0],
+        ['key' => 'email', 'label' => 'Mail', 'width' => 52.0, 'align' => 'L', 'xl' => 32.0],
+    ];
+}
+
+/**
+ * Erzeugt den alphabetischen Staff-Roster (Trainer, Betreuer, Funktionäre; nach Nachname) und liefert
+ * [Inhaltstyp, Dateiname, Binärdaten]. $kader wird nicht verwendet (gilt nur für Spieler).
+ *
+ * @param array<int, string> $excludeKeys Spalten, die nicht ausgegeben werden dürfen
+ * @return array{0: string, 1: string, 2: string}
+ */
+function roster_generate_staff(string $format, ?string $kader, ?string $status, array $excludeKeys = []): array
+{
+    require_once __DIR__ . '/staff.php';
+
+    staff_ensure_table(db());
+    $staff = staff_all($status);
+    usort($staff, static fn (array $a, array $b): int => [mb_strtolower((string) $a['nachname']), mb_strtolower((string) $a['vorname'])]
+        <=> [mb_strtolower((string) $b['nachname']), mb_strtolower((string) $b['vorname'])]);
+    $table = roster_table($staff, $excludeKeys, roster_columns_staff());
+    $title = 'Staff-Roster ' . roster_team_name();
+    $subtitle = 'Alphabetisch nach Nachname · ' . ($status === null ? 'Aktive und inaktive' : 'Aktive') . ' Staff-Personen · ' . count($staff) . ' Personen';
+    $base = 'roster-staff-' . date('Y-m-d');
+
+    if ($format === 'xlsx') {
+        return ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', $base . '.xlsx', roster_build_xlsx($table, $title, $subtitle, 'Staff')];
+    }
+    $table['footer'] = 'Stand ' . date('d.m.Y') . ' - ' . count($staff) . ' Staff';
+    return ['application/pdf', $base . '.pdf', roster_build_pdf($table, $title, $subtitle)];
+}
