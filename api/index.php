@@ -541,8 +541,9 @@ if (preg_match('#^roster(-ifaf|-bekleidung|-vereine|-fehlend|-abgelaufen)?\.(pdf
             $generate = ['-bekleidung' => 'roster_generate_clothing', '-vereine' => 'roster_generate_clubs', '-fehlend' => 'roster_generate_missing', '-abgelaufen' => 'roster_generate_expired'][$rm[1]] ?? 'roster_generate_alphabetical';
             [$contentType, $filename, $binary] = $generate($rm[2], $kader, $status, $GLOBALS['api_hidden_keys'] ?? []);
         }
-    } catch (RuntimeException $e) {
-        api_error(500, $e->getMessage());
+    } catch (Throwable $e) {
+        app_log('export.roster_failed', 'Roster konnte nicht erstellt werden: ' . $e->getMessage(), ['file' => basename($e->getFile()), 'line' => $e->getLine()], 'error');
+        api_error(500, 'Die Liste konnte nicht erstellt werden: ' . $e->getMessage() . ' (' . basename($e->getFile()) . ':' . $e->getLine() . ')');
     }
     app_log('export.roster', 'Roster per API erstellt (' . $rm[0] . ')', []);
     header('Content-Type: ' . $contentType);

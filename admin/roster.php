@@ -61,6 +61,11 @@ if ($format !== null) {
         exit;
     } catch (RuntimeException $e) {
         $error = $e->getMessage();
+    } catch (Throwable $e) {
+        // Unerwarteter Fehler: melden statt leerer Seite (Ursache und Stelle im Protokoll)
+        error_log('Roster: ' . $e->getMessage() . ' @ ' . basename($e->getFile()) . ':' . $e->getLine());
+        app_log('export.roster_failed', 'Roster konnte nicht erstellt werden: ' . $e->getMessage(), ['file' => basename($e->getFile()), 'line' => $e->getLine()], 'error');
+        $error = 'Die Liste konnte nicht erstellt werden: ' . $e->getMessage() . ' (' . basename($e->getFile()) . ':' . $e->getLine() . ')';
     }
 }
 
