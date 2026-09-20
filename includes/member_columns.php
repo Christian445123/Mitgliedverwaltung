@@ -506,6 +506,7 @@ function io_staff_aliases(): array
 {
     return [
         'Telefon Angehoeriger' => 'telefon_angehoeriger', 'Tel. Angehöriger' => 'telefon_angehoeriger', 'Notfallkontakt' => 'telefon_angehoeriger',
+        'Sozialversicherungsnummer' => 'sozialversicherungsnummer', 'SV-Nr' => 'sozialversicherungsnummer', 'SVNR' => 'sozialversicherungsnummer', 'Sozial Ver Nr' => 'sozialversicherungsnummer',
         'Telefonnummer Angehörige' => 'telefon_angehoeriger', 'Telefonnummer Angehoerige' => 'telefon_angehoeriger', 'Telefon Angehörige' => 'telefon_angehoeriger', 'Telefon Erzieh' => 'telefon_angehoeriger', 'Telefon Erzieher' => 'telefon_angehoeriger',
         'Email' => 'email', 'E-Mail' => 'email', 'Handy' => 'telefon', 'Tel' => 'telefon',
         'Funktion' => 'position', 'Pos' => 'position', 'Rolle' => 'position',

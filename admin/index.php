@@ -93,7 +93,7 @@ $listUrl = static fn (array $extra = []) => 'index.php?' . http_build_query(arra
     </p>
     <?php endif; ?>
     <p class="muted">Aktive Spieler im Kader, bei denen NADA-Zertifikat, Reisepass, E-Card oder Rechte &amp; Pflichten fehlen
-        (keine Datei hochgeladen oder mit „Fehlt“ markiert). Bei E-Card und Reisepass genügt Vorder- <em>oder</em> Rückseite.</p>
+        (keine Datei hochgeladen oder mit „Fehlt“ markiert). E-Card und Reisepass haben nur eine Vorderseite.</p>
     <div class="expiry-columns">
         <?php if ($docsMissing['players'] !== []): ?>
         <div>

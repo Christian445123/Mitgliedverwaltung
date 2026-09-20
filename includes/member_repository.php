@@ -26,9 +26,9 @@ const EQUIPMENT_COLUMNS = ['essen', 'game_jersey_groesse', 'game_hosen_groesse',
  * Dokumenttypen: Schlüssel (API/URL) => Spalte, Upload-Unterordner, Beschriftung.
  */
 const MEMBER_DOCUMENT_TYPES = [
-    'ecard' => ['column' => 'bild_ecard_pfad', 'dir' => 'ecard', 'label' => 'E-Card Vorderseite'],
+    'ecard' => ['column' => 'bild_ecard_pfad', 'dir' => 'ecard', 'label' => 'E-Card'],
     'ecard_back' => ['column' => 'bild_ecard_hinten_pfad', 'dir' => 'ecard', 'label' => 'E-Card Rückseite'],
-    'pass' => ['column' => 'pass_foto_pfad', 'dir' => 'pass', 'label' => 'Reisepass Vorderseite'],
+    'pass' => ['column' => 'pass_foto_pfad', 'dir' => 'pass', 'label' => 'Reisepass'],
     'pass_back' => ['column' => 'pass_foto_hinten_pfad', 'dir' => 'pass', 'label' => 'Reisepass Rückseite'],
     'nada' => ['column' => 'nada_dokument_pfad', 'dir' => 'nada', 'label' => 'NADA-Zertifikat'],
     'rechte' => ['column' => 'rechte_pflichten_dokument_pfad', 'dir' => 'rechte', 'label' => 'Rechte & Pflichten'],
@@ -306,12 +306,12 @@ function member_collect_doc_flags(): array
 
 /**
  * Pflichtdokumente: Typ => Beschriftung und die Dateien, von denen mindestens eine vorhanden sein muss
- * (bei E-Card und Reisepass Vorder- oder Rückseite).
+ * (E-Card und Reisepass haben nur eine Vorderseite; frühere Rückseiten-Uploads werden nicht mehr berücksichtigt).
  */
 const MEMBER_DOCUMENT_REQUIRED = [
     'nada' => ['label' => 'NADA-Zertifikat', 'files' => ['nada']],
-    'pass' => ['label' => 'Reisepass', 'files' => ['pass', 'pass_back']],
-    'ecard' => ['label' => 'E-Card', 'files' => ['ecard', 'ecard_back']],
+    'pass' => ['label' => 'Reisepass', 'files' => ['pass']],
+    'ecard' => ['label' => 'E-Card', 'files' => ['ecard']],
     'rechte' => ['label' => 'Rechte & Pflichten', 'files' => ['rechte']],
 ];
 
@@ -373,8 +373,11 @@ function documents_missing_report(): array
             if (staff_document_path($row, 'rechte') === null) {
                 $open[] = 'Rechte & Pflichten';
             }
-            if (staff_document_path($row, 'pass') === null && staff_document_path($row, 'pass_back') === null) {
-                $open[] = 'Foto Reisepass';
+            if (staff_document_path($row, 'pass') === null) {
+                $open[] = 'Reisepass';
+            }
+            if (staff_document_path($row, 'ecard') === null) {
+                $open[] = 'E-Card';
             }
             if ($open !== []) {
                 $staff[] = ['id' => (int) $row['id'], 'name' => member_full_name($row), 'open' => $open];

@@ -244,12 +244,8 @@ ob_start(); // Formular puffern, damit gesperrte Felder (Feld-Rechte) am Ende en
     <legend>Bild E-Card &amp; Sozialversicherung</legend>
 
     <div class="form-group">
-        <label for="bild_ecard">E-Card Vorderseite<?= $docNote('bild_ecard_pfad', 'ecard') ?></label>
+        <label for="bild_ecard">E-Card<?= $docNote('bild_ecard_pfad', 'ecard') ?></label>
         <input type="file" id="bild_ecard" name="bild_ecard" accept=".jpg,.jpeg,.png,.pdf">
-    </div>
-    <div class="form-group">
-        <label for="bild_ecard_hinten">E-Card Rückseite<?= $docNote('bild_ecard_hinten_pfad', 'ecard_back') ?></label>
-        <input type="file" id="bild_ecard_hinten" name="bild_ecard_hinten" accept=".jpg,.jpeg,.png,.pdf">
         <?php if ($showAdminFields): ?><label class="doc-missing"><input type="checkbox" name="fehlt_ecard" value="1" <?= $checked("fehlt_ecard") ?>> Fehlt</label><?php endif; ?>
     </div>
     <div class="form-group">
@@ -283,12 +279,8 @@ ob_start(); // Formular puffern, damit gesperrte Felder (Feld-Rechte) am Ende en
     <legend>Reisepass</legend>
 
     <div class="form-group">
-        <label for="pass_foto">Reisepass Vorderseite<?= $docNote('pass_foto_pfad', 'pass') ?></label>
+        <label for="pass_foto">Reisepass (Foto)<?= $docNote('pass_foto_pfad', 'pass') ?></label>
         <input type="file" id="pass_foto" name="pass_foto" accept=".jpg,.jpeg,.png,.pdf">
-    </div>
-    <div class="form-group">
-        <label for="pass_foto_hinten">Reisepass Rückseite<?= $docNote('pass_foto_hinten_pfad', 'pass_back') ?></label>
-        <input type="file" id="pass_foto_hinten" name="pass_foto_hinten" accept=".jpg,.jpeg,.png,.pdf">
         <?php if ($showAdminFields): ?><label class="doc-missing"><input type="checkbox" name="fehlt_pass" value="1" <?= $checked("fehlt_pass") ?>> Fehlt</label><?php endif; ?>
     </div>
 

@@ -1105,8 +1105,11 @@ function roster_missing_data(?string $kader, ?string $status): array
         if (staff_document_path($s, 'rechte') === null) {
             $open[] = 'rechte';
         }
-        if (staff_document_path($s, 'pass') === null && staff_document_path($s, 'pass_back') === null) {
+        if (staff_document_path($s, 'pass') === null) {
             $open[] = 'pass';
+        }
+        if (staff_document_path($s, 'ecard') === null) {
+            $open[] = 'ecard';
         }
         if ($open !== []) {
             $out['staff'][] = ['name' => member_full_name($s), 'info' => trim((string) ($s['position'] ?? '')), 'missing' => $open];
@@ -1185,7 +1188,7 @@ function roster_generate_missing(string $format, ?string $kader, ?string $status
     // Staff getrennt: Dokumente sind freiwillig, es steht nur "nicht hochgeladen" (kein Pflichtdokument)
     $rows[] = ['__section' => 'Staff (' . count($data['staff']) . ') - Dokumente sind freiwillig' . ($data['staff'] === [] ? ' - alles hochgeladen' : '')];
     foreach ($data['staff'] as $i => $r) {
-        $rows[] = [(string) ($i + 1), $r['name'], $r['info'], '-', in_array('pass', $r['missing'], true) ? 'nicht hochgel.' : '', '-', in_array('rechte', $r['missing'], true) ? 'nicht hochgel.' : ''];
+        $rows[] = [(string) ($i + 1), $r['name'], $r['info'], '-', in_array('pass', $r['missing'], true) ? 'nicht hochgel.' : '', in_array('ecard', $r['missing'], true) ? 'nicht hochgel.' : '', in_array('rechte', $r['missing'], true) ? 'nicht hochgel.' : ''];
     }
     $title = 'Fehlende Dokumente ' . roster_team_name();
     $scope = $kader === 'kader' ? 'Spieler im Kader' : ($kader === 'nicht_im_kader' ? 'Spieler nicht im Kader' : 'Alle Spieler');
@@ -1207,11 +1210,12 @@ function roster_generate_missing(string $format, ?string $kader, ?string $status
             ['key' => 'lfd', 'label' => 'Nr.', 'align' => 'C', 'xl' => 6.0], ['key' => 'name', 'label' => 'Name', 'align' => 'L', 'xl' => 30.0],
             ['key' => 'info', 'label' => 'Position', 'align' => 'L', 'xl' => 24.0],
             ['key' => 'rechte', 'label' => $labels['rechte'] . ' (freiwillig)', 'align' => 'C', 'xl' => 30.0],
-            ['key' => 'pass', 'label' => 'Foto Reisepass (freiwillig)', 'align' => 'C', 'xl' => 28.0],
+            ['key' => 'pass', 'label' => 'Reisepass (freiwillig)', 'align' => 'C', 'xl' => 24.0],
+            ['key' => 'ecard', 'label' => 'E-Card (freiwillig)', 'align' => 'C', 'xl' => 22.0],
         ];
         $staffRows = [];
         foreach ($data['staff'] as $i => $r) {
-            $staffRows[] = [(string) ($i + 1), $r['name'], $r['info'], in_array('rechte', $r['missing'], true) ? 'nicht hochgeladen' : '', in_array('pass', $r['missing'], true) ? 'nicht hochgeladen' : ''];
+            $staffRows[] = [(string) ($i + 1), $r['name'], $r['info'], in_array('rechte', $r['missing'], true) ? 'nicht hochgeladen' : '', in_array('pass', $r['missing'], true) ? 'nicht hochgeladen' : '', in_array('ecard', $r['missing'], true) ? 'nicht hochgeladen' : ''];
         }
         return ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', $base . '.xlsx', roster_build_xlsx(
             ['columns' => $playerColumns, 'rows' => $playerRows], $title . ' - Spieler', $subtitle, 'Spieler',

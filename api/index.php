@@ -29,7 +29,7 @@ declare(strict_types=1);
  *   POST /api/members|staff/verification/reset    Bestätigung zurücksetzen {ids:[..]};  POST /api/members|staff/send-links  Massenmail {ids:[..≤10]}
  *   POST/PUT            /api/members/{id}/document-flags     "Fehlt"-Markierung {nada, pass, ecard, rechte: true/false}
  *   GET    /api/roster.pdf|xlsx                     Alphabetischer Roster;  /api/roster-ifaf.pdf|xlsx?competition=&game=&team= IFAF-Roster
- *   GET    /api/members/{id}/documents/{typ}        Dokument laden (typ: ecard, ecard_back, pass, pass_back, nada, rechte)
+ *   GET    /api/members/{id}/documents/{typ}        Dokument laden (typ: ecard, pass, nada, rechte)
  *   POST   /api/members/{id}/documents/{typ}        Dokument hochladen (multipart, Feld "file"; Schreib-Token)
  *   DELETE /api/members/{id}/documents/{typ}        Dokument entfernen (Schreib-Token)
  */
@@ -649,7 +649,7 @@ if (preg_match('#^members/(\d+)/document-flags$#', $path, $fm) === 1 && in_array
 }
 
 // Dokumente eines Mitglieds (E-Card, Pass, NADA, Rechte & Pflichten)
-if (preg_match('#^members/(\d+)/documents/(ecard|ecard_back|pass|pass_back|nada|rechte)$#', $path, $dm)) {
+if (preg_match('#^members/(\d+)/documents/(ecard|pass|nada|rechte)$#', $path, $dm)) {
     $docId = (int) $dm[1];
     $docType = $dm[2];
     $docMember = member_find_by_id($docId);
@@ -715,8 +715,8 @@ if ($path === 'members/bulk-delete' && $method === 'POST') {
     }
 }
 
-// Staff-Dokumente (freiwillig): GET/POST/DELETE /staff/{id}/documents/rechte|pass|pass_back
-if (preg_match('#^staff/(\d+)/documents/(rechte|pass|pass_back)$#', $path, $sdm) === 1) {
+// Staff-Dokumente (freiwillig): GET/POST/DELETE /staff/{id}/documents/rechte|pass|ecard
+if (preg_match('#^staff/(\d+)/documents/(rechte|pass|ecard)$#', $path, $sdm) === 1) {
     require_once __DIR__ . '/../includes/staff.php';
     $sid = (int) $sdm[1];
     $sType = $sdm[2];
