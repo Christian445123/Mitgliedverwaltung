@@ -84,6 +84,8 @@ Schlüssel, der jederzeit widerrufen werden kann.</p>
     <section class="panel">
         <h2 class="section-title">Verwendung</h2>
         <p class="muted">Basis-Adresse: <code><?= h($baseUrl) ?></code></p>
+        <p class="alert alert-warning">Die API akzeptiert nur noch verschlüsselte Anfragen (Desktop-Anwendung). Die Beispiele unten
+        (PowerShell, Excel) funktionieren nur, wenn in der .env <code>API_ALLOW_PLAIN=true</code> gesetzt ist – das wird nicht empfohlen.</p>
         <p><strong>PowerShell</strong></p>
 <pre class="code-block">$h = @{ Authorization = "Bearer &lt;SCHLÜSSEL&gt;" }
 Invoke-RestMethod "<?= h($baseUrl) ?>/members?limit=500" -Headers $h |
@@ -97,6 +99,26 @@ Invoke-RestMethod "<?= h($baseUrl) ?>/members?limit=500" -Headers $h |
             <code>nachname</code>, <code>email</code>, <code>geburtsdatum</code>).</p>
     </section>
 </div>
+
+<h2 class="section-title" style="margin-top:28px;">Verschlüsselungsschlüssel für die Desktop-App</h2>
+<?php
+$transportKey = null;
+try {
+    $transportKey = crypto_transport_key_b64();
+} catch (RuntimeException $e) {
+}
+?>
+<?php if ($transportKey !== null): ?>
+    <p>Die Desktop-Anwendung verschlüsselt jede Anfrage und Antwort zusätzlich mit diesem Schlüssel. Er wird einmal in den
+    Einstellungen der Anwendung (bzw. bei der Installation) eingetragen. Nicht weitergeben und nicht per E-Mail versenden.</p>
+    <div class="link-box">
+        <input type="password" readonly value="<?= h($transportKey) ?>" id="transportKey" data-select-on-click>
+        <button type="button" class="btn" data-copy-target="transportKey">Kopieren</button>
+    </div>
+<?php else: ?>
+    <p class="alert alert-warning">Die Verschlüsselung ist noch nicht eingerichtet. Auf dem Server <code>php tools/setup-encryption.php</code>
+    ausführen (verschlüsselt auch die Passwörter in der .env und die hochgeladenen Dokumente).</p>
+<?php endif; ?>
 
 <h2 class="section-title" style="margin-top:28px;">Aktive Zugänge (<?= count($tokens) ?>)</h2>
 <div class="table-scroll">

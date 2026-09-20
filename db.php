@@ -17,11 +17,37 @@ function db(): PDO
 
         $dsn = "mysql:host={$host};port={$port};dbname={$name};charset=utf8mb4";
 
-        $pdo = new PDO($dsn, $user, $pass, [
+        $options = [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_EMULATE_PREPARES => false,
-        ]);
+        ];
+
+        // Verbindung zur Datenbank per TLS verschlüsseln (bei fremdem Datenbankserver wichtig).
+        // DB_SSL=true erzwingt TLS, false schaltet es ab, "auto" (Standard) versucht TLS und fällt bei
+        // Fehlern zurück. Mit DB_SSL_CA (Pfad zum CA-Zertifikat) wird zusätzlich das Serverzertifikat geprüft.
+        $sslMode = strtolower((string) (getenv('DB_SSL') ?: 'auto'));
+        $isLocal = in_array($host, ['localhost', '127.0.0.1', '::1'], true);
+        $sslOptions = [];
+        if ($sslMode !== 'false' && !$isLocal) {
+            $ca = (string) getenv('DB_SSL_CA');
+            if ($ca !== '') {
+                $sslOptions[PDO::MYSQL_ATTR_SSL_CA] = $ca;
+                $sslOptions[PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT] = true;
+            } else {
+                $sslOptions[PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT] = false; // verschlüsselt, Server aber nicht geprüft
+                $sslOptions[PDO::MYSQL_ATTR_SSL_CIPHER] = 'DEFAULT';
+            }
+        }
+        try {
+            $pdo = new PDO($dsn, $user, $pass, $options + $sslOptions);
+        } catch (PDOException $e) {
+            if ($sslOptions === [] || $sslMode === 'true') {
+                throw $e;
+            }
+            error_log('Datenbank-Verbindung mit TLS fehlgeschlagen, Rückfall ohne TLS: ' . $e->getMessage());
+            $pdo = new PDO($dsn, $user, $pass, $options);
+        }
     }
 
     static $checked = false;

@@ -725,16 +725,17 @@ function member_document_send(array $member, string $type, bool $inline = true):
         exit('Dokument nicht vorhanden.');
     }
 
-    $mime = (new finfo(FILEINFO_MIME_TYPE))->file($path) ?: 'application/octet-stream';
+    $data = crypto_file_read($path); // hochgeladene Dokumente liegen verschlüsselt auf dem Server
+    $mime = (new finfo(FILEINFO_MIME_TYPE))->buffer($data) ?: 'application/octet-stream';
     $ext = pathinfo($path, PATHINFO_EXTENSION);
     $name = preg_replace('/[^A-Za-z0-9_-]+/', '_', $type . '-' . ($member['nachname'] ?? '') . '-' . ($member['vorname'] ?? '')) . '.' . $ext;
 
     header('Content-Type: ' . $mime);
-    header('Content-Length: ' . filesize($path));
+    header('Content-Length: ' . strlen($data));
     header('Content-Disposition: ' . ($inline ? 'inline' : 'attachment') . '; filename="' . $name . '"');
     header('X-Content-Type-Options: nosniff');
     header('Cache-Control: private, no-store');
-    readfile($path);
+    echo $data;
     exit;
 }
 

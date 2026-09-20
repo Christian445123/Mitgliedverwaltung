@@ -46,6 +46,9 @@ require_once __DIR__ . '/../includes/updater.php';
 if (session_status() === PHP_SESSION_ACTIVE) {
     session_write_close();
 }
+require_once __DIR__ . '/transport.php';
+transport_bootstrap(); // verschlüsselte Anfrage entschlüsseln, Antwort beim Beenden verschlüsseln
+
 
 function api_json(int $status, $payload): never
 {
@@ -158,7 +161,7 @@ $apiCan = static function (string $permission) use ($apiUser): bool {
 };
 
 if ($path === 'auth/login' && $method === 'POST') {
-    $loginBody = json_decode((string) file_get_contents('php://input'), true);
+    $loginBody = json_decode((string) api_body(), true);
     if (!is_array($loginBody)) {
         api_error(400, 'Erwartet wird ein JSON-Objekt mit username und password.');
     }
@@ -206,7 +209,7 @@ if (str_starts_with($path, 'admin/')) {
     }
     require_once __DIR__ . '/../includes/user_admin.php';
     $actorId = (int) $apiUser['id'];
-    $adminBody = in_array($method, ['POST', 'PUT', 'PATCH'], true) ? json_decode((string) file_get_contents('php://input'), true) : null;
+    $adminBody = in_array($method, ['POST', 'PUT', 'PATCH'], true) ? json_decode((string) api_body(), true) : null;
     if (in_array($method, ['POST', 'PUT', 'PATCH'], true) && !is_array($adminBody)) {
         api_error(400, 'Erwartet wird ein JSON-Objekt.');
     }
@@ -264,7 +267,7 @@ if ($path === 'auth/password' && $method === 'POST') {
     if ($apiUser === null) {
         api_error(403, 'Das Passwort lässt sich nur mit Benutzeranmeldung ändern.');
     }
-    $pwBody = json_decode((string) file_get_contents('php://input'), true);
+    $pwBody = json_decode((string) api_body(), true);
     require_once __DIR__ . '/../includes/manage_api.php';
     try {
         mg_password_change((int) $apiUser['id'], (string) ($pwBody['current_password'] ?? ''), (string) ($pwBody['new_password'] ?? ''), (int) $apiUser['session_id']);
@@ -289,7 +292,7 @@ if (preg_match('#^(members|staff)/(\d+)/link$#', $path, $lm) === 1 && in_array($
         if (!$canWrite) {
             api_error(403, 'Dieser Zugang hat nur Leserechte.');
         }
-        $linkBody = json_decode((string) file_get_contents('php://input'), true);
+        $linkBody = json_decode((string) api_body(), true);
         $linkAction = in_array($linkBody['action'] ?? '', ['regenerate_link', 'regenerate_password', 'send_email', 'reset_verification'], true) ? (string) $linkBody['action'] : '';
     }
     try {
@@ -306,7 +309,7 @@ if (preg_match('#^(members|staff)/(verification/reset|send-links)$#', $path, $vm
         api_error(403, 'Dieser Zugang hat nur Leserechte.');
     }
     require_once __DIR__ . '/../includes/verification.php';
-    $vBody = json_decode((string) file_get_contents('php://input'), true);
+    $vBody = json_decode((string) api_body(), true);
     $vIds = is_array($vBody) && is_array($vBody['ids'] ?? null) ? array_values(array_unique(array_filter(array_map('intval', $vBody['ids']), static fn (int $i) => $i > 0))) : [];
     if ($vIds === []) {
         api_error(422, '"ids" muss eine nicht leere Liste von IDs sein.');
@@ -332,7 +335,7 @@ if (str_starts_with($path, 'manage/')) {
     $denied = static function (string $permission): never {
         api_error(403, 'Keine Berechtigung: ' . (permissions_registry()[$permission][0] ?? $permission));
     };
-    $manageBody = in_array($method, ['POST', 'PUT', 'PATCH'], true) ? json_decode((string) file_get_contents('php://input'), true) : null;
+    $manageBody = in_array($method, ['POST', 'PUT', 'PATCH'], true) ? json_decode((string) api_body(), true) : null;
 
     try {
         // Feld-Rechte
@@ -469,7 +472,7 @@ if ($path === 'staff.csv' && $method === 'GET') {
 // Antwort immer mit HTTP 200: {"valid": true/false, "reason", "message", ...}. Auch mit Lese-Token erlaubt.
 if ($path === 'license/validate' && $method === 'POST') {
     require_once __DIR__ . '/../includes/licenses.php';
-    $licBody = json_decode((string) file_get_contents('php://input'), true);
+    $licBody = json_decode((string) api_body(), true);
     if (!is_array($licBody)) {
         api_error(400, 'Erwartet wird ein JSON-Objekt mit key, machine_id, machine_name und app_version.');
     }
@@ -595,7 +598,7 @@ if (preg_match('#^members/(\d+)/document-flags$#', $path, $fm) === 1 && in_array
     if (member_find_by_id($flagId) === false) {
         api_error(404, 'Mitglied nicht gefunden.');
     }
-    $flagBody = json_decode((string) file_get_contents('php://input'), true);
+    $flagBody = json_decode((string) api_body(), true);
     if (!is_array($flagBody)) {
         api_error(400, 'Erwartet wird ein JSON-Objekt, z. B. {"nada": true}.');
     }
@@ -651,7 +654,7 @@ if (preg_match('#^members/(\d+)/documents/(ecard|ecard_back|pass|pass_back|nada|
 // Mehrere Mitglieder löschen: {"ids": [1, 2, 3]} oder alle: {"all": true, "confirm": "ALLE LÖSCHEN"}
 if ($path === 'members/bulk-delete' && $method === 'POST') {
     $requireWrite();
-    $body = json_decode((string) file_get_contents('php://input'), true);
+    $body = json_decode((string) api_body(), true);
     if (!is_array($body)) {
         api_error(400, 'Erwartet wird ein JSON-Objekt mit "ids" oder "all" und "confirm".');
     }
@@ -739,7 +742,7 @@ if (preg_match('#^staff(?:/(\d+))?$#', $path, $sm) === 1) {
         return $out;
     };
     $readStaffBody = static function (): array {
-        $body = json_decode((string) file_get_contents('php://input'), true);
+        $body = json_decode((string) api_body(), true);
         if (!is_array($body) || $body === [] || array_is_list($body)) {
             api_error(400, 'Erwartet wird ein JSON-Objekt mit Staff-Feldern im Request-Body.');
         }
@@ -819,7 +822,7 @@ $id = isset($m[1]) ? (int) $m[1] : null;
 
 /** @return array<string, mixed> */
 $readBody = static function (): array {
-    $body = json_decode((string) file_get_contents('php://input'), true);
+    $body = json_decode((string) api_body(), true);
     if (!is_array($body) || $body === [] || array_is_list($body)) {
         api_error(400, 'Erwartet wird ein JSON-Objekt mit Mitgliedsfeldern im Request-Body.');
     }
