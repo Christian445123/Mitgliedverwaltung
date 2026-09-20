@@ -153,8 +153,11 @@ function api_required_permission(string $method, string $path): ?string
     if ($path === 'staff.csv') {
         return null; // wird im Endpunkt geprüft (staff.view + members.export)
     }
-    if (preg_match('#^members/\d+/link$#', $path) === 1) {
+    if (preg_match('#^members/\d+/link$#', $path) === 1 || $path === 'members/verification/reset' || $path === 'members/send-links') {
         return 'members.links';
+    }
+    if (preg_match('#^staff/\d+/link$#', $path) === 1 || $path === 'staff/verification/reset' || $path === 'staff/send-links') {
+        return 'staff.edit';
     }
     if ($path === '' || $path === 'ping' || $path === 'license/validate' || str_starts_with($path, 'auth/')) {
         return null;

@@ -43,6 +43,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         app_log('member.code_regenerate', 'Zugangscode neu erzeugt', ['target_type' => 'member', 'target_id' => $id]);
         $member['failed_verify_attempts'] = 0;
         $member['verify_locked_until'] = null;
+    } elseif ($action === 'reset_verification') {
+        require_once __DIR__ . '/../includes/verification.php';
+        verif_reset('members', [$id]);
+        $member['verified_at'] = null;
+        $mailNotice = ['type' => 'success', 'text' => 'Die Bestätigung wurde zurückgesetzt. Das Mitglied muss seine Daten erneut bestätigen.'];
     } elseif ($action === 'send_email') {
         if (empty($member['email'])) {
             $mailNotice = ['type' => 'error', 'text' => 'Für dieses Mitglied ist keine E-Mail-Adresse hinterlegt.'];
@@ -133,6 +138,15 @@ seine E-Mail-Adresse und den Zugangscode.</p>
             Aktuell gesperrt bis <?= h(date('d.m.Y H:i', strtotime($member['verify_locked_until']))) ?> Uhr.
         <?php endif; ?>
     </p>
+<?php endif; ?>
+
+<?php if ($member['verified_at']): ?>
+<form method="post" action="member-link.php?id=<?= (int) $id ?>"
+      data-confirm="Bestätigung zurücksetzen? Das Mitglied muss seine Daten danach erneut bestätigen.">
+    <?= csrf_field() ?>
+    <input type="hidden" name="action" value="reset_verification">
+    <button type="submit" class="btn btn-secondary">Bestätigung zurücksetzen</button>
+</form>
 <?php endif; ?>
 
 <form method="post" action="member-link.php?id=<?= (int) $id ?>"

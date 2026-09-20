@@ -3,6 +3,9 @@
 document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('form[data-confirm]').forEach(function (form) {
         form.addEventListener('submit', function (event) {
+            if (event.submitter && event.submitter.hasAttribute('data-no-form-confirm')) {
+                return;
+            }
             if (!window.confirm(form.dataset.confirm)) {
                 event.preventDefault();
             }
@@ -62,8 +65,9 @@ document.addEventListener('DOMContentLoaded', function () {
     function update() {
         var checked = 0;
         boxes().forEach(function (box) { if (box.checked) { checked++; } });
-        counter.textContent = String(checked);
-        button.disabled = checked === 0;
+        if (counter) { counter.textContent = String(checked); }
+        if (button) { button.disabled = checked === 0; }
+        form.querySelectorAll('[data-needs-selection]').forEach(function (b) { b.disabled = checked === 0; });
         if (all) {
             all.checked = checked > 0 && checked === boxes().length;
             all.indeterminate = checked > 0 && checked < boxes().length;

@@ -21,6 +21,7 @@ $members = member_search($query, $perPage, ($page - 1) * $perPage, $status, $kad
 $stats = member_stats();
 $expiry = expiry_report();
 $canDelete = user_can('members.delete');
+$canSelect = $canDelete || user_can('members.links');
 
 $pageTitle = 'Mitgliederübersicht';
 require __DIR__ . '/../includes/admin_header.php';
@@ -134,6 +135,10 @@ $listUrl = static fn (array $extra = []) => 'index.php?' . http_build_query(arra
     <?= csrf_field() ?>
     <div class="filter-bar bulk-bar">
         <?php if ($canDelete): ?><button type="submit" class="btn btn-danger" id="bulk-delete" disabled>Ausgewählte löschen (<span id="bulk-count">0</span>)</button><?php endif; ?>
+        <?php if (user_can('members.links')): ?>
+            <button type="submit" class="btn" formaction="verification.php" data-no-form-confirm data-needs-selection disabled title="Bestätigung zurücksetzen und/oder Link per E-Mail senden">Ausgewählte: Daten bestätigen lassen</button>
+            <a href="verification.php?entity=members" class="btn">Alle Spieler: Daten bestätigen lassen …</a>
+        <?php endif; ?>
         <?php if (user_can('members.delete_all')): ?>
             <a href="delete-all.php" class="btn btn-danger-outline">Alle Daten löschen …</a>
         <?php endif; ?>
@@ -143,7 +148,7 @@ $listUrl = static fn (array $extra = []) => 'index.php?' . http_build_query(arra
 <table class="table table-cards">
     <thead>
         <tr>
-            <?php if ($canDelete): ?><th class="check-col"><input type="checkbox" data-select-all aria-label="Alle auf dieser Seite auswählen"></th><?php endif; ?>
+            <?php if ($canSelect): ?><th class="check-col"><input type="checkbox" data-select-all aria-label="Alle auf dieser Seite auswählen"></th><?php endif; ?>
             <th>Name &amp; Vorname</th>
             <th>Verein</th>
             <th>Position</th>
@@ -160,7 +165,7 @@ $listUrl = static fn (array $extra = []) => 'index.php?' . http_build_query(arra
     <?php endif; ?>
     <?php foreach ($members as $mRow): ?>
         <tr>
-            <?php if ($canDelete): ?><td class="check-col" data-label="Auswahl"><input type="checkbox" name="ids[]" value="<?= (int) $mRow['id'] ?>" data-row-check aria-label="Mitglied auswählen"></td><?php endif; ?>
+            <?php if ($canSelect): ?><td class="check-col" data-label="Auswahl"><input type="checkbox" name="ids[]" value="<?= (int) $mRow['id'] ?>" data-row-check aria-label="Mitglied auswählen"></td><?php endif; ?>
             <td data-label="Name & Vorname"><?= h(member_full_name($mRow)) ?><?php if (($mRow['kader'] ?? 'kader') === 'nicht_im_kader'): ?> <span class="badge badge-gray">nicht im Kader</span><?php endif; ?>
                 <?php $exp = expiry_states_for_row($mRow); ?>
                 <?php if ($exp['nada']): ?><span class="badge badge-<?= expiry_badge_class($exp['nada']['state']) ?>" title="NADA-Zertifikat: <?= h(expiry_text($exp['nada'])) ?>">NADA <?= h(expiry_badge_label($exp['nada'])) ?></span><?php endif; ?>

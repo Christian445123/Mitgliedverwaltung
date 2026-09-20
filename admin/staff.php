@@ -20,6 +20,9 @@ $people = staff_search($query, $perPage, ($page - 1) * $perPage, $status);
 $activeCount = staff_count('', 'aktiv');
 $canEdit = user_can('staff.edit');
 $canDelete = user_can('staff.delete');
+$canSelect = $canDelete || $canEdit;
+require_once __DIR__ . "/../includes/verification.php";
+$verified = staff_verified_map();
 
 $listUrl = static fn (array $extra = []) => 'staff.php?' . http_build_query(array_filter(
     array_merge(['q' => $_GET['q'] ?? '', 'status' => $status], $extra),
@@ -59,9 +62,13 @@ $error = flash_get('error');
 
 <form method="post" action="staff-delete.php" id="bulk-form" data-confirm="Die ausgewählten Personen wirklich endgültig löschen?">
     <?= csrf_field() ?>
-    <?php if ($canDelete): ?>
+    <?php if ($canSelect): ?>
     <div class="filter-bar bulk-bar">
-        <button type="submit" class="btn btn-danger" id="bulk-delete" disabled>Ausgewählte löschen (<span id="bulk-count">0</span>)</button>
+        <?php if ($canDelete): ?><button type="submit" class="btn btn-danger" id="bulk-delete" disabled>Ausgewählte löschen (<span id="bulk-count">0</span>)</button><?php endif; ?>
+        <?php if ($canEdit): ?>
+            <button type="submit" class="btn" formaction="verification.php" data-no-form-confirm data-needs-selection disabled title="Bestätigung zurücksetzen und/oder Link per E-Mail senden">Ausgewählte: Daten bestätigen lassen</button>
+            <a href="verification.php?entity=staff" class="btn">Alle Staff: Daten bestätigen lassen …</a>
+        <?php endif; ?>
     </div>
     <?php endif; ?>
 
@@ -69,7 +76,7 @@ $error = flash_get('error');
 <table class="table table-cards">
     <thead>
         <tr>
-            <?php if ($canDelete): ?><th class="check-col"><input type="checkbox" data-select-all aria-label="Alle auf dieser Seite auswählen"></th><?php endif; ?>
+            <?php if ($canSelect): ?><th class="check-col"><input type="checkbox" data-select-all aria-label="Alle auf dieser Seite auswählen"></th><?php endif; ?>
             <th>Name &amp; Vorname</th>
             <th>Position</th>
             <th>Telefon</th>
@@ -77,18 +84,19 @@ $error = flash_get('error');
             <th>NADA gültig bis</th>
             <th>Reisepass</th>
             <th>Status</th>
+            <th>Bestätigt</th>
             <th class="actions-sticky">Aktionen</th>
         </tr>
     </thead>
     <tbody>
     <?php if (empty($people)): ?>
-        <tr><td colspan="9" class="empty">Keine Personen gefunden.</td></tr>
+        <tr><td colspan="10" class="empty">Keine Personen gefunden.</td></tr>
     <?php endif; ?>
     <?php foreach ($people as $p): ?>
         <?php $passState = expiry_pass_state($p['reisepass_gueltig_bis'] ?? null); ?>
         <?php $nadaState = expiry_nada_state($p['nada_gueltig_bis'] ?? null); ?>
         <tr>
-            <?php if ($canDelete): ?><td class="check-col" data-label="Auswahl"><input type="checkbox" name="ids[]" value="<?= (int) $p['id'] ?>" data-row-check aria-label="Person auswählen"></td><?php endif; ?>
+            <?php if ($canSelect): ?><td class="check-col" data-label="Auswahl"><input type="checkbox" name="ids[]" value="<?= (int) $p['id'] ?>" data-row-check aria-label="Person auswählen"></td><?php endif; ?>
             <td data-label="Name &amp; Vorname"><?= h(member_full_name($p)) ?></td>
             <td data-label="Position"><?= h((string) ($p['position'] ?? '')) ?></td>
             <td data-label="Telefon"><?= h((string) ($p['telefon'] ?? '')) ?></td>
@@ -102,8 +110,16 @@ $error = flash_get('error');
                 <?php if ($passState): ?><span class="badge badge-<?= expiry_badge_class($passState['state']) ?>" title="<?= h(expiry_text($passState)) ?>"><?= h(expiry_badge_label($passState)) ?></span><?php endif; ?>
             </td>
             <td data-label="Status"><span class="badge badge-<?= $p['status'] === 'aktiv' ? 'green' : 'gray' ?>"><?= h(ucfirst((string) $p['status'])) ?></span></td>
+            <td data-label="Bestätigt">
+                <?php if (!empty($verified[(int) $p['id']])): ?>
+                    <span class="badge badge-green" title="Bestätigt am <?= h((string) $verified[(int) $p['id']]) ?>">✓</span>
+                <?php else: ?>
+                    <span class="badge badge-orange">Ausstehend</span>
+                <?php endif; ?>
+            </td>
             <td class="actions actions-sticky" data-label="">
                 <a href="staff-form.php?id=<?= (int) $p['id'] ?>" class="btn btn-sm"><?= $canEdit ? 'Bearbeiten' : 'Ansehen' ?></a>
+                <?php if ($canEdit): ?><a href="staff-link.php?id=<?= (int) $p['id'] ?>" class="btn btn-sm btn-primary" title="Persönlichen Link und Zugangscode anzeigen oder per E-Mail senden">Link senden</a><?php endif; ?>
             </td>
         </tr>
     <?php endforeach; ?>

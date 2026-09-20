@@ -233,53 +233,75 @@ function mg_password_change(int $adminId, string $current, string $new, int $kee
  */
 function mg_member_link(int $id, string $action = ''): array
 {
-    require_once __DIR__ . '/member_repository.php';
-    require_once __DIR__ . '/Mailer.php';
+    return mg_person_link('members', $id, $action);
+}
 
-    $member = member_find_by_id($id);
-    if ($member === false) {
-        throw new RuntimeException('Mitglied nicht gefunden.');
+/**
+ * Link und Status einer Person (Spieler 'members' oder 'staff'); $action = regenerate_link | regenerate_password |
+ * send_email | reset_verification.
+ *
+ * @return array<string, mixed>
+ * @throws RuntimeException
+ */
+function mg_person_link(string $entity, int $id, string $action = ''): array
+{
+    require_once __DIR__ . '/verification.php';
+
+    $staff = verif_entity($entity) === 'staff';
+    $label = $staff ? 'Person' : 'Mitglied';
+    $person = $staff ? staff_find_by_id($id) : member_find_by_id($id);
+    if ($person === false) {
+        throw new RuntimeException($label . ' nicht gefunden.');
     }
+    $targetType = $staff ? 'staff' : 'member';
+    $access = $staff ? staff_access_row($id) : $person;
 
     $password = null;
     $message = '';
 
     if ($action === 'regenerate_link') {
-        $member['verify_token'] = member_regenerate_token($id);
-        $member['verified_at'] = null;
-        app_log('member.link_regenerate', 'Zugangslink neu erzeugt (Desktop-App)', ['target_type' => 'member', 'target_id' => $id]);
+        if ($staff) {
+            $stmt = db()->prepare('UPDATE staff_access SET verify_token = ?, verified_at = NULL, failed_verify_attempts = 0, verify_locked_until = NULL WHERE staff_id = ?');
+            $stmt->execute([random_token(32), $id]);
+        } else {
+            member_regenerate_token($id);
+        }
+        app_log($targetType . '.link_regenerate', 'Zugangslink neu erzeugt (Desktop-App)', ['target_type' => $targetType, 'target_id' => $id]);
         $message = 'Ein neuer Link wurde erzeugt. Der alte Link ist ungültig.';
     } elseif ($action === 'regenerate_password') {
-        $password = member_regenerate_access_password($id);
-        app_log('member.code_regenerate', 'Zugangscode neu erzeugt (Desktop-App)', ['target_type' => 'member', 'target_id' => $id]);
+        $password = verif_regenerate_password($entity, $id);
+        app_log($targetType . '.code_regenerate', 'Zugangscode neu erzeugt (Desktop-App)', ['target_type' => $targetType, 'target_id' => $id]);
         $message = 'Ein neuer Zugangscode wurde erzeugt. Er wird nur jetzt angezeigt.';
+    } elseif ($action === 'reset_verification') {
+        verif_reset($entity, [$id]);
+        $message = 'Die Bestätigung wurde zurückgesetzt. Die Person muss ihre Daten erneut bestätigen.';
     } elseif ($action === 'send_email') {
-        if (empty($member['email'])) {
-            throw new RuntimeException('Für dieses Mitglied ist keine E-Mail-Adresse hinterlegt.');
+        $result = verif_send_link($entity, $id);
+        if ($result['status'] === 'no_email') {
+            throw new RuntimeException('Für diese Person ist keine E-Mail-Adresse hinterlegt.');
         }
-        $fresh = member_regenerate_access_password($id);
-        $link = build_member_link((string) $member['verify_token']);
-        $html = '<p>Hallo ' . h((string) $member['vorname']) . ',</p>'
-            . '<p>hier ist dein persönlicher Link zur Mitgliederverwaltung des AFBÖ U19. Damit kannst du deine hinterlegten Daten prüfen und bei Bedarf korrigieren:</p>'
-            . '<p><a href="' . h($link) . '">' . h($link) . '</a></p>'
-            . '<p>Zum Öffnen benötigst du zusätzlich deine E-Mail-Adresse und folgenden Zugangscode:</p>'
-            . '<p style="font-size:1.2em;font-weight:bold;letter-spacing:1px;">' . h($fresh) . '</p>'
-            . '<p>Falls du diesen Link nicht angefordert hast, wende dich bitte an den Verein.</p>';
-        try {
-            (new Mailer())->send((string) $member['email'], $member['vorname'] . ' ' . $member['nachname'], 'Dein Zugang zur Mitgliederverwaltung – AFBÖ U19', $html);
-        } catch (Throwable $e) {
-            throw new RuntimeException('E-Mail konnte nicht gesendet werden: ' . (APP_DEBUG ? $e->getMessage() : 'Bitte später erneut versuchen.'));
+        if ($result['status'] !== 'sent') {
+            throw new RuntimeException($result['message']);
         }
-        $password = $fresh;
-        app_log('member.email_sent', 'Zugangslink per E-Mail versendet (Desktop-App)', ['target_type' => 'member', 'target_id' => $id]);
-        $message = 'Link und Zugangscode wurden an ' . $member['email'] . ' gesendet.';
+        $message = 'Link und Zugangscode wurden gesendet. ' . $result['message'];
+    }
+
+    // Aktuellen Zustand neu lesen (Token/Bestätigung können sich geändert haben)
+    if ($staff) {
+        $access = staff_access_row($id);
+        $token = (string) $access['verify_token'];
+        $link = staff_build_link($token);
+    } else {
+        $fresh = member_find_by_id($id);
+        $access = $fresh !== false ? $fresh : $person;
+        $link = build_member_link((string) $access['verify_token']);
     }
 
     return [
-        'name' => trim((string) $member['vorname'] . ' ' . (string) $member['nachname']),
-        'email' => (string) ($member['email'] ?? ''),
-        'link' => build_member_link((string) $member['verify_token']),
-        'verified_at' => $member['verified_at'] ?? null,
+        'name' => trim((string) $person['vorname'] . ' ' . (string) $person['nachname']),
+        'email' => (string) ($person['email'] ?? ''),
+        'link' => $link,
+        'verified_at' => $access['verified_at'] ?? null,
         'password' => $password,
         'message' => $message,
     ];

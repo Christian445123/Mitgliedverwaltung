@@ -25,6 +25,8 @@ declare(strict_types=1);
  *   GET/POST/PUT/DELETE /api/admin/users|roles[/{id}], GET /api/admin/permissions   Benutzer, Rollen und Rechte (Recht users.manage, nur mit Benutzeranmeldung)
  *   GET/POST/PUT/DELETE /api/staff[/{id}]           Staff (Coaches/Betreuer) lesen, anlegen, ändern, löschen
  *   GET/POST/DELETE     /api/staff/{id}/documents/rechte  Staff: unterschriebenes Dokument Rechte & Pflichten
+ *   GET/POST /api/members|staff/{id}/link          Zugangslink (POST: regenerate_link, regenerate_password, send_email, reset_verification)
+ *   POST /api/members|staff/verification/reset    Bestätigung zurücksetzen {ids:[..]};  POST /api/members|staff/send-links  Massenmail {ids:[..≤10]}
  *   POST/PUT            /api/members/{id}/document-flags     "Fehlt"-Markierung {nada, pass, ecard, rechte: true/false}
  *   GET    /api/roster.pdf|xlsx                     Alphabetischer Roster;  /api/roster-ifaf.pdf|xlsx?competition=&game=&team= IFAF-Roster
  *   GET    /api/members/{id}/documents/{typ}        Dokument laden (typ: ecard, ecard_back, pass, pass_back, nada, rechte)
@@ -133,7 +135,7 @@ if ($userTokenHeader !== '') {
     }
     // Schreiben nur, wenn Token UND Benutzer es dürfen
     $userPermissions = user_permissions($apiUser['id']);
-    $canWrite = $canWrite && (isset($userPermissions['members.edit']) || isset($userPermissions['members.create']) || isset($userPermissions['members.delete']));
+    $canWrite = $canWrite && (isset($userPermissions['members.edit']) || isset($userPermissions['members.create']) || isset($userPermissions['members.delete']) || isset($userPermissions['members.links']) || isset($userPermissions['staff.edit']));
 }
 
 // ── Routing ───────────────────────────────────────────────────────
@@ -278,8 +280,9 @@ if ($path === 'camps' && $method === 'GET') {
     api_json(200, ['camps' => camps_all(), 'fixed' => CAMPS_FIXED_NAMES]);
 }
 
-// Persönlicher Zugangslink eines Mitglieds: GET = ansehen, POST {action: regenerate_link|regenerate_password|send_email}
-if (preg_match('#^members/(\d+)/link$#', $path, $lm) === 1 && in_array($method, ['GET', 'POST'], true)) {
+// Persönlicher Zugangslink: GET = ansehen, POST {action: regenerate_link|regenerate_password|send_email|reset_verification}
+// für Spieler (members/{id}/link) und Staff (staff/{id}/link)
+if (preg_match('#^(members|staff)/(\d+)/link$#', $path, $lm) === 1 && in_array($method, ['GET', 'POST'], true)) {
     require_once __DIR__ . '/../includes/manage_api.php';
     $linkAction = '';
     if ($method === 'POST') {
@@ -287,10 +290,35 @@ if (preg_match('#^members/(\d+)/link$#', $path, $lm) === 1 && in_array($method, 
             api_error(403, 'Dieser Zugang hat nur Leserechte.');
         }
         $linkBody = json_decode((string) file_get_contents('php://input'), true);
-        $linkAction = in_array($linkBody['action'] ?? '', ['regenerate_link', 'regenerate_password', 'send_email'], true) ? (string) $linkBody['action'] : '';
+        $linkAction = in_array($linkBody['action'] ?? '', ['regenerate_link', 'regenerate_password', 'send_email', 'reset_verification'], true) ? (string) $linkBody['action'] : '';
     }
     try {
-        api_json(200, mg_member_link((int) $lm[1], $linkAction));
+        api_json(200, mg_person_link($lm[1], (int) $lm[2], $linkAction));
+    } catch (RuntimeException $e) {
+        api_error(422, $e->getMessage());
+    }
+}
+
+// Bestätigung zurücksetzen: POST {ids:[..]}  -> {reset: n}
+// Massenmail (Link + neuer Zugangscode): POST {ids:[..]} (höchstens 10 pro Aufruf) -> {results:[{id,name,status,message}]}
+if (preg_match('#^(members|staff)/(verification/reset|send-links)$#', $path, $vm) === 1 && $method === 'POST') {
+    if (!$canWrite) {
+        api_error(403, 'Dieser Zugang hat nur Leserechte.');
+    }
+    require_once __DIR__ . '/../includes/verification.php';
+    $vBody = json_decode((string) file_get_contents('php://input'), true);
+    $vIds = is_array($vBody) && is_array($vBody['ids'] ?? null) ? array_values(array_unique(array_filter(array_map('intval', $vBody['ids']), static fn (int $i) => $i > 0))) : [];
+    if ($vIds === []) {
+        api_error(422, '"ids" muss eine nicht leere Liste von IDs sein.');
+    }
+    try {
+        if ($vm[2] === 'send-links') {
+            if (count($vIds) > 10) {
+                api_error(422, 'Höchstens 10 Empfänger pro Aufruf.');
+            }
+            api_json(200, ['results' => verif_send_many($vm[1], $vIds)]);
+        }
+        api_json(200, ['reset' => verif_reset($vm[1], $vIds)]);
     } catch (RuntimeException $e) {
         api_error(422, $e->getMessage());
     }
@@ -694,6 +722,7 @@ if (preg_match('#^staff/(\d+)/documents/(rechte)$#', $path, $sdm) === 1) {
 // Staff (Coaches/Betreuer): GET /staff, GET /staff/{id}, POST /staff, PUT /staff/{id}, DELETE /staff/{id}
 if (preg_match('#^staff(?:/(\d+))?$#', $path, $sm) === 1) {
     require_once __DIR__ . '/../includes/staff.php';
+    require_once __DIR__ . '/../includes/verification.php';
     $staffId = isset($sm[1]) ? (int) $sm[1] : null;
 
     $apiStaff = static function (array $row): array {
@@ -704,6 +733,9 @@ if (preg_match('#^staff(?:/(\d+))?$#', $path, $sm) === 1) {
         }
         $out['name_vorname'] = trim((string) ($row['nachname'] ?? '') . ' ' . (string) ($row['vorname'] ?? ''));
         $out['dokumente'] = staff_documents_present($row);
+        static $verifiedMap = null;
+        $verifiedMap ??= staff_verified_map();
+        $out['bestaetigt_am'] = $verifiedMap[(int) $row['id']] ?? null;
         return $out;
     };
     $readStaffBody = static function (): array {
