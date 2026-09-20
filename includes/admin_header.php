@@ -24,7 +24,6 @@ $expiryTotal = (int) (expiry_report()['counts']['total'] ?? 0); // abgelaufene b
     <aside class="sidebar">
         <div class="sidebar-brand">
             <span class="brand-mark"><img src="../assets/logo.png" alt="AFBÖ"></span>
-            <span>AFBÖ<br>Mitgliederverwaltung</span>
             <button type="button" class="nav-toggle" data-nav-toggle aria-label="Menü öffnen" aria-expanded="false">&#9776;</button>
         </div>
         <nav class="sidebar-nav">
