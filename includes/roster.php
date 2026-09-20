@@ -489,7 +489,7 @@ function roster_generate_alphabetical(string $format, ?string $kader, ?string $s
 {
     require_once __DIR__ . '/member_repository.php';
 
-    $members = member_all($status, $kader); // SQL: ORDER BY nachname, vorname
+    $members = roster_players($status, $kader); // SQL: ORDER BY nachname, vorname
     $table = roster_table($members, $excludeKeys);
     $title = 'Roster ' . roster_team_name();
     $scope = $kader === 'kader' ? 'Spieler im Kader' : ($kader === 'nicht_im_kader' ? 'Spieler nicht im Kader' : 'Alle Spieler');
@@ -528,7 +528,7 @@ function roster_generate_clothing(string $format, ?string $kader, ?string $statu
 {
     require_once __DIR__ . '/member_repository.php';
 
-    $members = member_all($status, $kader);
+    $members = roster_players($status, $kader);
     $table = roster_table($members, $excludeKeys, roster_columns_clothing());
     $title = 'Rosterbekleidung ' . roster_team_name();
     $scope = $kader === 'kader' ? 'Spieler im Kader' : ($kader === 'nicht_im_kader' ? 'Spieler nicht im Kader' : 'Alle Spieler');
@@ -562,7 +562,7 @@ function roster_generate_clubs(string $format, ?string $kader, ?string $status, 
 {
     require_once __DIR__ . '/member_repository.php';
 
-    $members = member_all($status, $kader);
+    $members = roster_players($status, $kader);
     usort($members, static fn (array $a, array $b): int => [mb_strtolower(trim((string) ($a['verein'] ?? ''))), mb_strtolower((string) $a['nachname']), mb_strtolower((string) $a['vorname'])]
         <=> [mb_strtolower(trim((string) ($b['verein'] ?? ''))), mb_strtolower((string) $b['nachname']), mb_strtolower((string) $b['vorname'])]);
     $table = roster_table($members, $excludeKeys, roster_columns_clubs());
@@ -589,7 +589,7 @@ function roster_check(string $type, ?string $kader, ?string $status, array $excl
 {
     require_once __DIR__ . '/member_repository.php';
 
-    $members = member_all($status, $kader);
+    $members = roster_players($status, $kader);
     if ($type === 'clubs') {
         $key = static fn (array $m): array => [mb_strtolower(trim((string) ($m['verein'] ?? ''))), mb_strtolower((string) $m['nachname']), mb_strtolower((string) $m['vorname'])];
         usort($members, static fn (array $a, array $b): int => $key($a) <=> $key($b));
@@ -1011,7 +1011,7 @@ function roster_generate_ifaf(string $format, array $opt): array
     require_once __DIR__ . '/member_repository.php';
     require_once __DIR__ . '/staff.php';
 
-    $players = member_all('aktiv', 'kader'); // Nachname, Vorname (A-Z)
+    $players = roster_players('aktiv', 'kader'); // Nachname, Vorname (A-Z)
     $staff = roster_staff_sort(staff_all('aktiv'));
     $base = 'IFAF-Roster-' . preg_replace('/[^A-Za-z0-9]+/', '-', $opt['team']) . '-' . date('Y-m-d');
 
@@ -1072,7 +1072,7 @@ function roster_document_people(?string $kader, ?string $status): array
     require_once __DIR__ . '/staff.php';
     require_once __DIR__ . '/expiry.php';
 
-    $players = member_all($status, $kader);
+    $players = roster_players($status, $kader);
     $staff = [];
     try {
         staff_ensure_table(db());
@@ -1318,4 +1318,62 @@ function roster_generate_staff(string $format, ?string $kader, ?string $status, 
     }
     $table['footer'] = 'Stand ' . date('d.m.Y') . ' - ' . count($staff) . ' Staff';
     return ['application/pdf', $base . '.pdf', roster_build_pdf($table, $title, $subtitle)];
+}
+
+// ── Spieler ohne Staff ──────────────────────────────────────────────────────
+
+/**
+ * Positionen, die einen Staff-Eintrag kennzeichnen (Trainer/Betreuer), falls jemand versehentlich unter den Spielern
+ * geführt wird. Erweiterbar über die Einstellung "roster_staff_positions" (Komma-getrennt, z. B. "PT,GM").
+ *
+ * @return array<int, string>
+ */
+function roster_staff_position_codes(): array
+{
+    static $cache = null;
+    if ($cache !== null) {
+        return $cache;
+    }
+    require_once __DIR__ . '/settings.php';
+    $codes = ['HC', 'OC', 'DC', 'TM', 'ST', 'TM ASS', 'ASS TM', 'AC', 'ASS COACH', 'ASSISTANT COACH'];
+    foreach (explode(',', app_setting_get('roster_staff_positions', '')) as $extra) {
+        $extra = mb_strtoupper(trim($extra));
+        if ($extra !== '') {
+            $codes[] = $extra;
+        }
+    }
+    return $cache = $codes;
+}
+
+/** Ist dieser Eintrag ein Staff-Mitglied (Trainer/Betreuer/Funktionär) und kein Spieler? Erkennung über die Position. */
+function roster_is_staff_member(array $member): bool
+{
+    $position = mb_strtoupper(trim((string) preg_replace('/\s+/', ' ', (string) ($member['position'] ?? ''))));
+    if ($position === '') {
+        return false;
+    }
+    if (in_array($position, roster_staff_position_codes(), true)) {
+        return true;
+    }
+    foreach (['COACH', 'TRAINER', 'BETREUER', 'MANAGER', 'PHYSIO', 'ARZT', 'FUNKTIONÄR', 'FUNKTIONAER', 'TEAMLEITER', 'CHEF DE MISSION'] as $word) {
+        if (str_contains($position, $word)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * Nur Spieler (ohne Personen mit Staff-Position wie HC, OC, DC, TM), nach Nachname/Vorname sortiert.
+ *
+ * @return array<int, array<string, mixed>>
+ */
+function roster_players(?string $status, ?string $kader): array
+{
+    require_once __DIR__ . '/member_repository.php';
+
+    return array_values(array_filter(
+        member_all($status, $kader),
+        static fn (array $m): bool => !roster_is_staff_member($m)
+    ));
 }

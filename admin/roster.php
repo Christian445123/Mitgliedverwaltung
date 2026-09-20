@@ -107,6 +107,8 @@ require __DIR__ . '/../includes/admin_header.php';
 </section>
 <?php endif; ?>
 
+<p class="muted">Diese Roster enthalten nur <strong>Spieler</strong>: Personen mit einer Staff-Position (z. B. HC, OC, DC, TM, ST oder „Coach“, „Trainer“, „Betreuer“ im Feld Position) werden nicht aufgeführt – sie gehören in den Bereich <a href="staff.php">Staff</a>.</p>
+
 <div class="panel-grid">
     <section class="panel">
         <h2 class="section-title">Alphabetischer Roster</h2>
