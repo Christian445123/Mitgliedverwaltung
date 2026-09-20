@@ -56,7 +56,8 @@ $info = flash_get('info');
 
 <p>Die Desktop-Anwendung (C#) startet nur mit einem gültigen Lizenzschlüssel. Sie prüft ihn regelmäßig hier im Web-System.
 Bricht die Verbindung ab, läuft sie mit der zuletzt erhaltenen Freigabe <strong>höchstens <?= (int) (license_offline_seconds() / 86400) ?> Tage</strong> weiter.
-Ein gesperrter, abgelaufener oder gelöschter Schlüssel wird bei der nächsten Prüfung abgelehnt.</p>
+Ein gesperrter, abgelaufener oder gelöschter Schlüssel wird bei der nächsten Prüfung abgelehnt.<br>
+Zusätzlich hat die Anwendung eine fest eingebaute <strong>Offline-Lizenz</strong> (<code>U19-OFFLINE-72H</code>, bei allen gleich): Sie gilt automatisch, solange der Server nicht erreichbar ist und noch keine Prüfung gelang, ebenfalls höchstens 3 Tage ab dem ersten Verbindungsabbruch.</p>
 
 <?php if ($info): ?><p class="alert alert-success"><?= h($info) ?></p><?php endif; ?>
 <?php if ($error): ?><p class="alert alert-error"><?= h($error) ?></p><?php endif; ?>
