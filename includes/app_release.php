@@ -40,7 +40,6 @@ function app_release_http_get(string $url): array
         ]);
         $body = curl_exec($ch);
         $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-        curl_close($ch);
         return ['status' => $status, 'body' => is_string($body) ? $body : ''];
     }
 
