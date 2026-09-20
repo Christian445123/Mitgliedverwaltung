@@ -764,7 +764,7 @@ if (preg_match('#^staff(?:/(\d+))?$#', $path, $sm) === 1) {
         $out = ['id' => (int) $row['id']];
         foreach (STAFF_IO_COLUMNS as $key => [$label, $type]) {
             $value = $row[$key] ?? null;
-            $out[$key] = $value === '' ? null : $value;
+            $out[$key] = $type === 'bool' ? (int) $value === 1 : ($value === '' ? null : $value);
         }
         $out['name_vorname'] = trim((string) ($row['nachname'] ?? '') . ' ' . (string) ($row['vorname'] ?? ''));
         $out['dokumente'] = staff_documents_present($row);

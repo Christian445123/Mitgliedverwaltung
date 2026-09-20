@@ -74,7 +74,10 @@ $v = static fn (string $key): string => h((string) ($values[$key] ?? ''));
                     <?php [$label, $type] = STAFF_IO_COLUMNS[$key]; $required = in_array($key, ['nachname', 'vorname'], true); ?>
                     <div class="form-group">
                         <label for="<?= h($key) ?>"><?= h($label) ?><?= $required ? ' *' : '' ?></label>
-                        <?php if ($type === 'date'): ?>
+                        <?php if ($key === 'nada'): ?>
+                            <?php $nadaYes = in_array(strtolower((string) ($values['nada'] ?? '')), ['1', 'ja', 'true', 'yes'], true); ?>
+                            <select id="nada" name="nada"><option value="0" <?= $nadaYes ? '' : 'selected' ?>>Nein</option><option value="1" <?= $nadaYes ? 'selected' : '' ?>>Ja</option></select>
+                        <?php elseif ($type === 'date'): ?>
                             <input type="date" id="<?= h($key) ?>" name="<?= h($key) ?>" value="<?= $v($key) ?>">
                         <?php elseif ($key === 'essen'): ?>
                             <textarea id="essen" name="essen" rows="2" maxlength="255"><?= $v('essen') ?></textarea>

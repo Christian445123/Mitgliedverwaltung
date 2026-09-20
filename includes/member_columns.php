@@ -461,6 +461,7 @@ function io_staff_aliases(): array
 {
     return [
         'Telefon Angehoeriger' => 'telefon_angehoeriger', 'Tel. Angehöriger' => 'telefon_angehoeriger', 'Notfallkontakt' => 'telefon_angehoeriger',
+        'Telefonnummer Angehörige' => 'telefon_angehoeriger', 'Telefonnummer Angehoerige' => 'telefon_angehoeriger', 'Telefon Angehörige' => 'telefon_angehoeriger', 'Telefon Erzieh' => 'telefon_angehoeriger', 'Telefon Erzieher' => 'telefon_angehoeriger',
         'Email' => 'email', 'E-Mail' => 'email', 'Handy' => 'telefon', 'Tel' => 'telefon',
         'Funktion' => 'position', 'Pos' => 'position', 'Rolle' => 'position',
         'NADA' => 'nada', 'NADA Gültigkeit' => 'nada_gueltig_bis', 'NADA gültig bis' => 'nada_gueltig_bis', 'Straße' => 'strasse', 'Strasse' => 'strasse', 'Ort' => 'ort',

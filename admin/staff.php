@@ -79,6 +79,7 @@ $error = flash_get('error');
             <?php if ($canSelect): ?><th class="check-col"><input type="checkbox" data-select-all aria-label="Alle auf dieser Seite auswählen"></th><?php endif; ?>
             <th>Name &amp; Vorname</th>
             <th>Position</th>
+            <th>Nada</th>
             <th>Telefon</th>
             <th>Mail</th>
             <th>Reisepass</th>
@@ -89,7 +90,7 @@ $error = flash_get('error');
     </thead>
     <tbody>
     <?php if (empty($people)): ?>
-        <tr><td colspan="9" class="empty">Keine Personen gefunden.</td></tr>
+        <tr><td colspan="10" class="empty">Keine Personen gefunden.</td></tr>
     <?php endif; ?>
     <?php foreach ($people as $p): ?>
         <?php $passState = expiry_pass_state($p['reisepass_gueltig_bis'] ?? null); ?>
@@ -97,6 +98,7 @@ $error = flash_get('error');
             <?php if ($canSelect): ?><td class="check-col" data-label="Auswahl"><input type="checkbox" name="ids[]" value="<?= (int) $p['id'] ?>" data-row-check aria-label="Person auswählen"></td><?php endif; ?>
             <td data-label="Name &amp; Vorname"><?= h(member_full_name($p)) ?></td>
             <td data-label="Position"><?= h((string) ($p['position'] ?? '')) ?></td>
+            <td data-label="Nada"><span class="badge badge-<?= (int) ($p['nada'] ?? 0) === 1 ? 'green' : 'gray' ?>"><?= (int) ($p['nada'] ?? 0) === 1 ? 'Ja' : 'Nein' ?></span></td>
             <td data-label="Telefon"><?= h((string) ($p['telefon'] ?? '')) ?></td>
             <td data-label="Mail"><?= h((string) ($p['email'] ?? '')) ?></td>
             <td data-label="Reisepass">

@@ -58,6 +58,7 @@ function roster_table(array $members, array $excludeKeys = [], ?array $allColumn
         foreach ($columns as $c) {
             $value = match ($c['key']) {
                 'lfd' => (string) ($i + 1),
+                'nada' => (int) ($m['nada'] ?? 0) === 1 ? 'Ja' : 'Nein',
                 'name' => member_full_name($m),
                 'geburtsdatum' => !empty($m['geburtsdatum']) ? date('d.m.Y', (int) strtotime((string) $m['geburtsdatum'])) : '',
                 default => trim((string) ($m[$c['key']] ?? '')),
@@ -1286,9 +1287,10 @@ function roster_columns_staff(): array
     return [
         ['key' => 'lfd', 'label' => 'Nr.', 'width' => 10.0, 'align' => 'C', 'xl' => 6.0],
         ['key' => 'name', 'label' => 'Name', 'width' => 46.0, 'align' => 'L', 'xl' => 30.0],
-        ['key' => 'position', 'label' => 'Position', 'width' => 30.0, 'align' => 'L', 'xl' => 18.0],
+        ['key' => 'position', 'label' => 'Position', 'width' => 26.0, 'align' => 'L', 'xl' => 18.0],
+        ['key' => 'nada', 'label' => 'Nada', 'width' => 12.0, 'align' => 'C', 'xl' => 8.0],
         ['key' => 'geburtsdatum', 'label' => 'Geboren', 'width' => 22.0, 'align' => 'C', 'xl' => 12.0],
-        ['key' => 'telefon', 'label' => 'Telefon', 'width' => 34.0, 'align' => 'L', 'xl' => 20.0],
+        ['key' => 'telefon', 'label' => 'Telefon', 'width' => 30.0, 'align' => 'L', 'xl' => 20.0],
         ['key' => 'email', 'label' => 'Mail', 'width' => 52.0, 'align' => 'L', 'xl' => 32.0],
     ];
 }

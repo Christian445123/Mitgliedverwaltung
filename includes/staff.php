@@ -19,10 +19,11 @@ const STAFF_IO_COLUMNS = [
     'nachname' => ['Nachname', 'str'],
     'vorname' => ['Vorname', 'str'],
     'position' => ['Position', 'str'],
+    'nada' => ['Nada', 'bool'],
     'geburtsdatum' => ['Geburtsdatum', 'date'],
     'telefon' => ['Telefon', 'str'],
     'email' => ['Mail', 'str'],
-    'telefon_angehoeriger' => ['Telefon Angehöriger', 'str'],
+    'telefon_angehoeriger' => ['Telefonnummer Angehörige', 'str'],
     'reisepass_nr' => ['Reisepass Nr', 'str'],
     'reisepass_ausgestellt_am' => ['Reisepass ausgestellt am', 'date'],
     'reisepass_gueltig_bis' => ['Reisepass gültig bis', 'date'],
@@ -43,7 +44,7 @@ const STAFF_IO_COLUMNS = [
 
 /** Gruppen für das Formular: Überschrift => Feldschlüssel. */
 const STAFF_FORM_GROUPS = [
-    'Person' => ['nachname', 'vorname', 'position', 'geburtsdatum'],
+    'Person' => ['nachname', 'vorname', 'position', 'nada', 'geburtsdatum'],
     'Kontakt' => ['telefon', 'email', 'telefon_angehoeriger'],
     'Reisepass' => ['reisepass_nr', 'reisepass_ausgestellt_am', 'reisepass_gueltig_bis', 'geburtsland', 'ausstellungsbehoerde'],
     'Adresse' => ['plz', 'ort', 'strasse'],
@@ -68,6 +69,8 @@ function staff_ensure_table(PDO $pdo): void
         if ($pdo->query("SHOW COLUMNS FROM staff LIKE 'rechte_dokument_pfad'")->fetchColumn() === false) {
             $pdo->exec('ALTER TABLE staff ADD COLUMN rechte_dokument_pfad VARCHAR(255) DEFAULT NULL');
         }
+        // Nada ist jetzt Ja/Nein: bisherige Texte auf 1 (Ja) bzw. 0 (Nein) umstellen (läuft nur, solange es andere Werte gibt)
+        $pdo->exec("UPDATE staff SET nada = CASE WHEN nada IS NULL OR TRIM(nada) = '' OR LOWER(TRIM(nada)) IN ('nein', 'no', 'n', '0', 'false', '-') THEN '0' ELSE '1' END WHERE nada IS NULL OR nada NOT IN ('0', '1')");
         return;
     }
     $pdo->exec(
