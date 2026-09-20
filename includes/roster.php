@@ -1099,11 +1099,7 @@ function roster_missing_data(?string $kader, ?string $status): array
             $out['players'][] = ['name' => member_full_name($m), 'info' => trim((string) ($m['verein'] ?? '')), 'missing' => array_keys($missing)];
         }
     }
-    foreach ($staff as $s) {
-        if (staff_document_path($s, 'rechte') === null) {
-            $out['staff'][] = ['name' => member_full_name($s), 'info' => trim((string) ($s['position'] ?? '')), 'missing' => ['rechte']];
-        }
-    }
+    // Staff hat keine Pflichtdokumente (Rechte & Pflichten und Foto des Reisepasses sind freiwillig)
     return $out;
 }
 
@@ -1174,13 +1170,9 @@ function roster_generate_missing(string $format, ?string $kader, ?string $status
     foreach ($data['players'] as $i => $r) {
         $rows[] = [(string) ($i + 1), $r['name'], $r['info'], $cell($r, 'nada'), $cell($r, 'pass'), $cell($r, 'ecard'), $cell($r, 'rechte')];
     }
-    $rows[] = ['__section' => 'Staff (' . count($data['staff']) . ')' . ($data['staff'] === [] ? ' - nichts fehlt' : '')];
-    foreach ($data['staff'] as $i => $r) {
-        $rows[] = [(string) ($i + 1), $r['name'], $r['info'], '-', '-', '-', 'fehlt'];
-    }
     $title = 'Fehlende Dokumente ' . roster_team_name();
     $scope = $kader === 'kader' ? 'Spieler im Kader' : ($kader === 'nicht_im_kader' ? 'Spieler nicht im Kader' : 'Alle Spieler');
-    $subtitle = $scope . ' und Staff getrennt · ' . count($data['players']) . ' Spieler, ' . count($data['staff']) . ' Staff mit fehlenden Dokumenten';
+    $subtitle = $scope . ' · ' . count($data['players']) . ' Spieler mit fehlenden Dokumenten (Staff: Dokumente sind freiwillig)';
     $base = 'roster-fehlende-dokumente-' . date('Y-m-d');
 
     if ($format === 'xlsx') {
@@ -1194,20 +1186,11 @@ function roster_generate_missing(string $format, ?string $kader, ?string $status
         foreach ($data['players'] as $i => $r) {
             $playerRows[] = [(string) ($i + 1), $r['name'], $r['info'], $cell($r, 'nada'), $cell($r, 'pass'), $cell($r, 'ecard'), $cell($r, 'rechte')];
         }
-        $staffColumns = [
-            ['key' => 'lfd', 'label' => 'Nr.', 'align' => 'C', 'xl' => 6.0], ['key' => 'name', 'label' => 'Name', 'align' => 'L', 'xl' => 30.0],
-            ['key' => 'info', 'label' => 'Position', 'align' => 'L', 'xl' => 24.0], ['key' => 'rechte', 'label' => $labels['rechte'], 'align' => 'C', 'xl' => 20.0],
-        ];
-        $staffRows = [];
-        foreach ($data['staff'] as $i => $r) {
-            $staffRows[] = [(string) ($i + 1), $r['name'], $r['info'], 'fehlt'];
-        }
         return ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', $base . '.xlsx', roster_build_xlsx(
-            ['columns' => $playerColumns, 'rows' => $playerRows], $title . ' - Spieler', $subtitle, 'Spieler',
-            [['name' => 'Staff', 'table' => ['columns' => $staffColumns, 'rows' => $staffRows], 'title' => $title . ' - Staff', 'subtitle' => $subtitle]]
+            ['columns' => $playerColumns, 'rows' => $playerRows], $title, $subtitle, 'Spieler'
         )];
     }
-    $table = ['columns' => $pdfColumns, 'rows' => $rows, 'footer' => 'Stand ' . date('d.m.Y') . ' - ' . (count($data['players']) + count($data['staff'])) . ' Personen mit fehlenden Dokumenten'];
+    $table = ['columns' => $pdfColumns, 'rows' => $rows, 'footer' => 'Stand ' . date('d.m.Y') . ' - ' . count($data['players']) . ' Spieler mit fehlenden Dokumenten'];
     return ['application/pdf', $base . '.pdf', roster_build_pdf($table, $title, $subtitle)];
 }
 

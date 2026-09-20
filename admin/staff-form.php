@@ -35,10 +35,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         $data = staff_collect_input();
         $savedId = staff_upsert($data, $id);
-        if (!empty($_POST['remove_rechte']) && $id !== null) {
-            staff_set_document($savedId, 'rechte', null);
+        foreach (array_keys(STAFF_DOCUMENT_TYPES) as $docType) {
+            if (!empty($_POST['remove_' . $docType]) && $id !== null) {
+                staff_set_document($savedId, $docType, null);
+            }
+            staff_set_document($savedId, $docType, $docType . '_dokument'); // nur bei neu gewählter Datei
         }
-        staff_set_document($savedId, 'rechte', 'rechte_dokument'); // nur bei neu gewählter Datei
         app_log($isNew ? 'staff.create' : 'staff.update', $isNew ? 'Staff-Person angelegt' : 'Staff-Person geändert', ['target_type' => 'staff', 'target_id' => $savedId]);
         flash_set('info', $isNew ? 'Person wurde angelegt.' : 'Änderungen wurden gespeichert.');
         redirect('staff-form.php?id=' . $savedId);
@@ -92,17 +94,20 @@ $v = static fn (string $key): string => h((string) ($values[$key] ?? ''));
     <?php endforeach; ?>
 
     <fieldset>
-        <legend>Rechte &amp; Pflichten</legend>
-        <div class="form-group">
-            <?php $hasRechte = !empty($values['rechte_dokument_pfad']); ?>
-            <label for="rechte_dokument">Unterschriebenes Dokument Rechte &amp; Pflichten (PDF, JPG, PNG)<?php if ($hasRechte): ?>
-                (vorhanden<?php if (!$isNew && user_can('documents.view')): ?> – <a href="staff-document.php?id=<?= (int) $id ?>&amp;type=rechte" target="_blank" rel="noopener">ansehen</a><?php endif; ?>
-                – neu hochladen zum Ersetzen)<?php endif; ?></label>
-            <input type="file" id="rechte_dokument" name="rechte_dokument" accept=".jpg,.jpeg,.png,.pdf">
-            <?php if ($hasRechte && $mayChange): ?>
-                <label style="font-weight:400;margin-top:6px;"><input type="checkbox" name="remove_rechte" value="1"> Vorhandenes Dokument entfernen</label>
-            <?php endif; ?>
-        </div>
+        <legend>Dokumente (freiwillig)</legend>
+        <p class="muted">Diese Dokumente sind <strong>keine Pflicht</strong>. Wer sie hat, kann sie hier hochladen (PDF, JPG oder PNG).</p>
+        <?php foreach (STAFF_DOCUMENT_TYPES as $docType => $docDef): ?>
+            <?php $hasDoc = !empty($values[$docDef['column']]); ?>
+            <div class="form-group">
+                <label for="<?= h($docType) ?>_dokument"><?= h($docDef['label']) ?><?php if ($hasDoc): ?>
+                    (vorhanden<?php if (!$isNew && user_can('documents.view')): ?> – <a href="staff-document.php?id=<?= (int) $id ?>&amp;type=<?= h($docType) ?>" target="_blank" rel="noopener">ansehen</a><?php endif; ?>
+                    – neu hochladen zum Ersetzen)<?php endif; ?></label>
+                <input type="file" id="<?= h($docType) ?>_dokument" name="<?= h($docType) ?>_dokument" accept=".jpg,.jpeg,.png,.pdf">
+                <?php if ($hasDoc && $mayChange): ?>
+                    <label style="font-weight:400;margin-top:6px;"><input type="checkbox" name="remove_<?= h($docType) ?>" value="1"> Vorhandenes Dokument entfernen</label>
+                <?php endif; ?>
+            </div>
+        <?php endforeach; ?>
     </fieldset>
 
     <fieldset>

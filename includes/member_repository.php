@@ -357,18 +357,8 @@ function documents_missing_report(): array
         }
     }
 
+    // Staff: Rechte & Pflichten und Foto des Reisepasses sind freiwillig – es gibt keine fehlenden Pflichtdokumente
     $staff = [];
-    try {
-        require_once __DIR__ . '/staff.php';
-        $stmt = db()->query("SELECT * FROM staff WHERE status = 'aktiv' ORDER BY nachname, vorname");
-        foreach ($stmt->fetchAll() as $row) {
-            if (staff_document_path($row, 'rechte') === null) {
-                $staff[] = ['id' => (int) $row['id'], 'name' => member_full_name($row)];
-            }
-        }
-    } catch (Throwable $e) {
-        // Staff-Tabelle existiert noch nicht
-    }
 
     return ['players' => $players, 'staff' => $staff, 'total' => count($players) + count($staff)];
 }

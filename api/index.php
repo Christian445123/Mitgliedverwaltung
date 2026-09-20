@@ -715,8 +715,8 @@ if ($path === 'members/bulk-delete' && $method === 'POST') {
     }
 }
 
-// Staff-Dokumente: GET/POST/DELETE /staff/{id}/documents/rechte
-if (preg_match('#^staff/(\d+)/documents/(rechte)$#', $path, $sdm) === 1) {
+// Staff-Dokumente (freiwillig): GET/POST/DELETE /staff/{id}/documents/rechte|pass|pass_back
+if (preg_match('#^staff/(\d+)/documents/(rechte|pass|pass_back)$#', $path, $sdm) === 1) {
     require_once __DIR__ . '/../includes/staff.php';
     $sid = (int) $sdm[1];
     $sType = $sdm[2];

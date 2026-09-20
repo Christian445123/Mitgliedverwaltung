@@ -69,6 +69,11 @@ function staff_ensure_table(PDO $pdo): void
         if ($pdo->query("SHOW COLUMNS FROM staff LIKE 'rechte_dokument_pfad'")->fetchColumn() === false) {
             $pdo->exec('ALTER TABLE staff ADD COLUMN rechte_dokument_pfad VARCHAR(255) DEFAULT NULL');
         }
+        foreach (['pass_foto_pfad', 'pass_foto_hinten_pfad'] as $photoColumn) {
+            if ($pdo->query("SHOW COLUMNS FROM staff LIKE '{$photoColumn}'")->fetchColumn() === false) {
+                $pdo->exec("ALTER TABLE staff ADD COLUMN {$photoColumn} VARCHAR(255) DEFAULT NULL");
+            }
+        }
         // Nada ist jetzt Ja/Nein: bisherige Texte auf 1 (Ja) bzw. 0 (Nein) umstellen (läuft nur, solange es andere Werte gibt)
         $pdo->exec("UPDATE staff SET nada = CASE WHEN nada IS NULL OR TRIM(nada) = '' OR LOWER(TRIM(nada)) IN ('nein', 'no', 'n', '0', 'false', '-') THEN '0' ELSE '1' END WHERE nada IS NULL OR nada NOT IN ('0', '1')");
         return;
@@ -102,6 +107,8 @@ function staff_ensure_table(PDO $pdo): void
             shorts_anzahl VARCHAR(20) DEFAULT NULL,
             coaching_hosen_lang_groesse VARCHAR(10) DEFAULT NULL,
             rechte_dokument_pfad VARCHAR(255) DEFAULT NULL,
+            pass_foto_pfad VARCHAR(255) DEFAULT NULL,
+            pass_foto_hinten_pfad VARCHAR(255) DEFAULT NULL,
             status ENUM('aktiv', 'inaktiv') NOT NULL DEFAULT 'aktiv',
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -324,6 +331,8 @@ const STAFF_UPLOAD_PUBLIC_PREFIX = '/uploads/staff';
 /** Dokumenttypen des Staffs: Schlüssel (API/URL) => Spalte und Beschriftung. */
 const STAFF_DOCUMENT_TYPES = [
     'rechte' => ['column' => 'rechte_dokument_pfad', 'label' => 'Rechte & Pflichten'],
+    'pass' => ['column' => 'pass_foto_pfad', 'label' => 'Foto Reisepass (Vorderseite)'],
+    'pass_back' => ['column' => 'pass_foto_hinten_pfad', 'label' => 'Foto Reisepass (Rückseite)'],
 ];
 
 /**

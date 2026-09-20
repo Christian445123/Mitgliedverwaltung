@@ -208,7 +208,7 @@ require __DIR__ . '/../includes/admin_header.php';
     <section class="panel">
         <h2 class="section-title">Fehlende Dokumente</h2>
         <p class="muted">Liste, bei wem welche Dokumente fehlen (NADA-Zertifikat, Reisepass, E-Card, Rechte &amp; Pflichten) –
-            <strong>Spieler und Staff getrennt</strong>. Staff: Rechte &amp; Pflichten. Excel mit je einem Blatt für Spieler und Staff.</p>
+            nur <strong>Spieler</strong> (bei Staff sind Rechte &amp; Pflichten und das Passfoto freiwillig, also nie „fehlend“).</p>
         <form method="get" action="roster.php">
             <input type="hidden" name="type" value="missing">
             <div class="form-group">
