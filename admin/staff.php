@@ -73,7 +73,7 @@ $error = flash_get('error');
     <?php endif; ?>
 
 <div class="table-scroll">
-<table class="table table-cards">
+<table class="table table-cards table-list">
     <thead>
         <tr>
             <?php if ($canSelect): ?><th class="check-col"><input type="checkbox" data-select-all aria-label="Alle auf dieser Seite auswählen"></th><?php endif; ?>

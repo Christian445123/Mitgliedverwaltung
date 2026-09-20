@@ -799,7 +799,7 @@ form.member-form button[type=submit] { margin-top: 24px; }
     }
     .table thead .actions-sticky { background: #f7f7fb; z-index: 2; }
     .table tbody tr:hover .actions-sticky { background: var(--accent-soft); }
-    .content, .public-page .content { max-width: min(1320px, 100%); }
+    .content, .public-page .content { max-width: min(1680px, 100%); }
 }
 
 @media (max-width: 640px) {
@@ -922,4 +922,46 @@ input:focus, select:focus, textarea:focus { box-shadow: 0 0 0 3px rgba(249, 115,
 @media (max-width: 900px) {
     .sidebar-brand .brand-mark { width: auto; height: 40px; }
     .sidebar-brand .brand-mark img { height: 28px; }
+}
+
+/* Listen (Spieler, Staff): größere Schrift, nichts bricht mitten in Namen oder Nummern um, mehr Platz in der Breite */
+.table-list th,
+.table-list td {
+    padding: 12px 14px;
+    font-size: 0.97rem;
+    vertical-align: middle;
+}
+
+.table-list th {
+    font-size: 0.8rem;
+    white-space: nowrap;
+}
+
+.table-list td[data-label="Name & Vorname"],
+.table-list td[data-label="Name &amp; Vorname"] {
+    min-width: 200px;
+    font-weight: 600;
+}
+
+.table-list td[data-label="Telefon"],
+.table-list td[data-label="Position"],
+.table-list td[data-label="Nada"],
+.table-list td[data-label="Reisepass"],
+.table-list td[data-label="Status"],
+.table-list td[data-label="Bestätigt"],
+.table-list td[data-label="Jersey Nr."] {
+    white-space: nowrap;
+}
+
+.table-list td[data-label="Mail"],
+.table-list td[data-label="E-Mail"] {
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.table-list .btn-sm {
+    padding: 8px 14px;
+    font-size: 0.88rem;
 }
