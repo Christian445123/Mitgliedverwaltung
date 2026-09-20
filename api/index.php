@@ -21,6 +21,7 @@ declare(strict_types=1);
  *   POST   /api/update                              Server-Update per git pull --ff-only (Schreib-Token)
  *   GET    /api/template.csv                        Import-Vorlage
  *   POST   /api/license/validate                    Lizenzschlüssel der Desktop-Anwendung prüfen (signierte Offline-Freigabe, max. 3 Tage)
+ *   POST   /api/auth/login, /api/auth/logout      Anmeldung der Desktop-App mit den Web-Benutzerdaten (Header X-User-Token bei allen weiteren Anfragen)
  *   GET/POST/PUT/DELETE /api/staff[/{id}]           Staff (Coaches/Betreuer) lesen, anlegen, ändern, löschen
  *   GET/POST/DELETE     /api/staff/{id}/documents/rechte  Staff: unterschriebenes Dokument Rechte & Pflichten
  *   POST/PUT            /api/members/{id}/document-flags     "Fehlt"-Markierung {nada, pass, ecard, rechte: true/false}
@@ -105,6 +106,28 @@ if ($auth === null) {
 $canWrite = (int) $auth['can_write'] === 1;
 $GLOBALS['log_actor'] = 'token:' . $auth['name'];
 
+// ── Angemeldeter Benutzer (Desktop-App): Header X-User-Token ──────────────
+require_once __DIR__ . '/../includes/app_sessions.php';
+
+/** @return array<string, mixed> */
+function api_user_info(int $id, string $username, string $role): array
+{
+    return ['id' => $id, 'username' => $username, 'role' => $role, 'permissions' => array_keys(user_permissions($id))];
+}
+
+$apiUser = null;
+$userTokenHeader = trim((string) ($_SERVER['HTTP_X_USER_TOKEN'] ?? ''));
+if ($userTokenHeader !== '') {
+    $apiUser = app_session_verify($userTokenHeader);
+    if ($apiUser === null) {
+        api_json(401, ['error' => 'Die Anmeldung ist abgelaufen. Bitte neu anmelden.', 'code' => 'session_expired']);
+    }
+    $GLOBALS['log_actor'] = 'user:' . $apiUser['username'];
+    // Schreiben nur, wenn Token UND Benutzer es dürfen
+    $userPermissions = user_permissions($apiUser['id']);
+    $canWrite = $canWrite && (isset($userPermissions['members.edit']) || isset($userPermissions['members.create']) || isset($userPermissions['members.delete']));
+}
+
 // ── Routing ───────────────────────────────────────────────────────
 $path = (string) parse_url((string) $_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $base = rtrim(dirname((string) $_SERVER['SCRIPT_NAME']), '/\\');
@@ -119,8 +142,53 @@ if (isset($_GET['path']) && is_string($_GET['path'])) {
 $method = strtoupper((string) $_SERVER['REQUEST_METHOD']);
 $kaderFilter = in_array($_GET['kader'] ?? '', ['kader', 'nicht_im_kader'], true) ? $_GET['kader'] : null;
 
+// ── Anmeldung der Desktop-Anwendung mit den Web-Benutzerdaten ─────────────
+$apiCan = static function (string $permission) use ($apiUser): bool {
+    return $apiUser === null || isset(user_permissions((int) $apiUser['id'])[$permission]);
+};
+
+if ($path === 'auth/login' && $method === 'POST') {
+    $loginBody = json_decode((string) file_get_contents('php://input'), true);
+    if (!is_array($loginBody)) {
+        api_error(400, 'Erwartet wird ein JSON-Objekt mit username und password.');
+    }
+    $loginResult = app_user_authenticate(trim((string) ($loginBody['username'] ?? '')), (string) ($loginBody['password'] ?? ''));
+    if (!$loginResult['ok']) {
+        if ($loginResult['reason'] === 'must_change_password') {
+            api_json(403, ['error' => 'Bitte zuerst im Web-Panel anmelden und das Passwort ändern.', 'code' => 'must_change_password']);
+        }
+        api_json(401, ['error' => 'Benutzername oder Passwort ist falsch.', 'code' => 'invalid_credentials']);
+    }
+    $loginAdmin = $loginResult['admin'];
+    $session = app_session_create((int) $loginAdmin['id'], (string) ($loginBody['machine_name'] ?? ''), ($loginBody['remember'] ?? false) === true);
+    app_log('auth.login', 'Anmeldung erfolgreich (Desktop-App)', ['actor' => $loginAdmin['username'], 'target_type' => 'admin', 'target_id' => $loginAdmin['id'], 'via' => 'app', 'machine' => (string) ($loginBody['machine_name'] ?? '')]);
+    api_json(200, [
+        'token' => $session['token'],
+        'expires_at' => $session['expires_at'],
+        'user' => api_user_info((int) $loginAdmin['id'], (string) $loginAdmin['username'], (string) $loginAdmin['role']),
+    ]);
+}
+
+if ($path === 'auth/logout' && $method === 'POST') {
+    if ($userTokenHeader !== '') {
+        app_session_delete($userTokenHeader);
+        app_log('auth.logout', 'Abgemeldet (Desktop-App)', ['via' => 'app']);
+    }
+    api_json(200, ['ok' => true]);
+}
+
+// Rechte des angemeldeten Benutzers prüfen (Anfragen nur mit API-Token, z. B. Excel, bleiben unverändert)
+if ($apiUser !== null) {
+    $neededPermission = api_required_permission($method, $path);
+    if ($neededPermission !== null && !$apiCan($neededPermission)) {
+        app_log('auth.forbidden', 'Zugriff verweigert (Desktop-App): ' . $neededPermission, ['permission' => $neededPermission, 'path' => $path], 'warning');
+        api_error(403, 'Keine Berechtigung: ' . (permissions_registry()[$neededPermission][0] ?? $neededPermission));
+    }
+}
+
 if ($path === '' || $path === 'ping') {
-    api_json(200, ['ok' => true, 'token' => $auth['name'], 'write' => $canWrite]);
+    api_json(200, ['ok' => true, 'token' => $auth['name'], 'write' => $canWrite]
+        + ($apiUser !== null ? ['user' => api_user_info($apiUser['id'], $apiUser['username'], $apiUser['role'])] : []));
 }
 
 if ($path === 'members.csv' && $method === 'GET') {
@@ -333,6 +401,9 @@ if ($path === 'members/bulk-delete' && $method === 'POST') {
 
     try {
         if (($body['all'] ?? false) === true) {
+            if (!$apiCan('members.delete_all')) {
+                api_error(403, 'Keine Berechtigung: ' . (permissions_registry()['members.delete_all'][0] ?? 'members.delete_all'));
+            }
             if (($body['confirm'] ?? '') !== 'ALLE LÖSCHEN') {
                 api_error(422, 'Zum Löschen aller Mitglieder muss "confirm" genau "ALLE LÖSCHEN" lauten.');
             }

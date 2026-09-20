@@ -31,6 +31,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'chang
     } else {
         $update = db()->prepare('UPDATE admins SET password_hash = ?, must_change_password = 0 WHERE id = ?');
         $update->execute([password_hash($new, PASSWORD_DEFAULT), current_admin_id()]);
+        require_once __DIR__ . '/../includes/app_sessions.php';
+        app_sessions_revoke_all((int) current_admin_id()); // App-Sitzungen mit dem alten Passwort beenden
         $_SESSION['must_change_password'] = false;
         $passwordSuccess = 'Passwort wurde geändert.';
         app_log('auth.password_changed', 'Eigenes Passwort geändert', ['target_type' => 'admin', 'target_id' => current_admin_id()]);

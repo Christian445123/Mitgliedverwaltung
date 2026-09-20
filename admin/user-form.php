@@ -108,6 +108,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($password !== '') {
                     $stmt = db()->prepare('UPDATE admins SET username = ?, password_hash = ?, role = ?, role_id = ?, must_change_password = 1 WHERE id = ?');
                     $stmt->execute([$username, password_hash($password, PASSWORD_DEFAULT), $legacyRole, $roleId, $id]);
+                    require_once __DIR__ . '/../includes/app_sessions.php';
+                    app_sessions_revoke_all((int) $id); // App-Sitzungen beenden, wenn das Passwort neu gesetzt wurde
                 } else {
                     $stmt = db()->prepare('UPDATE admins SET username = ?, role = ?, role_id = ? WHERE id = ?');
                     $stmt->execute([$username, $legacyRole, $roleId, $id]);
