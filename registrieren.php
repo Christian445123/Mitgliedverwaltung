@@ -36,7 +36,13 @@ if ($link === false) {
 
 $error = null;
 $duplicateNotice = null;
-$saved = false;
+// Nach erfolgreichem Speichern wird umgeleitet (Post/Redirect/Get): sonst bleibt der Browser auf der
+// POST-Anfrage stehen - "Zurück" funktioniert dann nicht sauber, und ein Neuladen sendet das Formular
+// (mit denselben Daten) erneut, was bei der bereits angelegten E-Mail-Adresse wie ein Fehler aussieht.
+$saved = ($_GET['done'] ?? '') === '1';
+if (($_GET['notice'] ?? '') === 'duplicate') {
+    $duplicateNotice = 'Für diese E-Mail-Adresse besteht bereits ein Mitglied. Die Person wurde automatisch per E-Mail gebeten, ihre Daten zu prüfen/aktualisieren, und der Verein wurde informiert. Bitte bei Fragen an den Verein wenden.';
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
@@ -60,22 +66,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $existing = member_find_by_email((string) $data['email']);
         if ($existing !== false) {
             registration_handle_duplicate($existing);
-            $duplicateNotice = 'Für diese E-Mail-Adresse besteht bereits ein Mitglied. Die Person wurde automatisch per E-Mail gebeten, ihre Daten zu prüfen/aktualisieren, und der Verein wurde informiert. Bitte bei Fragen an den Verein wenden.';
-        } else {
-            $newId = member_upsert($data, null, 'neu');
-            dsgvo_consent_record('members', $newId, $minor ? mb_substr($guardianName, 0, 150) : null);
-            registration_record_use((int) $link['id']);
-            app_log('member.self_register', 'Neue Anmeldung über Registrierungslink', ['actor' => 'member:' . $newId, 'target_type' => 'member', 'target_id' => $newId, 'link_id' => $link['id']]);
-            $newMember = member_find_by_id($newId);
-            registration_notify_new($newMember !== false ? $newMember : $data);
-            $saved = true;
+            redirect('registrieren.php?token=' . $token . '&notice=duplicate');
         }
+
+        $newId = member_upsert($data, null, 'neu');
+        dsgvo_consent_record('members', $newId, $minor ? mb_substr($guardianName, 0, 150) : null);
+        registration_record_use((int) $link['id']);
+        app_log('member.self_register', 'Neue Anmeldung über Registrierungslink', ['actor' => 'member:' . $newId, 'target_type' => 'member', 'target_id' => $newId, 'link_id' => $link['id']]);
+        $newMember = member_find_by_id($newId);
+        registration_notify_new($newMember !== false ? $newMember : $data);
+        redirect('registrieren.php?token=' . $token . '&done=1');
     } catch (RuntimeException $e) {
         $error = $e->getMessage();
     }
 }
 
-$m = $saved ? [] : $_POST;
+$m = $saved || $duplicateNotice !== null ? [] : $_POST;
 $showAdminFields = false;
 $isRegistration = true; // blendet Jersey-Nr., Camps und Ausrüstungsgrößen aus (legt der Verein erst nach der Zuweisung fest)
 
@@ -88,6 +94,7 @@ require __DIR__ . '/includes/public_header.php';
     <?php if ($saved): ?>
         <p class="alert alert-success">Danke! Deine Anmeldung ist eingegangen und wird vom Verein geprüft.
         Sobald sie zugewiesen ist, bekommst du deinen persönlichen Link zur weiteren Verwaltung deiner Daten.</p>
+        <p><a href="registrieren.php?token=<?= h($token) ?>" class="btn btn-primary">Noch eine Person anmelden</a></p>
     <?php else: ?>
         <p>Pflichtfelder sind Vorname, Nachname, Telefon und E-Mail (mit *). Bitte fülle möglichst auch alle
         anderen Felder aus – der Verein braucht sie z. B. für Reisedokumente und Ausrüstung. Jersey-Nummer,
