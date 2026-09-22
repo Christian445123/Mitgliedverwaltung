@@ -249,8 +249,8 @@ function member_full_name(array $row): string
 /**
  * Vorlage "Rechte & Pflichten" zum Herunterladen, Ausdrucken und Unterschreiben (PDF).
  * Liegt als normale, unverschlüsselte Datei unter uploads/ (kein personenbezogenes Dokument, daher
- * ohne Verschlüsselung, aber im selben - von Git ausgeschlossenen - Bereich wie andere von Admins
- * hochgeladene Dateien; siehe .gitignore "/uploads/*/*"). Verwaltet wird sie unter admin/registrations.php.
+ * ohne Verschlüsselung, aber im selben, per .gitignore von Git ausgeschlossenen Bereich wie andere
+ * von Admins hochgeladene Dateien). Verwaltet wird sie unter admin/registrations.php.
  * WICHTIG: absichtlich NICHT unter assets/ (Git-versioniert) - sonst kollidiert ein späteres
  * "git pull" mit der auf dem Server per Upload abgelegten Datei ("would be overwritten by merge").
  */
