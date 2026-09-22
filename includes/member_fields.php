@@ -9,12 +9,16 @@ declare(strict_types=1);
  * Erwartet im Scope:
  *   array $m                Mitgliedsdaten (Schlüssel = Spaltennamen, fehlende Werte werden als '' behandelt)
  *   bool  $showAdminFields  true = zusätzliche Felder, die nur der Admin sieht/setzt (Status)
+ *   bool  $isRegistration   true = öffentliches Anmeldeformular für neue Mitglieder (registrieren.php):
+ *                           Jersey-Nr., Camps und Ausrüstungsgrößen sind hier ausgeblendet, weil das
+ *                           erst der Verein nach der Prüfung/Zuweisung festlegt.
  */
 
 if (!isset($m) || !is_array($m)) {
     $m = [];
 }
 $showAdminFields = $showAdminFields ?? false;
+$isRegistration = $isRegistration ?? false;
 
 $v = static fn (string $key) => h((string) ($m[$key] ?? ''));
 $checked = static fn (string $key) => !empty($m[$key]) ? 'checked' : '';
@@ -46,6 +50,7 @@ require_once __DIR__ . '/field_access.php';
 $faAudience = $showAdminFields ? field_access_admin_audience() : 'player';
 ob_start(); // Formular puffern, damit gesperrte Felder (Feld-Rechte) am Ende entfernt werden können
 ?>
+<?php if (!$isRegistration): ?>
 <fieldset>
     <legend>Nummer &amp; Camps</legend>
 
@@ -95,6 +100,7 @@ ob_start(); // Formular puffern, damit gesperrte Felder (Feld-Rechte) am Ende en
     </div>
     <?php endif; ?>
 </fieldset>
+<?php endif; ?>
 
 <fieldset>
     <legend>Persönliche Daten</legend>
@@ -350,6 +356,7 @@ ob_start(); // Formular puffern, damit gesperrte Felder (Feld-Rechte) am Ende en
     </div>
 </fieldset>
 
+<?php if (!$isRegistration): ?>
 <fieldset>
     <legend>Ausrüstungsgrößen</legend>
 
@@ -397,6 +404,7 @@ ob_start(); // Formular puffern, damit gesperrte Felder (Feld-Rechte) am Ende en
         <input type="text" id="socken_groesse" name="socken_groesse" value="<?= $v('socken_groesse') ?>" maxlength="10">
     </div>
 </fieldset>
+<?php endif; ?>
 
 <?php if ($showAdminFields): ?>
 <fieldset>

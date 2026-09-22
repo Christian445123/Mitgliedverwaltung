@@ -77,6 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $m = $saved ? [] : $_POST;
 $showAdminFields = false;
+$isRegistration = true; // blendet Jersey-Nr., Camps und Ausrüstungsgrößen aus (legt der Verein erst nach der Zuweisung fest)
 
 $pageTitle = 'Anmeldung – Neues Mitglied';
 require __DIR__ . '/includes/public_header.php';
@@ -89,7 +90,8 @@ require __DIR__ . '/includes/public_header.php';
         Sobald sie zugewiesen ist, bekommst du deinen persönlichen Link zur weiteren Verwaltung deiner Daten.</p>
     <?php else: ?>
         <p>Pflichtfelder sind Vorname, Nachname, Telefon und E-Mail (mit *). Bitte fülle möglichst auch alle
-        anderen Felder aus – der Verein braucht sie für Kader, Camps, Ausrüstung und Reisedokumente.</p>
+        anderen Felder aus – der Verein braucht sie z. B. für Reisedokumente und Ausrüstung. Jersey-Nummer,
+        Camps und Ausrüstungsgrößen legt der Verein nach der Zuweisung mit dir fest.</p>
 
         <?php if ($duplicateNotice): ?><p class="alert alert-warning"><?= h($duplicateNotice) ?></p><?php endif; ?>
         <?php if ($error): ?><p class="alert alert-error"><?= h($error) ?></p><?php endif; ?>
