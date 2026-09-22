@@ -6,8 +6,10 @@ $navActive = static fn (string $script) => $currentScript === $script ? ' active
 $adminInitial = h(strtoupper(mb_substr(current_admin_username() ?? '?', 0, 1)));
 require_once __DIR__ . '/expiry.php';
 require_once __DIR__ . '/member_repository.php';
+require_once __DIR__ . '/registration.php';
 $expiryTotal = (int) (expiry_report()['counts']['total'] ?? 0); // abgelaufene bzw. bald ablaufende NADA-Zertifikate/Pässe
 $missingTotal = user_can('members.view') ? (int) (documents_missing_report()['total'] ?? 0) : 0; // Spieler mit fehlenden Dokumenten
+$registrationsTotal = user_can('members.registrations') ? member_registrations_count() : 0; // neue, noch nicht zugewiesene Anmeldungen
 ?>
 <!doctype html>
 <html lang="de">
@@ -40,6 +42,13 @@ $missingTotal = user_can('members.view') ? (int) (documents_missing_report()['to
             <a href="staff.php" class="<?= $navActive('staff.php') . $navActive('staff-form.php') ?>">
                 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                 Staff
+            </a>
+            <?php endif; ?>
+            <?php if (user_can('members.registrations')): ?>
+            <a href="registrations.php" class="<?= $navActive('registrations.php') ?>">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+                Neue Mitglieder
+                <?php if ($registrationsTotal > 0): ?><span class="nav-badge" title="Neue Anmeldungen, die noch zugewiesen werden müssen"><?= $registrationsTotal ?></span><?php endif; ?>
             </a>
             <?php endif; ?>
             <?php if (user_can('members.view')): ?>

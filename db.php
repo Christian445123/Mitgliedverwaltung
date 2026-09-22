@@ -134,6 +134,24 @@ function db_ensure_columns(PDO $pdo): void
     } catch (Throwable $e) {
         error_log('staff_ensure_table: ' . $e->getMessage());
     }
+
+    // Status "neu" (Selbstregistrierung, wartet auf manuelle Zuweisung) zur bestehenden Spalte ergänzen
+    try {
+        $statusCol = $pdo->query("SHOW COLUMNS FROM members LIKE 'status'")->fetch();
+        if ($statusCol !== false && !str_contains((string) $statusCol['Type'], "'neu'")) {
+            $pdo->exec("ALTER TABLE members MODIFY COLUMN status ENUM('aktiv','inaktiv','neu') NOT NULL DEFAULT 'aktiv'");
+        }
+    } catch (PDOException $e) {
+        // Tabelle fehlt oder keine ALTER-Rechte
+    }
+
+    // Registrierungslinks für neue Mitglieder (Tabelle bei Bedarf anlegen)
+    try {
+        require_once __DIR__ . '/includes/registration.php';
+        registration_ensure_tables($pdo);
+    } catch (Throwable $e) {
+        error_log('registration_ensure_tables: ' . $e->getMessage());
+    }
 }
 
 /** MySQL-Verbindungsoption: ab PHP 8.5 als Pdo\Mysql::ATTR_*, davor als PDO::MYSQL_ATTR_* (die alten Namen sind veraltet). */

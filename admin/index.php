@@ -6,8 +6,11 @@ require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/member_repository.php';
 require_once __DIR__ . '/../includes/expiry.php';
+require_once __DIR__ . '/../includes/registration.php';
 
 require_permission('members.view');
+
+$registrationsPending = user_can('members.registrations') ? member_registrations_count() : 0;
 
 $query = trim((string) ($_GET['q'] ?? ''));
 $status = in_array($_GET['status'] ?? '', ['aktiv', 'inaktiv'], true) ? $_GET['status'] : null;
@@ -49,6 +52,10 @@ $listUrl = static fn (array $extra = []) => 'index.php?' . http_build_query(arra
     <div class="stat-card"><span class="stat-value"><?= $stats['bestaetigt'] ?></span><span class="stat-label">Daten bestätigt</span></div>
     <div class="stat-card stat-warn"><span class="stat-value"><?= $stats['ausstehend'] ?></span><span class="stat-label">Bestätigung offen</span></div>
 </div>
+
+<?php if ($registrationsPending > 0): ?>
+<p class="alert alert-warning"><?= $registrationsPending ?> neue Anmeldung(en) warten auf Prüfung. <a href="registrations.php">Jetzt prüfen und dem Kader zuweisen</a></p>
+<?php endif; ?>
 
 <?php if ($expiry['counts']['total'] > 0): ?>
 <section class="panel expiry-panel">

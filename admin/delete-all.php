@@ -23,7 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$total = member_count('');
+$total = (int) db()->query('SELECT COUNT(*) FROM members')->fetchColumn(); // inkl. neuer, noch nicht zugewiesener Anmeldungen
 $pageTitle = 'Alle Daten löschen';
 require __DIR__ . '/../includes/admin_header.php';
 ?>

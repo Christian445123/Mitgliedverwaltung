@@ -29,7 +29,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     try {
         $data = member_collect_input($existing ?: [], field_access_admin_audience());
-        $status = ($_POST['status'] ?? 'aktiv') === 'inaktiv' ? 'inaktiv' : 'aktiv';
+        $statusPost = (string) ($_POST['status'] ?? 'aktiv');
+        // "neu" bleibt nur erhalten, wenn es explizit gesendet wurde (Status-Feld zeigt die Option nur
+        // bei bereits so markierten Anmeldungen an) - neu angelegte Mitglieder starten immer als "aktiv".
+        $status = in_array($statusPost, ['aktiv', 'inaktiv', 'neu'], true) ? $statusPost : 'aktiv';
 
         $savedId = member_upsert($data, $id, $status);
         app_log($id === null ? 'member.create' : 'member.update', $id === null ? 'Mitglied angelegt' : 'Mitglied geändert', ['target_type' => 'member', 'target_id' => $savedId, 'status' => null]);

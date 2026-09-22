@@ -245,3 +245,25 @@ function member_full_name(array $row): string
 {
     return trim(((string) ($row['nachname'] ?? '')) . ' ' . ((string) ($row['vorname'] ?? '')));
 }
+
+/**
+ * Vorlage "Rechte & Pflichten" zum Herunterladen, Ausdrucken und Unterschreiben (PDF).
+ * Liegt als normale, unverschlüsselte Datei unter assets/ (kein personenbezogenes Dokument),
+ * damit sie öffentlich verlinkt werden kann. Verwaltet wird sie unter admin/registrations.php.
+ */
+const RECHTE_TEMPLATE_RELATIVE = 'assets/downloads/rechte-pflichten-vorlage.pdf';
+
+function rechte_template_path(): string
+{
+    return APP_ROOT . '/' . RECHTE_TEMPLATE_RELATIVE;
+}
+
+function rechte_template_url(): string
+{
+    return APP_BASE_URL . '/' . RECHTE_TEMPLATE_RELATIVE;
+}
+
+function rechte_template_exists(): bool
+{
+    return is_file(rechte_template_path());
+}

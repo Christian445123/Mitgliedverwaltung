@@ -226,6 +226,12 @@ ob_start(); // Formular puffern, damit gesperrte Felder (Feld-Rechte) am Ende en
 
 <fieldset>
     <legend>Rechte &amp; Pflicht</legend>
+    <?php if (rechte_template_exists()): ?>
+    <p class="muted">
+        <a href="<?= h(rechte_template_url()) ?>" target="_blank" rel="noopener">Vorlage „Rechte &amp; Pflichten“ herunterladen (PDF)</a>
+        – bitte ausdrucken, unterschreiben und unten wieder hochladen.
+    </p>
+    <?php endif; ?>
     <div class="form-group">
         <label>
             <input type="checkbox" name="rechte_pflichten_akzeptiert" value="1" <?= $checked('rechte_pflichten_akzeptiert') ?> <?= $showAdminFields ? '' : 'required' ?>>
@@ -400,7 +406,14 @@ ob_start(); // Formular puffern, damit gesperrte Felder (Feld-Rechte) am Ende en
         <select id="status" name="status">
             <option value="aktiv" <?= ($m['status'] ?? 'aktiv') === 'aktiv' ? 'selected' : '' ?>>Aktiv</option>
             <option value="inaktiv" <?= ($m['status'] ?? '') === 'inaktiv' ? 'selected' : '' ?>>Inaktiv</option>
+            <?php if (($m['status'] ?? '') === 'neu'): ?>
+            <option value="neu" selected>Neu (Anmeldung, noch nicht zugewiesen)</option>
+            <?php endif; ?>
         </select>
+        <?php if (($m['status'] ?? '') === 'neu'): ?>
+        <p class="muted">Diese Person hat sich über den öffentlichen Registrierungslink selbst angemeldet und wartet auf Zuweisung.
+            Am schnellsten geht das im Bereich <a href="registrations.php">Neue Mitglieder</a> (Kader / nicht im Kader).</p>
+        <?php endif; ?>
     </div>
     <div class="form-group">
         <label for="kader">Kader</label>

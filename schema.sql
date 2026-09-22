@@ -32,7 +32,9 @@ CREATE TABLE IF NOT EXISTS members (
     telefon VARCHAR(50) DEFAULT NULL,
     email VARCHAR(190) NOT NULL,
 
-    status ENUM('aktiv', 'inaktiv') NOT NULL DEFAULT 'aktiv',
+    -- 'neu' = über den öffentlichen Registrierungslink selbst angemeldet, noch nicht geprüft
+    -- (erscheint nicht in der normalen Mitgliederliste, siehe admin/registrations.php)
+    status ENUM('aktiv', 'inaktiv', 'neu') NOT NULL DEFAULT 'aktiv',
     kader ENUM('kader', 'nicht_im_kader') NOT NULL DEFAULT 'kader',
     -- Wird von der Datenbank automatisch gepflegt: "Nachname Vorname" (z. B. "Walch Jakob")
     name_vorname VARCHAR(255) GENERATED ALWAYS AS (CONCAT(nachname, ' ', vorname)) STORED,
@@ -132,6 +134,22 @@ CREATE TABLE IF NOT EXISTS member_access (
     verify_locked_until DATETIME DEFAULT NULL,
     UNIQUE KEY uniq_verify_token (verify_token),
     CONSTRAINT fk_member_access_member FOREIGN KEY (member_id) REFERENCES members (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Registrierungslinks für neue Mitglieder (öffentliche Selbstanmeldung, siehe registrieren.php
+-- und admin/registrations.php). Neue Anmeldungen landen mit members.status = 'neu' und müssen
+-- manuell dem Kader oder "nicht im Kader" zugewiesen werden.
+CREATE TABLE IF NOT EXISTS registration_links (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    token VARCHAR(64) NOT NULL,
+    label VARCHAR(150) DEFAULT NULL,
+    active TINYINT(1) NOT NULL DEFAULT 1,
+    created_by VARCHAR(100) DEFAULT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at DATETIME DEFAULT NULL,
+    use_count INT UNSIGNED NOT NULL DEFAULT 0,
+    last_used_at DATETIME DEFAULT NULL,
+    UNIQUE KEY uniq_registration_token (token)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- API-Zugänge für PC-Anwendungen (werden bei Bedarf auch automatisch angelegt)

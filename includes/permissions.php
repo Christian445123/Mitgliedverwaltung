@@ -34,6 +34,7 @@ function permissions_registry(): array
         'members.delete' => ['Mitglieder löschen (einzeln und Auswahl)', 'Mitglieder'],
         'members.delete_all' => ['ALLE Daten löschen', 'Mitglieder'],
         'members.links' => ['Persönliche Links & Zugangscodes verwalten, per E-Mail senden', 'Mitglieder'],
+        'members.registrations' => ['Neue Mitglieder: Registrierungslinks verwalten, Anmeldungen dem Kader/nicht im Kader zuweisen', 'Mitglieder'],
         'documents.view' => ['Hochgeladene Dokumente ansehen (E-Card, Pass, NADA, Rechte & Pflichten)', 'Mitglieder'],
 
         // Staff (Trainer, Betreuer): eigener Bereich
@@ -67,7 +68,7 @@ function permissions_role_defaults(string $roleKey): array
 {
     return match ($roleKey) {
         'administrator' => array_keys(permissions_registry()),
-        'editor' => ['members.view', 'members.create', 'members.edit', 'members.delete', 'members.links',
+        'editor' => ['members.view', 'members.create', 'members.edit', 'members.delete', 'members.links', 'members.registrations',
             'documents.view', 'members.import', 'members.export', 'camps.manage', 'staff.view', 'staff.edit', 'staff.delete'],
         'viewer' => ['members.view', 'documents.view', 'members.export', 'staff.view'],
         default => [],
@@ -160,6 +161,19 @@ function permissions_ensure_tables(PDO $pdo): void
             }
             $insert = $pdo->prepare('INSERT IGNORE INTO role_permissions (role_id, permission) VALUES (?, ?)');
             foreach (array_merge($permissions, ['_migrated_staff']) as $permission) {
+                $insert->execute([(int) $roleId, $permission]);
+            }
+        }
+    }
+
+    // Neues Recht "members.registrations" (Neue Mitglieder) für bestehende eingebaute Rollen einmalig nachtragen
+    if ((int) $pdo->query("SELECT COUNT(*) FROM role_permissions WHERE permission = '_migrated_registrations'")->fetchColumn() < 1) {
+        $roleStmt = $pdo->prepare('SELECT id FROM roles WHERE role_key = ?');
+        $roleStmt->execute(['editor']);
+        $roleId = $roleStmt->fetchColumn();
+        if ($roleId !== false) {
+            $insert = $pdo->prepare('INSERT IGNORE INTO role_permissions (role_id, permission) VALUES (?, ?)');
+            foreach (['members.registrations', '_migrated_registrations'] as $permission) {
                 $insert->execute([(int) $roleId, $permission]);
             }
         }

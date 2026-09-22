@@ -545,6 +545,10 @@ function member_where(string $query, ?string $status, ?string $kader = null): ar
     if ($status === 'aktiv' || $status === 'inaktiv') {
         $conditions[] = 'm.status = :status';
         $params['status'] = $status;
+    } else {
+        // Ohne expliziten Status-Filter nie neue, noch nicht geprüfte Selbstanmeldungen mitzeigen -
+        // die haben einen eigenen Bereich (admin/registrations.php), bis sie manuell zugewiesen werden.
+        $conditions[] = "m.status <> 'neu'";
     }
 
     if ($kader === 'kader' || $kader === 'nicht_im_kader') {
@@ -593,7 +597,8 @@ function member_stats(): array
         "SELECT COUNT(*) AS total,
                 COALESCE(SUM(m.status = 'aktiv'), 0) AS aktiv,
                 COALESCE(SUM(ac.verified_at IS NOT NULL), 0) AS bestaetigt
-         FROM members m LEFT JOIN member_access ac ON ac.member_id = m.id"
+         FROM members m LEFT JOIN member_access ac ON ac.member_id = m.id
+         WHERE m.status <> 'neu'"
     )->fetch();
 
     $total = (int) $row['total'];
