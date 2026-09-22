@@ -29,6 +29,10 @@ kontrolliert ab, ohne etwas zu verändern, falls auf dem Server nicht committete
 liegen oder der Pull nicht als reines Fast-Forward möglich ist. Datenbank-Änderungen
 (<code>schema.sql</code>) müssen danach ggf. manuell eingespielt werden.</p>
 
+<p class="muted">Ist der GitHub-Webhook eingerichtet (<code>deploy-webhook.php</code>, <code>DEPLOY_WEBHOOK_SECRET</code>
+in der .env), passiert das automatisch nach jedem Push - dieser Button ist dann nur noch für
+manuelle Sonderfälle nötig.</p>
+
 <?php if ($result): ?>
     <p class="alert alert-<?= $result['success'] ? 'success' : 'error' ?>">
         <?= $result['success'] ? 'Update erfolgreich.' : 'Update fehlgeschlagen – siehe Log unten.' ?>
