@@ -33,7 +33,7 @@ declare(strict_types=1);
  *   POST   /api/members/{id}/documents/{typ}        Dokument hochladen (multipart, Feld "file"; Schreib-Token)
  *   DELETE /api/members/{id}/documents/{typ}        Dokument entfernen (Schreib-Token)
  *   GET    /api/registrations                       Neue, noch nicht zugewiesene Anmeldungen (Recht members.registrations)
- *   POST   /api/registrations/{id}/approve           {"kader":"kader"|"nicht_im_kader"} übernehmen (Schreib-Token)
+ *   POST   /api/registrations/{id}/approve           {"target":"kader"|"nicht_im_kader"|"staff"} übernehmen (Schreib-Token)
  *   POST   /api/registrations/{id}/reject            Anmeldung ablehnen und löschen (Schreib-Token)
  *   GET/POST/PUT/PATCH/DELETE /api/registration-links[/{id}]  Registrierungslinks verwalten (Schreib-Token für Änderungen)
  *   GET/PUT /api/registration-settings               Benachrichtigungs-Adresse (notify_email) lesen/setzen
@@ -865,11 +865,22 @@ if (preg_match('#^registrations/(\d+)/(approve|reject)$#', $path, $rgm) === 1 &&
     $rgId = (int) $rgm[1];
     if ($rgm[2] === 'approve') {
         $rgBody = json_decode((string) api_body(), true);
-        $rgKader = is_array($rgBody) && ($rgBody['kader'] ?? '') === 'nicht_im_kader' ? 'nicht_im_kader' : 'kader';
-        if (!member_registration_approve($rgId, $rgKader)) {
+        // "target": kader (Standard) | nicht_im_kader | staff (legt eine neue Staff-Person an, siehe unten)
+        $rgTarget = is_array($rgBody) ? (string) ($rgBody['target'] ?? $rgBody['kader'] ?? 'kader') : 'kader';
+        if (!in_array($rgTarget, ['kader', 'nicht_im_kader', 'staff'], true)) {
+            $rgTarget = 'kader';
+        }
+        if ($rgTarget === 'staff') {
+            $rgResult = member_registration_approve_as_staff($rgId);
+            if (!$rgResult['ok']) {
+                api_error(409, $rgResult['message']);
+            }
+            api_json(200, ['target' => 'staff', 'staff_id' => $rgResult['staff_id']]);
+        }
+        if (!member_registration_approve($rgId, $rgTarget)) {
             api_error(404, 'Anmeldung nicht gefunden oder bereits bearbeitet.');
         }
-        api_json(200, api_member(member_find_by_id($rgId)));
+        api_json(200, ['target' => $rgTarget] + api_member(member_find_by_id($rgId)));
     }
     if (!member_registration_reject($rgId)) {
         api_error(404, 'Anmeldung nicht gefunden oder bereits bearbeitet.');

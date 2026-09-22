@@ -51,9 +51,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect('registrations.php');
     } elseif ($action === 'approve') {
         $id = (int) ($_POST['id'] ?? 0);
-        $kader = ($_POST['kader'] ?? '') === 'nicht_im_kader' ? 'nicht_im_kader' : 'kader';
-        if (member_registration_approve($id, $kader)) {
-            flash_set('info', 'Anmeldung wurde übernommen (' . ($kader === 'kader' ? 'Kader' : 'nicht im Kader') . ').');
+        $target = in_array($_POST['target'] ?? '', ['kader', 'nicht_im_kader', 'staff'], true) ? $_POST['target'] : 'kader';
+        if ($target === 'staff') {
+            $result = member_registration_approve_as_staff($id);
+            flash_set($result['ok'] ? 'info' : 'error', $result['message']);
+        } elseif (member_registration_approve($id, $target)) {
+            flash_set('info', 'Anmeldung wurde übernommen (' . ($target === 'kader' ? 'Kader' : 'nicht im Kader') . ').');
         } else {
             flash_set('error', 'Anmeldung nicht gefunden oder bereits bearbeitet.');
         }
@@ -89,9 +92,10 @@ $error = flash_get('error');
 <?php if ($error): ?><p class="alert alert-error"><?= h($error) ?></p><?php endif; ?>
 
 <p>Über einen Registrierungslink können sich neue Mitglieder selbst anmelden – mit denselben Feldern wie
-im persönlichen Bestätigungs-Link eines bereits eingetragenen Spielers. Jede Anmeldung landet hier und
-muss manuell dem <strong>Kader</strong> oder <strong>nicht im Kader</strong> zugewiesen werden, bevor sie
-in der normalen Mitgliederliste erscheint.</p>
+im persönlichen Bestätigungs-Link eines bereits eingetragenen Spielers. Jede Anmeldung landet zunächst hier
+unter „Neu“ und muss manuell zugewiesen werden: als Spieler <strong>Kader</strong> oder <strong>nicht im
+Kader</strong>, oder als <strong>Staff</strong> (Trainer/Betreuer) – dabei wird aus der Anmeldung eine
+Staff-Person mit den übereinstimmenden Feldern und Dokumenten angelegt.</p>
 
 <section class="panel">
     <h2 class="section-title">Ausstehende Anmeldungen (<?= count($pending) ?>)</h2>
@@ -124,15 +128,12 @@ in der normalen Mitgliederliste erscheint.</p>
                         <?= csrf_field() ?>
                         <input type="hidden" name="action" value="approve">
                         <input type="hidden" name="id" value="<?= (int) $r['id'] ?>">
-                        <input type="hidden" name="kader" value="kader">
-                        <button type="submit" class="btn btn-sm btn-primary">In den Kader</button>
-                    </form>
-                    <form method="post" action="registrations.php" class="inline-form">
-                        <?= csrf_field() ?>
-                        <input type="hidden" name="action" value="approve">
-                        <input type="hidden" name="id" value="<?= (int) $r['id'] ?>">
-                        <input type="hidden" name="kader" value="nicht_im_kader">
-                        <button type="submit" class="btn btn-sm">Nicht im Kader</button>
+                        <select name="target" aria-label="Zuweisung für <?= h(member_full_name($r)) ?>">
+                            <option value="kader">Kader</option>
+                            <option value="nicht_im_kader">Nicht im Kader</option>
+                            <option value="staff">Staff</option>
+                        </select>
+                        <button type="submit" class="btn btn-sm btn-primary">Übernehmen</button>
                     </form>
                     <form method="post" action="registrations.php" class="inline-form" data-confirm="Anmeldung von &quot;<?= h(member_full_name($r)) ?>&quot; wirklich ablehnen und löschen?">
                         <?= csrf_field() ?>

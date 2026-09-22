@@ -149,6 +149,87 @@ function member_registration_reject(int $id): bool
     return true;
 }
 
+/**
+ * Übernimmt eine Anmeldung NICHT als Spieler, sondern als Staff (Trainer/Betreuer): legt eine neue
+ * Staff-Person mit den übereinstimmenden Feldern an (Kontakt, Adresse, Reisepass, Sozialversicherung,
+ * T-Shirt/Hoodie-Größe) und übernimmt die hochgeladenen Dokumente E-Card, Reisepass und Rechte &amp;
+ * Pflichten (physisch in den Staff-Upload-Ordner verschoben, dieselbe verschlüsselte Datei). Die
+ * Spieler-Anmeldung wird danach gelöscht.
+ *
+ * @return array{ok: bool, message: string, staff_id: ?int}
+ */
+function member_registration_approve_as_staff(int $id): array
+{
+    require_once __DIR__ . '/staff.php';
+    require_once __DIR__ . '/dsgvo.php';
+    staff_ensure_table(db());
+
+    $member = member_find_by_id($id);
+    if ($member === false || ($member['status'] ?? '') !== 'neu') {
+        return ['ok' => false, 'message' => 'Anmeldung nicht gefunden oder bereits bearbeitet.', 'staff_id' => null];
+    }
+
+    $staffData = array_filter([
+        'nachname' => $member['nachname'] ?? null,
+        'vorname' => $member['vorname'] ?? null,
+        'position' => $member['position'] ?? null,
+        'geburtsdatum' => $member['geburtsdatum'] ?? null,
+        'telefon' => $member['telefon'] ?? null,
+        'email' => $member['email'] ?? null,
+        'sozialversicherungsnummer' => $member['sozialversicherungsnummer'] ?? null,
+        'reisepass_nr' => $member['reisepass_nr'] ?? null,
+        'reisepass_ausgestellt_am' => $member['reisepass_ausgestellt_am'] ?? null,
+        'reisepass_gueltig_bis' => $member['reisepass_gueltig_bis'] ?? null,
+        'geburtsland' => $member['geburtsland'] ?? null,
+        'ausstellungsbehoerde' => $member['ausstellungsbehoerde'] ?? null,
+        'plz' => $member['plz'] ?? null,
+        'ort' => $member['ort'] ?? null,
+        'strasse' => $member['strasse'] ?? null,
+        'essen' => $member['essen'] ?? null,
+        'tshirt_polo_groesse' => $member['tshirt_polo_groesse'] ?? null,
+        'hoodie_groesse' => $member['hoodie_groesse'] ?? null,
+    ], static fn ($v) => $v !== null && $v !== '');
+    $staffData['status'] = 'aktiv';
+
+    try {
+        $staffId = staff_upsert($staffData, null);
+    } catch (RuntimeException $e) {
+        return ['ok' => false, 'message' => $e->getMessage(), 'staff_id' => null];
+    }
+
+    // Dokumente physisch in den Staff-Upload-Ordner verschieben (dieselbe verschlüsselte Datei, neuer Pfad) -
+    // die Spalten der Spieler-Anmeldung bleiben dabei unverändert, member_delete() löscht später nur noch
+    // nicht übernommene Dateien (is_file() an der alten Stelle ist dann false, siehe member_delete()).
+    if (!is_dir(STAFF_UPLOAD_DIR)) {
+        @mkdir(STAFF_UPLOAD_DIR, 0755, true);
+    }
+    foreach (['bild_ecard_pfad' => 'ecard_foto_pfad', 'pass_foto_pfad' => 'pass_foto_pfad', 'rechte_pflichten_dokument_pfad' => 'rechte_dokument_pfad'] as $memberColumn => $staffColumn) {
+        $relative = $member[$memberColumn] ?? null;
+        if (empty($relative)) {
+            continue;
+        }
+        $source = APP_ROOT . $relative;
+        if (!is_file($source)) {
+            continue;
+        }
+        $target = STAFF_UPLOAD_DIR . '/' . basename($source);
+        if (@rename($source, $target)) {
+            db()->prepare("UPDATE staff SET {$staffColumn} = ? WHERE id = ?")->execute([STAFF_UPLOAD_PUBLIC_PREFIX . '/' . basename($source), $staffId]);
+        }
+    }
+
+    // Datenschutz-Einwilligung übernehmen (falls bei der Anmeldung erteilt)
+    $consent = dsgvo_consent_current('members', $id);
+    if ($consent !== null) {
+        dsgvo_consent_record('staff', $staffId, $consent['guardian_name'] ?? null);
+    }
+
+    app_log('member.registration_approve_as_staff', 'Neue Anmeldung als Staff übernommen', ['target_type' => 'staff', 'target_id' => $staffId, 'source_member_id' => $id]);
+    member_delete($id);
+
+    return ['ok' => true, 'message' => 'Als Staff übernommen.', 'staff_id' => $staffId];
+}
+
 // ── Benachrichtigungs-E-Mail (Systemadministrator) ───────────────────
 
 function registration_notify_email(): string
