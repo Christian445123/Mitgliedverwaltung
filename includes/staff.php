@@ -159,7 +159,7 @@ function staff_find_existing(array $data)
  * @param array<string, string> $params
  * @return array{0: string, 1: array<string, string>}
  */
-function staff_where(string $query, ?string $status): array
+function staff_where(string $query, ?string $status, ?string $camp = null): array
 {
     $conditions = [];
     $params = [];
@@ -173,16 +173,23 @@ function staff_where(string $query, ?string $status): array
         $conditions[] = 'status = :status';
         $params['status'] = $status;
     }
+
+    require_once __DIR__ . '/camps.php';
+    $campCondition = camp_filter_condition('staff', 'staff.id', $camp, $params);
+    if ($campCondition !== null) {
+        $conditions[] = $campCondition;
+    }
+
     return [$conditions === [] ? '' : ' WHERE ' . implode(' AND ', $conditions), $params];
 }
 
 /** @return array<int, array<string, mixed>> */
-function staff_search(string $query, int $limit, int $offset, ?string $status = null): array
+function staff_search(string $query, int $limit, int $offset, ?string $status = null, ?string $camp = null): array
 {
-    [$where, $params] = staff_where($query, $status);
+    [$where, $params] = staff_where($query, $status, $camp);
     $stmt = db()->prepare('SELECT * FROM staff' . $where . ' ORDER BY nachname, vorname LIMIT :limit OFFSET :offset');
     foreach ($params as $name => $value) {
-        $stmt->bindValue($name, $value, PDO::PARAM_STR);
+        $stmt->bindValue($name, $value, $name === 'camp' ? PDO::PARAM_INT : PDO::PARAM_STR);
     }
     $stmt->bindValue('limit', $limit, PDO::PARAM_INT);
     $stmt->bindValue('offset', $offset, PDO::PARAM_INT);
@@ -190,21 +197,21 @@ function staff_search(string $query, int $limit, int $offset, ?string $status = 
     return $stmt->fetchAll();
 }
 
-function staff_count(string $query = '', ?string $status = null): int
+function staff_count(string $query = '', ?string $status = null, ?string $camp = null): int
 {
-    [$where, $params] = staff_where($query, $status);
+    [$where, $params] = staff_where($query, $status, $camp);
     $stmt = db()->prepare('SELECT COUNT(*) FROM staff' . $where);
     foreach ($params as $name => $value) {
-        $stmt->bindValue($name, $value, PDO::PARAM_STR);
+        $stmt->bindValue($name, $value, $name === 'camp' ? PDO::PARAM_INT : PDO::PARAM_STR);
     }
     $stmt->execute();
     return (int) $stmt->fetchColumn();
 }
 
 /** @return array<int, array<string, mixed>> alle (optional nur aktive), alphabetisch */
-function staff_all(?string $status = null): array
+function staff_all(?string $status = null, ?string $camp = null): array
 {
-    return staff_search('', PHP_INT_MAX >> 1, 0, $status);
+    return staff_search('', PHP_INT_MAX >> 1, 0, $status, $camp);
 }
 
 /**

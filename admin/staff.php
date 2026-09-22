@@ -6,17 +6,20 @@ require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/staff.php';
 require_once __DIR__ . '/../includes/expiry.php';
+require_once __DIR__ . '/../includes/camps.php';
 
 require_permission('staff.view');
 
 $query = trim((string) ($_GET['q'] ?? ''));
 $status = in_array($_GET['status'] ?? '', ['aktiv', 'inaktiv'], true) ? (string) $_GET['status'] : null;
+$campOptions = camps_options();
+$camp = array_key_exists($_GET['camp'] ?? '', $campOptions) ? (string) $_GET['camp'] : null;
 $page = max(1, (int) ($_GET['page'] ?? 1));
 $perPage = 25;
-$total = staff_count($query, $status);
+$total = staff_count($query, $status, $camp);
 $totalPages = max(1, (int) ceil($total / $perPage));
 $page = min($page, $totalPages);
-$people = staff_search($query, $perPage, ($page - 1) * $perPage, $status);
+$people = staff_search($query, $perPage, ($page - 1) * $perPage, $status, $camp);
 $activeCount = staff_count('', 'aktiv');
 $canEdit = user_can('staff.edit');
 $canDelete = user_can('staff.delete');
@@ -25,7 +28,7 @@ require_once __DIR__ . "/../includes/verification.php";
 $verified = staff_verified_map();
 
 $listUrl = static fn (array $extra = []) => 'staff.php?' . http_build_query(array_filter(
-    array_merge(['q' => $_GET['q'] ?? '', 'status' => $status], $extra),
+    array_merge(['q' => $_GET['q'] ?? '', 'status' => $status, 'camp' => $camp], $extra),
     static fn ($v) => $v !== null && $v !== ''
 ));
 
@@ -50,6 +53,12 @@ $error = flash_get('error');
 
 <form method="get" action="staff.php" class="filter-bar">
     <input type="text" name="q" placeholder="Suche: Name, Mail, Position" value="<?= h($query) ?>">
+    <select name="camp" data-autosubmit aria-label="Camp">
+        <option value="">Alle Camps</option>
+        <?php foreach ($campOptions as $value => $label): ?>
+            <option value="<?= h($value) ?>" <?= $camp === $value ? 'selected' : '' ?>><?= h($label) ?></option>
+        <?php endforeach; ?>
+    </select>
     <?php if ($status): ?><input type="hidden" name="status" value="<?= h($status) ?>"><?php endif; ?>
     <button type="submit" class="btn">Suchen</button>
     <?php if ($query !== ''): ?><a href="<?= h($listUrl(['q' => ''])) ?>" class="btn btn-link">Zurücksetzen</a><?php endif; ?>
@@ -70,6 +79,20 @@ $error = flash_get('error');
             <a href="verification.php?entity=staff" class="btn">Alle Staff: Daten bestätigen lassen …</a>
         <?php endif; ?>
     </div>
+    <?php if ($canEdit): ?>
+    <div class="filter-bar bulk-bar">
+        <select name="camp" aria-label="Camp für Massenzuweisung">
+            <?php foreach ($campOptions as $value => $label): ?>
+                <option value="<?= h($value) ?>"><?= h($label) ?></option>
+            <?php endforeach; ?>
+        </select>
+        <select name="camp_action" aria-label="Zuweisen oder entfernen">
+            <option value="add">zuweisen</option>
+            <option value="remove">entfernen</option>
+        </select>
+        <button type="submit" class="btn" formaction="staff-camp-assign.php" data-no-form-confirm data-needs-selection disabled>Bei Ausgewählten anwenden</button>
+    </div>
+    <?php endif; ?>
     <?php endif; ?>
 
 <div class="table-scroll">

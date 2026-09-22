@@ -44,6 +44,10 @@ document.addEventListener('DOMContentLoaded', function () {
 document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('select[data-autosubmit]').forEach(function (select) {
         select.addEventListener('change', function () {
+            if (select.dataset.staffRedirect && select.value === 'staff') {
+                window.location.href = select.dataset.staffRedirect;
+                return;
+            }
             if (select.form) {
                 select.form.submit();
             }

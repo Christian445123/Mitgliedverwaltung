@@ -45,13 +45,57 @@ function camps_ensure_tables(PDO $pdo): void
 }
 
 /**
+ * Dasselbe für Staff: Camps gelten auch für Trainer/Betreuer, die mitfahren.
+ * Erst aufrufen, nachdem die Tabelle "staff" existiert (staff_ensure_table).
+ */
+function staff_camps_ensure_tables(PDO $pdo): void
+{
+    $exists = $pdo->query("SHOW TABLES LIKE 'staff_camps'")->fetchColumn();
+    if ($exists === false) {
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS staff_camps (
+                staff_id INT UNSIGNED PRIMARY KEY,
+                camp_1 TINYINT(1) NOT NULL DEFAULT 0,
+                spanien TINYINT(1) NOT NULL DEFAULT 0,
+                camp_2 TINYINT(1) NOT NULL DEFAULT 0,
+                tschechien TINYINT(1) NOT NULL DEFAULT 0,
+                CONSTRAINT fk_staff_camps_staff FOREIGN KEY (staff_id) REFERENCES staff (id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
+        );
+    }
+    $exists = $pdo->query("SHOW TABLES LIKE 'staff_camp_entries'")->fetchColumn();
+    if ($exists === false) {
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS staff_camp_entries (
+                staff_id INT UNSIGNED NOT NULL,
+                camp_id INT UNSIGNED NOT NULL,
+                PRIMARY KEY (staff_id, camp_id),
+                CONSTRAINT fk_staff_camp_entries_staff FOREIGN KEY (staff_id) REFERENCES staff (id) ON DELETE CASCADE,
+                CONSTRAINT fk_staff_camp_entries_camp FOREIGN KEY (camp_id) REFERENCES camps (id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
+        );
+    }
+}
+
+/**
+ * Referenz auf den internen Cache von camps_all(), damit camp_create()/camp_rename()/camp_delete()
+ * ihn nach einer Änderung leeren können (sonst würde z.B. ein gerade neu angelegtes Camp innerhalb
+ * derselben Anfrage noch als "unbekannt" gelten).
+ */
+function &camps_cache_ref(): ?array
+{
+    static $cache = null;
+    return $cache;
+}
+
+/**
  * Alle weiteren Camps in Anzeigereihenfolge.
  *
  * @return array<int, array{id: int, name: string}>
  */
 function camps_all(): array
 {
-    static $cache = null;
+    $cache = &camps_cache_ref();
     if ($cache !== null) {
         return $cache;
     }
@@ -61,6 +105,12 @@ function camps_all(): array
         return $cache = []; // Tabelle fehlt noch (keine weiteren Camps) - Anwendung läuft normal weiter
     }
     return $cache = array_map(static fn (array $r) => ['id' => (int) $r['id'], 'name' => (string) $r['name']], $rows);
+}
+
+function camps_cache_clear(): void
+{
+    $cache = &camps_cache_ref();
+    $cache = null;
 }
 
 
@@ -91,6 +141,7 @@ function camp_create(string $name): int
     $max = (int) db()->query('SELECT COALESCE(MAX(sort_order), 0) FROM camps')->fetchColumn();
     db()->prepare('INSERT INTO camps (name, sort_order) VALUES (?, ?)')->execute([$name, $max + 1]);
     $id = (int) db()->lastInsertId();
+    camps_cache_clear();
     app_log('camp.create', 'Camp angelegt', ['target_type' => 'camp', 'target_id' => $id, 'name' => $name]);
     return $id;
 }
@@ -98,6 +149,7 @@ function camp_create(string $name): int
 function camp_delete(int $id): void
 {
     db()->prepare('DELETE FROM camps WHERE id = ?')->execute([$id]); // Teilnahmen werden per ON DELETE CASCADE entfernt
+    camps_cache_clear();
     app_log('camp.delete', 'Camp gelöscht', ['target_type' => 'camp', 'target_id' => $id], 'warning');
 }
 
@@ -120,7 +172,86 @@ function camp_rename(int $id, string $name): void
         }
         throw $e;
     }
+    camps_cache_clear();
     app_log('camp.rename', 'Camp umbenannt', ['target_type' => 'camp', 'target_id' => $id, 'name' => $name]);
+}
+
+/**
+ * Alle Camps (fest + weitere) als Auswahlliste für Filter/Massenzuweisung: Wert => Beschriftung.
+ * Feste Camps haben als Wert ihren Spaltennamen (z. B. "camp_1"), weitere Camps "c<id>".
+ *
+ * @return array<string, string>
+ */
+function camps_options(): array
+{
+    $options = [];
+    foreach (CAMPS_COLUMNS as $i => $column) {
+        $options[$column] = CAMPS_FIXED_NAMES[$i];
+    }
+    foreach (camps_all() as $camp) {
+        $options['c' . $camp['id']] = $camp['name'];
+    }
+    return $options;
+}
+
+/**
+ * SQL-Bedingung (ohne führendes "AND"), um Zeilen auf Teilnahme an einem Camp zu filtern - für Mitglieder
+ * ($entity = 'members', $idExpr z. B. "m.id") und Staff ($entity = 'staff', $idExpr z. B. "staff.id").
+ * $camp ist ein Wert aus camps_options() (Spaltenname oder "c<id>") oder null/"" (kein Filter).
+ *
+ * @param array<string, int> $params wird bei Bedarf um ":camp" ergänzt
+ */
+function camp_filter_condition(string $entity, string $idExpr, ?string $camp, array &$params): ?string
+{
+    if ($camp === null || $camp === '') {
+        return null;
+    }
+    [$campsTable, $idCol] = $entity === 'staff' ? ['staff_camps', 'staff_id'] : ['member_camps', 'member_id'];
+    $entriesTable = $entity === 'staff' ? 'staff_camp_entries' : 'member_camp_entries';
+
+    if (in_array($camp, CAMPS_COLUMNS, true)) {
+        return "EXISTS (SELECT 1 FROM {$campsTable} cf WHERE cf.{$idCol} = {$idExpr} AND cf.{$camp} = 1)";
+    }
+    if (preg_match('/^c(\d+)$/', $camp, $m)) {
+        $params['camp'] = (int) $m[1];
+        return "EXISTS (SELECT 1 FROM {$entriesTable} cf WHERE cf.{$idCol} = {$idExpr} AND cf.camp_id = :camp)";
+    }
+    return null;
+}
+
+/**
+ * Weist ein Camp mehreren Mitgliedern oder Staff-Personen auf einmal zu bzw. entfernt es wieder.
+ *
+ * @param array<int, int> $ids
+ * @return int Anzahl der bearbeiteten Datensätze
+ */
+function camp_bulk_assign(string $entity, array $ids, string $camp, bool $add): int
+{
+    $ids = array_values(array_unique(array_filter(array_map('intval', $ids), static fn (int $id) => $id > 0)));
+    if ($ids === [] || !array_key_exists($camp, camps_options())) {
+        return 0;
+    }
+    [$campsTable, $idCol] = $entity === 'staff' ? ['staff_camps', 'staff_id'] : ['member_camps', 'member_id'];
+    $entriesTable = $entity === 'staff' ? 'staff_camp_entries' : 'member_camp_entries';
+
+    if (in_array($camp, CAMPS_COLUMNS, true)) {
+        $stmt = db()->prepare(
+            "INSERT INTO {$campsTable} ({$idCol}, {$camp}) VALUES (:id, :val) ON DUPLICATE KEY UPDATE {$camp} = VALUES({$camp})"
+        );
+        foreach ($ids as $id) {
+            $stmt->execute(['id' => $id, 'val' => $add ? 1 : 0]);
+        }
+        return count($ids);
+    }
+
+    $campId = (int) substr($camp, 1);
+    $stmt = $add
+        ? db()->prepare("INSERT IGNORE INTO {$entriesTable} ({$idCol}, camp_id) VALUES (:id, :camp)")
+        : db()->prepare("DELETE FROM {$entriesTable} WHERE {$idCol} = :id AND camp_id = :camp");
+    foreach ($ids as $id) {
+        $stmt->execute(['id' => $id, 'camp' => $campId]);
+    }
+    return count($ids);
 }
 
 /**

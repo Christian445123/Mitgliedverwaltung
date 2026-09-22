@@ -9,3 +9,6 @@
 
 # Schlüsseldatei der Verschlüsselung (falls im Anwendungsordner)
 /.u19-keys/
+
+# Backups von Datenbereinigungen (enthalten personenbezogene Daten, nie einchecken)
+/backups/

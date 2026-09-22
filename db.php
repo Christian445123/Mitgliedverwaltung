@@ -135,6 +135,14 @@ function db_ensure_columns(PDO $pdo): void
         error_log('staff_ensure_table: ' . $e->getMessage());
     }
 
+    // Camp-Teilnahme für Staff (erst möglich, wenn die Tabelle "staff" existiert)
+    try {
+        require_once __DIR__ . '/includes/camps.php';
+        staff_camps_ensure_tables($pdo);
+    } catch (Throwable $e) {
+        error_log('staff_camps_ensure_tables: ' . $e->getMessage());
+    }
+
     // Status "neu" (Selbstregistrierung, wartet auf manuelle Zuweisung) zur bestehenden Spalte ergänzen
     try {
         $statusCol = $pdo->query("SHOW COLUMNS FROM members LIKE 'status'")->fetch();

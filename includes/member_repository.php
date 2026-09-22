@@ -531,7 +531,7 @@ function member_delete(int $id): void
  *
  * @return array{0: string, 1: array<string, string>}
  */
-function member_where(string $query, ?string $status, ?string $kader = null): array
+function member_where(string $query, ?string $status, ?string $kader = null, ?string $camp = null): array
 {
     $conditions = [];
     $params = [];
@@ -556,18 +556,23 @@ function member_where(string $query, ?string $status, ?string $kader = null): ar
         $params['kader'] = $kader;
     }
 
+    $campCondition = camp_filter_condition('members', 'm.id', $camp, $params);
+    if ($campCondition !== null) {
+        $conditions[] = $campCondition;
+    }
+
     return [$conditions === [] ? '' : ' WHERE ' . implode(' AND ', $conditions), $params];
 }
 
 /**
  * @return array<int, array<string, mixed>>
  */
-function member_search(string $query, int $limit, int $offset, ?string $status = null, ?string $kader = null): array
+function member_search(string $query, int $limit, int $offset, ?string $status = null, ?string $kader = null, ?string $camp = null): array
 {
-    [$where, $params] = member_where($query, $status, $kader);
+    [$where, $params] = member_where($query, $status, $kader, $camp);
     $stmt = db()->prepare(MEMBER_JOIN_SQL . $where . ' ORDER BY m.nachname, m.vorname LIMIT :limit OFFSET :offset');
     foreach ($params as $name => $value) {
-        $stmt->bindValue($name, $value, PDO::PARAM_STR);
+        $stmt->bindValue($name, $value, $name === 'camp' ? PDO::PARAM_INT : PDO::PARAM_STR);
     }
     $stmt->bindValue('limit', $limit, PDO::PARAM_INT);
     $stmt->bindValue('offset', $offset, PDO::PARAM_INT);
@@ -575,12 +580,12 @@ function member_search(string $query, int $limit, int $offset, ?string $status =
     return member_attach_camps($stmt->fetchAll());
 }
 
-function member_count(string $query, ?string $status = null, ?string $kader = null): int
+function member_count(string $query, ?string $status = null, ?string $kader = null, ?string $camp = null): int
 {
-    [$where, $params] = member_where($query, $status, $kader);
+    [$where, $params] = member_where($query, $status, $kader, $camp);
     $stmt = db()->prepare('SELECT COUNT(*) FROM members m' . $where);
     foreach ($params as $name => $value) {
-        $stmt->bindValue($name, $value, PDO::PARAM_STR);
+        $stmt->bindValue($name, $value, $name === 'camp' ? PDO::PARAM_INT : PDO::PARAM_STR);
     }
     $stmt->execute();
     return (int) $stmt->fetchColumn();
@@ -615,9 +620,9 @@ function member_stats(): array
  *
  * @return array<int, array<string, mixed>>
  */
-function member_all(?string $status = null, ?string $kader = null): array
+function member_all(?string $status = null, ?string $kader = null, ?string $camp = null): array
 {
-    return member_search('', PHP_INT_MAX >> 1, 0, $status, $kader);
+    return member_search('', PHP_INT_MAX >> 1, 0, $status, $kader, $camp);
 }
 
 /**

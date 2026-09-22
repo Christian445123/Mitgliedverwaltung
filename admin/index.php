@@ -7,6 +7,7 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/member_repository.php';
 require_once __DIR__ . '/../includes/expiry.php';
 require_once __DIR__ . '/../includes/registration.php';
+require_once __DIR__ . '/../includes/camps.php';
 
 require_permission('members.view');
 
@@ -15,16 +16,19 @@ $registrationsPending = user_can('members.registrations') ? member_registrations
 $query = trim((string) ($_GET['q'] ?? ''));
 $status = in_array($_GET['status'] ?? '', ['aktiv', 'inaktiv'], true) ? $_GET['status'] : null;
 $kader = in_array($_GET['kader'] ?? '', ['kader', 'nicht_im_kader'], true) ? $_GET['kader'] : null;
+$campOptions = camps_options();
+$camp = array_key_exists($_GET['camp'] ?? '', $campOptions) ? (string) $_GET['camp'] : null;
 $page = max(1, (int) ($_GET['page'] ?? 1));
 $perPage = 25;
-$total = member_count($query, $status, $kader);
+$total = member_count($query, $status, $kader, $camp);
 $totalPages = max(1, (int) ceil($total / $perPage));
 $page = min($page, $totalPages);
-$members = member_search($query, $perPage, ($page - 1) * $perPage, $status, $kader);
+$members = member_search($query, $perPage, ($page - 1) * $perPage, $status, $kader, $camp);
 $stats = member_stats();
 $expiry = expiry_report();
 $canDelete = user_can('members.delete');
-$canSelect = $canDelete || user_can('members.links');
+$canEdit = user_can('members.edit');
+$canSelect = $canDelete || user_can('members.links') || $canEdit;
 
 $pageTitle = 'Mitgliederübersicht';
 require __DIR__ . '/../includes/admin_header.php';
@@ -32,7 +36,7 @@ require __DIR__ . '/../includes/admin_header.php';
 $info = flash_get('info');
 $error = flash_get('error');
 $listUrl = static fn (array $extra = []) => 'index.php?' . http_build_query(array_filter(
-    array_merge(['q' => $_GET['q'] ?? '', 'status' => $status, 'kader' => $kader], $extra),
+    array_merge(['q' => $_GET['q'] ?? '', 'status' => $status, 'kader' => $kader, 'camp' => $camp], $extra),
     static fn ($v) => $v !== null && $v !== ''
 ));
 ?>
@@ -95,10 +99,17 @@ $listUrl = static fn (array $extra = []) => 'index.php?' . http_build_query(arra
 
 <form method="get" action="index.php" class="filter-bar">
     <input type="text" name="q" placeholder="Suche: Name, E-Mail, Verein, Jersey Nr." value="<?= h($query) ?>">
-    <select name="kader" data-autosubmit aria-label="Kader">
+    <select name="kader" data-autosubmit data-staff-redirect="staff.php" aria-label="Kader">
         <option value="">Alle Spieler</option>
         <option value="kader" <?= $kader === 'kader' ? 'selected' : '' ?>>Im Kader</option>
         <option value="nicht_im_kader" <?= $kader === 'nicht_im_kader' ? 'selected' : '' ?>>Spieler nicht im Kader</option>
+        <?php if (user_can('staff.view')): ?><option value="staff">Staff …</option><?php endif; ?>
+    </select>
+    <select name="camp" data-autosubmit aria-label="Camp">
+        <option value="">Alle Camps</option>
+        <?php foreach ($campOptions as $value => $label): ?>
+            <option value="<?= h($value) ?>" <?= $camp === $value ? 'selected' : '' ?>><?= h($label) ?></option>
+        <?php endforeach; ?>
     </select>
     <?php if ($status): ?><input type="hidden" name="status" value="<?= h($status) ?>"><?php endif; ?>
     <button type="submit" class="btn">Suchen</button>
@@ -122,6 +133,20 @@ $listUrl = static fn (array $extra = []) => 'index.php?' . http_build_query(arra
             <a href="delete-all.php" class="btn btn-danger-outline">Alle Daten löschen …</a>
         <?php endif; ?>
     </div>
+    <?php if ($canEdit): ?>
+    <div class="filter-bar bulk-bar">
+        <select name="camp" aria-label="Camp für Massenzuweisung">
+            <?php foreach ($campOptions as $value => $label): ?>
+                <option value="<?= h($value) ?>"><?= h($label) ?></option>
+            <?php endforeach; ?>
+        </select>
+        <select name="camp_action" aria-label="Zuweisen oder entfernen">
+            <option value="add">zuweisen</option>
+            <option value="remove">entfernen</option>
+        </select>
+        <button type="submit" class="btn" formaction="members-camp-assign.php" data-no-form-confirm data-needs-selection disabled>Bei Ausgewählten anwenden</button>
+    </div>
+    <?php endif; ?>
 
 <div class="table-scroll">
 <table class="table table-cards table-list">
