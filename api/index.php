@@ -32,6 +32,11 @@ declare(strict_types=1);
  *   GET    /api/members/{id}/documents/{typ}        Dokument laden (typ: ecard, pass, nada, rechte)
  *   POST   /api/members/{id}/documents/{typ}        Dokument hochladen (multipart, Feld "file"; Schreib-Token)
  *   DELETE /api/members/{id}/documents/{typ}        Dokument entfernen (Schreib-Token)
+ *   GET    /api/registrations                       Neue, noch nicht zugewiesene Anmeldungen (Recht members.registrations)
+ *   POST   /api/registrations/{id}/approve           {"kader":"kader"|"nicht_im_kader"} übernehmen (Schreib-Token)
+ *   POST   /api/registrations/{id}/reject            Anmeldung ablehnen und löschen (Schreib-Token)
+ *   GET/POST/PUT/PATCH/DELETE /api/registration-links[/{id}]  Registrierungslinks verwalten (Schreib-Token für Änderungen)
+ *   GET/PUT /api/registration-settings               Benachrichtigungs-Adresse (notify_email) lesen/setzen
  */
 
 // Quelle für das Protokoll (muss vor config.php definiert sein)
@@ -845,6 +850,98 @@ if (preg_match('#^staff(?:/(\d+))?$#', $path, $sm) === 1) {
     } catch (Throwable $e) {
         api_error(500, APP_DEBUG ? $e->getMessage() : 'Interner Serverfehler.');
     }
+}
+
+// ── Neue Mitglieder: ausstehende Anmeldungen, Registrierungslinks, Benachrichtigungs-Adresse ──
+if ($path === 'registrations' && $method === 'GET') {
+    require_once __DIR__ . '/../includes/registration.php';
+    api_json(200, ['data' => array_map('api_member', member_registrations_pending())]);
+}
+
+// Anmeldung übernehmen (Kader / nicht im Kader) oder ablehnen (löschen)
+if (preg_match('#^registrations/(\d+)/(approve|reject)$#', $path, $rgm) === 1 && $method === 'POST') {
+    $requireWrite();
+    require_once __DIR__ . '/../includes/registration.php';
+    $rgId = (int) $rgm[1];
+    if ($rgm[2] === 'approve') {
+        $rgBody = json_decode((string) api_body(), true);
+        $rgKader = is_array($rgBody) && ($rgBody['kader'] ?? '') === 'nicht_im_kader' ? 'nicht_im_kader' : 'kader';
+        if (!member_registration_approve($rgId, $rgKader)) {
+            api_error(404, 'Anmeldung nicht gefunden oder bereits bearbeitet.');
+        }
+        api_json(200, api_member(member_find_by_id($rgId)));
+    }
+    if (!member_registration_reject($rgId)) {
+        api_error(404, 'Anmeldung nicht gefunden oder bereits bearbeitet.');
+    }
+    api_json(200, ['deleted' => $rgId]);
+}
+
+// Registrierungslinks: GET Liste, POST anlegen, PUT/PATCH aktivieren/deaktivieren, DELETE löschen
+if (preg_match('#^registration-links(?:/(\d+))?$#', $path, $rlm) === 1) {
+    require_once __DIR__ . '/../includes/registration.php';
+    $rlId = isset($rlm[1]) ? (int) $rlm[1] : null;
+    $apiLink = static function (array $row): array {
+        return [
+            'id' => (int) $row['id'],
+            'token' => (string) $row['token'],
+            'url' => registration_build_url((string) $row['token']),
+            'label' => $row['label'],
+            'active' => (int) $row['active'] === 1,
+            'created_by' => $row['created_by'],
+            'created_at' => $row['created_at'],
+            'expires_at' => $row['expires_at'],
+            'use_count' => (int) $row['use_count'],
+            'last_used_at' => $row['last_used_at'],
+        ];
+    };
+
+    if ($method === 'GET' && $rlId === null) {
+        api_json(200, ['data' => array_map($apiLink, registration_links_all())]);
+    }
+    if ($method === 'POST' && $rlId === null) {
+        $requireWrite();
+        $rlBody = json_decode((string) api_body(), true);
+        $rlLabel = is_array($rlBody) ? trim((string) ($rlBody['label'] ?? '')) : '';
+        $rlExpires = is_array($rlBody) && !empty($rlBody['expires_at']) ? (string) $rlBody['expires_at'] . ' 23:59:59' : null;
+        $created = registration_link_create($rlLabel, $apiUser['username'] ?? $auth['name'], $rlExpires);
+        $newLinks = array_values(array_filter(registration_links_all(), static fn (array $r) => (int) $r['id'] === $created['id']));
+        api_json(201, $newLinks !== [] ? $apiLink($newLinks[0]) : ['id' => $created['id'], 'token' => $created['token']]);
+    }
+    if (($method === 'PUT' || $method === 'PATCH') && $rlId !== null) {
+        $requireWrite();
+        $rlBody = json_decode((string) api_body(), true);
+        registration_link_set_active($rlId, !(is_array($rlBody) && ($rlBody['active'] ?? true) === false));
+        $updated = array_values(array_filter(registration_links_all(), static fn (array $r) => (int) $r['id'] === $rlId));
+        $updated === [] ? api_error(404, 'Link nicht gefunden.') : api_json(200, $apiLink($updated[0]));
+    }
+    if ($method === 'DELETE' && $rlId !== null) {
+        $requireWrite();
+        registration_link_delete($rlId);
+        api_json(200, ['deleted' => $rlId]);
+    }
+    header('Allow: GET, POST, PUT, PATCH, DELETE');
+    api_error(405, 'Methode nicht erlaubt.');
+}
+
+// Benachrichtigungs-Adresse: an sie geht eine E-Mail bei neuen bzw. doppelten Anmeldungen
+if ($path === 'registration-settings') {
+    require_once __DIR__ . '/../includes/registration.php';
+    if ($method === 'GET') {
+        api_json(200, ['notify_email' => registration_notify_email()]);
+    }
+    if (in_array($method, ['PUT', 'PATCH', 'POST'], true)) {
+        $requireWrite();
+        $rsBody = json_decode((string) api_body(), true);
+        $rsEmail = is_array($rsBody) ? trim((string) ($rsBody['notify_email'] ?? '')) : '';
+        if ($rsEmail !== '' && !is_valid_email($rsEmail)) {
+            api_error(422, 'Bitte eine gültige E-Mail-Adresse angeben (oder leer lassen, um keine Benachrichtigungen zu erhalten).');
+        }
+        registration_notify_email_set($rsEmail);
+        api_json(200, ['notify_email' => registration_notify_email()]);
+    }
+    header('Allow: GET, PUT, PATCH, POST');
+    api_error(405, 'Methode nicht erlaubt.');
 }
 
 if (!preg_match('#^members(?:/(\d+))?$#', $path, $m)) {
