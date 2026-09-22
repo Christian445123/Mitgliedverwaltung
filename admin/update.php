@@ -8,13 +8,22 @@ require_once __DIR__ . '/../includes/updater.php';
 
 require_permission('system.update');
 
-$result = null;
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
     $result = perform_update(dirname(__DIR__));
     app_log('system.update', $result['success'] ? 'Server-Update erfolgreich' : 'Server-Update fehlgeschlagen', ['success' => $result['success']], $result['success'] ? 'info' : 'error');
+    // Als eigene Anfrage neu laden (Post/Redirect/Get), statt admin_header.php direkt im selben
+    // PHP-Prozess wie das gerade ausgeführte "git pull" zu laden: Dateien, die schon vor dem Pull in
+    // diesem Prozess eingebunden wurden (z. B. über db.php), bleiben sonst mit ihrem alten Stand im
+    // Speicher, auch wenn sie auf der Festplatte gerade aktualisiert wurden - das kann bei neuen
+    // Funktionen in solchen Dateien zu einem einmaligen Fehler direkt nach einem erfolgreichen Update
+    // führen. Mit einer frischen Anfrage werden alle Dateien garantiert vom aktualisierten Stand geladen.
+    $_SESSION['update_result'] = $result;
+    redirect('update.php');
 }
+
+$result = $_SESSION['update_result'] ?? null;
+unset($_SESSION['update_result']);
 
 $pageTitle = 'Anwendung aktualisieren';
 require __DIR__ . '/../includes/admin_header.php';
