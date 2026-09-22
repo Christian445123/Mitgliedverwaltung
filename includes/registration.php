@@ -29,11 +29,13 @@ function registration_ensure_tables(?PDO $pdo = null): void
     if ($done) {
         return;
     }
-    ($pdo ?? db())->exec(
+    $pdo ??= db();
+    $pdo->exec(
         'CREATE TABLE IF NOT EXISTS registration_links (
             id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
             token VARCHAR(64) NOT NULL,
             label VARCHAR(150) DEFAULT NULL,
+            link_type ENUM(\'player\', \'staff\') NOT NULL DEFAULT \'player\',
             active TINYINT(1) NOT NULL DEFAULT 1,
             created_by VARCHAR(100) DEFAULT NULL,
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -43,6 +45,10 @@ function registration_ensure_tables(?PDO $pdo = null): void
             UNIQUE KEY uniq_registration_token (token)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
     );
+    // Nachrüsten: Unterscheidung Spieler-/Staff-Einladungslink (bestehende Installationen)
+    if ($pdo->query("SHOW COLUMNS FROM registration_links LIKE 'link_type'")->fetchColumn() === false) {
+        $pdo->exec("ALTER TABLE registration_links ADD COLUMN link_type ENUM('player', 'staff') NOT NULL DEFAULT 'player' AFTER label");
+    }
     $done = true;
 }
 
@@ -54,14 +60,15 @@ function registration_links_all(): array
 }
 
 /** @return array{id: int, token: string} */
-function registration_link_create(string $label, ?string $createdBy, ?string $expiresAt = null): array
+function registration_link_create(string $label, ?string $createdBy, ?string $expiresAt = null, string $linkType = 'player'): array
 {
     registration_ensure_tables();
+    $linkType = $linkType === 'staff' ? 'staff' : 'player';
     $token = random_token(32);
-    $stmt = db()->prepare('INSERT INTO registration_links (token, label, created_by, expires_at) VALUES (?, ?, ?, ?)');
-    $stmt->execute([$token, $label !== '' ? $label : null, $createdBy, $expiresAt !== '' ? $expiresAt : null]);
+    $stmt = db()->prepare('INSERT INTO registration_links (token, label, link_type, created_by, expires_at) VALUES (?, ?, ?, ?, ?)');
+    $stmt->execute([$token, $label !== '' ? $label : null, $linkType, $createdBy, $expiresAt !== '' ? $expiresAt : null]);
     $id = (int) db()->lastInsertId();
-    app_log('registration.link_create', 'Registrierungslink erzeugt' . ($label !== '' ? " ({$label})" : ''), ['target_type' => 'registration_link', 'target_id' => $id]);
+    app_log('registration.link_create', 'Registrierungslink erzeugt (' . ($linkType === 'staff' ? 'Staff' : 'Spieler') . ')' . ($label !== '' ? " ({$label})" : ''), ['target_type' => 'registration_link', 'target_id' => $id]);
     return ['id' => $id, 'token' => $token];
 }
 
@@ -228,6 +235,91 @@ function member_registration_approve_as_staff(int $id): array
     member_delete($id);
 
     return ['ok' => true, 'message' => 'Als Staff übernommen.', 'staff_id' => $staffId];
+}
+
+// ── Ausstehende Staff-Anmeldungen (eigener Staff-Einladungslink) ─────
+
+/** @return array<int, array<string, mixed>> */
+function staff_registration_pending(): array
+{
+    require_once __DIR__ . '/staff.php';
+    staff_ensure_table(db());
+    return db()->query("SELECT * FROM staff WHERE status = 'neu' ORDER BY created_at DESC")->fetchAll();
+}
+
+function staff_registration_count(): int
+{
+    require_once __DIR__ . '/staff.php';
+    staff_ensure_table(db());
+    return (int) db()->query("SELECT COUNT(*) FROM staff WHERE status = 'neu'")->fetchColumn();
+}
+
+/** Übernimmt eine Staff-Anmeldung: setzt den Status auf aktiv. */
+function staff_registration_approve(int $id): bool
+{
+    $stmt = db()->prepare("UPDATE staff SET status = 'aktiv' WHERE id = ? AND status = 'neu'");
+    $stmt->execute([$id]);
+    $ok = $stmt->rowCount() > 0;
+    if ($ok) {
+        app_log('staff.registration_approve', 'Neue Staff-Anmeldung übernommen', ['target_type' => 'staff', 'target_id' => $id]);
+    }
+    return $ok;
+}
+
+/** Lehnt eine Staff-Anmeldung ab (löscht den Datensatz samt Dokumenten). */
+function staff_registration_reject(int $id): bool
+{
+    require_once __DIR__ . '/staff.php';
+    $stmt = db()->prepare("SELECT id FROM staff WHERE id = ? AND status = 'neu'");
+    $stmt->execute([$id]);
+    if ($stmt->fetchColumn() === false) {
+        return false;
+    }
+    app_log('staff.registration_reject', 'Neue Staff-Anmeldung abgelehnt und gelöscht', ['target_type' => 'staff', 'target_id' => $id], 'warning');
+    staff_delete_many([$id]);
+    return true;
+}
+
+/**
+ * Ein Registrierungsversuch über den Staff-Einladungslink trifft auf eine bereits bestehende Person im
+ * Staff: die bestehende Person bekommt per E-Mail einen neuen Zugangslink zum Prüfen/Aktualisieren ihrer
+ * Daten, und der Systemadministrator wird informiert.
+ *
+ * @param array<string, mixed> $existing
+ */
+function registration_handle_duplicate_staff(array $existing): void
+{
+    require_once __DIR__ . '/staff.php';
+    require_once __DIR__ . '/verification.php';
+    $existingId = (int) $existing['id'];
+    $name = member_full_name($existing);
+
+    $mailResult = verif_send_link('staff', $existingId);
+
+    app_log('staff.registration_duplicate', 'Registrierungsversuch (Staff) mit bereits vorhandener E-Mail-Adresse (' . $name . ')', [
+        'target_type' => 'staff',
+        'target_id' => $existingId,
+        'mail_status' => $mailResult['status'],
+    ], 'warning');
+
+    $html = '<p>Es gab einen Registrierungsversuch über den öffentlichen Staff-Einladungslink mit einer E-Mail-Adresse, die bereits einer Person im Staff zugeordnet ist:</p>'
+        . '<p><strong>' . h($name) . '</strong> (' . h((string) $existing['email']) . ')</p>'
+        . '<p>' . ($mailResult['status'] === 'sent'
+            ? 'Die Person wurde automatisch per E-Mail gebeten, ihre Daten zu prüfen und zu aktualisieren.'
+            : 'Es konnte keine E-Mail gesendet werden (' . h($mailResult['message']) . ').') . '</p>'
+        . '<p>Bei Bedarf im Webpanel prüfen: <a href="' . h(APP_BASE_URL . '/admin/staff-form.php?id=' . $existingId) . '">Person ansehen</a></p>';
+
+    registration_notify_admin('Registrierungsversuch (Staff) mit bereits vorhandener E-Mail – AFBÖ U19', $html);
+}
+
+/** Benachrichtigt den Systemadministrator über eine neue, noch zu prüfende Staff-Anmeldung. @param array<string, mixed> $staff */
+function registration_notify_new_staff(array $staff): void
+{
+    $html = '<p>Es ist eine neue Anmeldung über den öffentlichen Staff-Einladungslink eingegangen:</p>'
+        . '<p><strong>' . h(member_full_name($staff)) . '</strong> (' . h((string) ($staff['email'] ?? '')) . ')</p>'
+        . '<p>Bitte im Webpanel prüfen und freigeben: '
+        . '<a href="' . h(APP_BASE_URL . '/admin/registrations.php') . '">Neue Mitglieder</a></p>';
+    registration_notify_admin('Neue Staff-Anmeldung wartet auf Freigabe – AFBÖ U19', $html);
 }
 
 // ── Benachrichtigungs-E-Mail (Systemadministrator) ───────────────────

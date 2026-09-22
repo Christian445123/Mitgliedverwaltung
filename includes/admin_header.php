@@ -9,7 +9,9 @@ require_once __DIR__ . '/member_repository.php';
 require_once __DIR__ . '/registration.php';
 $expiryTotal = (int) (expiry_report()['counts']['total'] ?? 0); // abgelaufene bzw. bald ablaufende NADA-Zertifikate/Pässe
 $missingTotal = user_can('members.view') ? (int) (documents_missing_report()['total'] ?? 0) : 0; // Spieler mit fehlenden Dokumenten
-$registrationsTotal = user_can('members.registrations') ? member_registrations_count() : 0; // neue, noch nicht zugewiesene Anmeldungen
+$registrationsTotal = user_can('members.registrations')
+    ? member_registrations_count() + staff_registration_count()
+    : 0; // neue, noch nicht zugewiesene Anmeldungen (Spieler + Staff)
 ?>
 <!doctype html>
 <html lang="de">

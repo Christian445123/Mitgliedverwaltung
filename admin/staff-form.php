@@ -75,6 +75,7 @@ $v = static fn (string $key): string => h((string) ($values[$key] ?? ''));
         'Sozialversicherung' => ['groups' => ['Sozialversicherung'], 'docs' => ['ecard'], 'status' => false],
         'Reisepass' => ['groups' => ['Reisepass'], 'docs' => ['pass'], 'status' => false],
         'Dokumente' => ['groups' => [], 'docs' => ['rechte'], 'status' => false],
+        'Kontodaten' => ['groups' => ['Kontodaten'], 'docs' => [], 'status' => false],
         'Ausrüstung & Essen' => ['groups' => ['Essen', 'Ausrüstungsgrößen'], 'docs' => [], 'status' => false],
     ];
     $renderDoc = static function (string $docType) use ($values, $isNew, $id, $mayChange): void {
@@ -149,7 +150,14 @@ $v = static fn (string $key): string => h((string) ($values[$key] ?? ''));
                 <select id="status" name="status">
                     <option value="aktiv" <?= ($values['status'] ?? 'aktiv') === 'aktiv' ? 'selected' : '' ?>>Aktiv</option>
                     <option value="inaktiv" <?= ($values['status'] ?? '') === 'inaktiv' ? 'selected' : '' ?>>Inaktiv</option>
+                    <?php if (($values['status'] ?? '') === 'neu'): ?>
+                    <option value="neu" selected>Neu (Anmeldung, noch nicht freigegeben)</option>
+                    <?php endif; ?>
                 </select>
+                <?php if (($values['status'] ?? '') === 'neu'): ?>
+                <p class="muted">Diese Person hat sich über den öffentlichen Staff-Einladungslink selbst angemeldet und wartet auf Freigabe.
+                    Am schnellsten geht das im Bereich <a href="registrations.php">Neue Mitglieder</a>.</p>
+                <?php endif; ?>
             </div>
         </fieldset>
         <?php endif; ?>

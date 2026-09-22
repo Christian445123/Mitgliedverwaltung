@@ -33,6 +33,9 @@ const STAFF_IO_COLUMNS = [
     'plz' => ['PLZ', 'str'],
     'ort' => ['Ort', 'str'],
     'strasse' => ['Straße', 'str'],
+    'kontoinhaber' => ['Kontoinhaber', 'str'],
+    'iban' => ['IBAN', 'str'],
+    'bic' => ['BIC', 'str'],
     'essen' => ['Essen', 'str'],
     'tshirt_polo_groesse' => ['T-Shirt / Polo Größe', 'str'],
     'hoodie_groesse' => ['Hoodie Größe', 'str'],
@@ -50,6 +53,7 @@ const STAFF_FORM_GROUPS = [
     'Sozialversicherung' => ['sozialversicherungsnummer'],
     'Reisepass' => ['reisepass_nr', 'reisepass_ausgestellt_am', 'reisepass_gueltig_bis', 'geburtsland', 'ausstellungsbehoerde'],
     'Adresse' => ['plz', 'ort', 'strasse'],
+    'Kontodaten' => ['kontoinhaber', 'iban', 'bic'],
     'Essen' => ['essen'],
     'Ausrüstungsgrößen' => ['tshirt_polo_groesse', 'hoodie_groesse', 'jacken_groesse', 'short_groesse', 'shorts_anzahl', 'coaching_hosen_lang_groesse'],
 ];
@@ -79,8 +83,18 @@ function staff_ensure_table(PDO $pdo): void
         if ($pdo->query("SHOW COLUMNS FROM staff LIKE 'sozialversicherungsnummer'")->fetchColumn() === false) {
             $pdo->exec('ALTER TABLE staff ADD COLUMN sozialversicherungsnummer VARCHAR(20) DEFAULT NULL');
         }
+        foreach (['kontoinhaber' => 'VARCHAR(150)', 'iban' => 'VARCHAR(42)', 'bic' => 'VARCHAR(15)'] as $col => $def) {
+            if ($pdo->query("SHOW COLUMNS FROM staff LIKE '{$col}'")->fetchColumn() === false) {
+                $pdo->exec("ALTER TABLE staff ADD COLUMN {$col} {$def} DEFAULT NULL");
+            }
+        }
         // Nada ist jetzt Ja/Nein: bisherige Texte auf 1 (Ja) bzw. 0 (Nein) umstellen (läuft nur, solange es andere Werte gibt)
         $pdo->exec("UPDATE staff SET nada = CASE WHEN nada IS NULL OR TRIM(nada) = '' OR LOWER(TRIM(nada)) IN ('nein', 'no', 'n', '0', 'false', '-') THEN '0' ELSE '1' END WHERE nada IS NULL OR nada NOT IN ('0', '1')");
+        // Status "neu" (Selbstanmeldung über den Staff-Einladungslink, wartet auf Freigabe) ergänzen
+        $statusCol = $pdo->query("SHOW COLUMNS FROM staff LIKE 'status'")->fetch();
+        if ($statusCol !== false && !str_contains((string) $statusCol['Type'], "'neu'")) {
+            $pdo->exec("ALTER TABLE staff MODIFY COLUMN status ENUM('aktiv','inaktiv','neu') NOT NULL DEFAULT 'aktiv'");
+        }
         return;
     }
     $pdo->exec(
@@ -104,6 +118,9 @@ function staff_ensure_table(PDO $pdo): void
             plz VARCHAR(10) DEFAULT NULL,
             ort VARCHAR(100) DEFAULT NULL,
             strasse VARCHAR(150) DEFAULT NULL,
+            kontoinhaber VARCHAR(150) DEFAULT NULL,
+            iban VARCHAR(42) DEFAULT NULL,
+            bic VARCHAR(15) DEFAULT NULL,
             essen VARCHAR(255) DEFAULT NULL,
             tshirt_polo_groesse VARCHAR(10) DEFAULT NULL,
             hoodie_groesse VARCHAR(10) DEFAULT NULL,
@@ -115,7 +132,7 @@ function staff_ensure_table(PDO $pdo): void
             pass_foto_pfad VARCHAR(255) DEFAULT NULL,
             ecard_foto_pfad VARCHAR(255) DEFAULT NULL,
             sozialversicherungsnummer VARCHAR(20) DEFAULT NULL,
-            status ENUM('aktiv', 'inaktiv') NOT NULL DEFAULT 'aktiv',
+            status ENUM('aktiv', 'inaktiv', 'neu') NOT NULL DEFAULT 'aktiv',
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             UNIQUE KEY uniq_staff_email (email)
@@ -172,6 +189,10 @@ function staff_where(string $query, ?string $status, ?string $camp = null): arra
     if ($status === 'aktiv' || $status === 'inaktiv') {
         $conditions[] = 'status = :status';
         $params['status'] = $status;
+    } else {
+        // Ohne expliziten Status-Filter nie neue, noch nicht geprüfte Staff-Anmeldungen mitzeigen -
+        // die haben einen eigenen Bereich (admin/registrations.php), bis sie manuell freigegeben werden.
+        $conditions[] = "status <> 'neu'";
     }
 
     require_once __DIR__ . '/camps.php';
@@ -332,8 +353,74 @@ function staff_collect_input(): array
         throw new RuntimeException(implode(' ', $result['errors']));
     }
     $data = $result['data'];
-    $data['status'] = ($_POST['status'] ?? 'aktiv') === 'inaktiv' ? 'inaktiv' : 'aktiv';
+    // "neu" bleibt nur erhalten, wenn es explizit gesendet wurde (Status-Feld zeigt die Option nur bei
+    // bereits so markierten Staff-Anmeldungen an) - neu angelegte Personen starten immer als "aktiv".
+    $statusPost = (string) ($_POST['status'] ?? 'aktiv');
+    $data['status'] = in_array($statusPost, ['aktiv', 'inaktiv', 'neu'], true) ? $statusPost : 'aktiv';
     return $data;
+}
+
+/**
+ * Wie staff_collect_input(), aber für den öffentlichen Staff-Einladungslink (registrieren.php): anders
+ * als im Admin-Formular sind hier zusätzlich Telefon und Mail immer Pflicht (die Datei-Uploads und
+ * weiteren Felder prüft staff_require_fields() gegen die eingestellten Pflichtfelder). Der Status wird
+ * bewusst nicht übernommen, die Anmeldung landet immer als "neu" (siehe registrieren.php).
+ *
+ * @throws RuntimeException wenn Nachname, Vorname, Telefon oder Mail fehlen bzw. die Mail ungültig ist
+ */
+function staff_collect_input_public(): array
+{
+    $data = staff_collect_input();
+    unset($data['status']);
+
+    if (($data['telefon'] ?? '') === '' || ($data['telefon'] ?? null) === null) {
+        throw new RuntimeException('Telefon ist ein Pflichtfeld.');
+    }
+    $email = trim((string) ($data['email'] ?? ''));
+    if ($email === '') {
+        throw new RuntimeException('Mail ist ein Pflichtfeld.');
+    }
+    if (!is_valid_email($email)) {
+        throw new RuntimeException('Bitte eine gültige E-Mail-Adresse angeben.');
+    }
+
+    return $data;
+}
+
+/**
+ * Prüft die bei der Staff-Neuanmeldung (Einladungslink) als Pflicht eingestellten Felder (siehe
+ * includes/registration_fields.php). Dokument-Felder werden über den tatsächlichen Datei-Upload
+ * geprüft (die Datei selbst wird erst nach dem Anlegen der Person gespeichert, siehe registrieren.php).
+ *
+ * @param array<string, mixed> $data
+ * @param array<int, string> $requiredKeys
+ * @throws RuntimeException wenn Pflichtfelder fehlen
+ */
+function staff_require_fields(array $data, array $requiredKeys): void
+{
+    require_once __DIR__ . '/registration_fields.php';
+    $labels = registration_field_labels('staff');
+    $inputNames = registration_field_input_names('staff');
+
+    $missing = [];
+    foreach ($requiredKeys as $key) {
+        if (str_ends_with($key, '_pfad')) {
+            $inputName = $inputNames[$key] ?? $key;
+            $hasFile = isset($_FILES[$inputName]) && ($_FILES[$inputName]['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE;
+            if (!$hasFile) {
+                $missing[] = $labels[$key] ?? $key;
+            }
+            continue;
+        }
+        $value = $data[$key] ?? null;
+        if ($value === null || $value === '') {
+            $missing[] = $labels[$key] ?? $key;
+        }
+    }
+
+    if ($missing !== []) {
+        throw new RuntimeException('Bitte alle Pflichtfelder ausfüllen. Es fehlt noch: ' . implode(', ', $missing) . '.');
+    }
 }
 
 // ── Dokumente (Rechte & Pflichten, unterschrieben) ────────────────────────

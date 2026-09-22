@@ -178,7 +178,11 @@ function member_record_verify_failure(int $id, int $currentAttempts, int $maxAtt
  * @return array<string, mixed>
  * @throws RuntimeException bei ungültigen Pflichtfeldern oder Upload-Fehlern
  */
-function member_collect_input(array $existing = [], string $audience = 'admin'): array
+/**
+ * @param array<int, string> $requiredKeys zusätzlich zu Nachname/Vorname/Telefon/Mail als Pflicht zu prüfende
+ *        Schlüssel (nur bei der Spieler-Neuanmeldung genutzt, siehe includes/registration_fields.php)
+ */
+function member_collect_input(array $existing = [], string $audience = 'admin', array $requiredKeys = []): array
 {
     // Gesperrte Felder (Feld-Rechte) auf den bisherigen Wert zurücksetzen, auch bei manipulierten Formulardaten
     field_access_overlay_post($existing, $audience);
@@ -223,7 +227,7 @@ function member_collect_input(array $existing = [], string $audience = 'admin'):
 
     $rechteAkzeptiert = post_checkbox('rechte_pflichten_akzeptiert');
 
-    return [
+    $data = [
         'jersey_nr' => post_str('jersey_nr'),
         'camp_1' => post_checkbox('camp_1') ? 1 : 0,
         'spanien' => post_checkbox('spanien') ? 1 : 0,
@@ -284,6 +288,50 @@ function member_collect_input(array $existing = [], string $audience = 'admin'):
         'mesh_shorts_groesse' => post_str('mesh_shorts_groesse'),
         'socken_groesse' => post_str('socken_groesse'),
     ] + member_collect_admin_equipment() + member_collect_doc_flags() + member_collect_camps();
+
+    if ($requiredKeys !== []) {
+        member_require_all_fields($data, $audience, $requiredKeys);
+    }
+
+    return $data;
+}
+
+/**
+ * Prüft die bei der Spieler-Neuanmeldung als Pflicht eingestellten Felder (siehe
+ * includes/registration_fields.php, einstellbar unter "Neue Mitglieder" → Pflichtfelder). Felder, die
+ * per Feld-Rechte für die Zielgruppe ausgeblendet oder nur ansehbar sind, werden übersprungen (die
+ * stehen im Formular gar nicht zum Ausfüllen zur Verfügung). Erziehungsberechtigte werden hier nicht
+ * geprüft, das übernimmt registrieren.php (nur bei Minderjährigen Pflicht).
+ *
+ * @param array<string, mixed> $data
+ * @param array<int, string> $requiredKeys
+ * @throws RuntimeException wenn Pflichtfelder fehlen
+ */
+function member_require_all_fields(array $data, string $audience, array $requiredKeys): void
+{
+    require_once __DIR__ . '/field_access.php';
+    require_once __DIR__ . '/registration_fields.php';
+    $locked = array_flip(field_access_locked_inputs($audience));
+    $labels = registration_field_labels('player');
+    $inputNames = registration_field_input_names('player');
+
+    $missing = [];
+    foreach ($requiredKeys as $key) {
+        $inputName = $inputNames[$key] ?? $key;
+        if (isset($locked[$inputName])) {
+            continue;
+        }
+        $value = $data[$key] ?? null;
+        $isFile = str_ends_with($key, '_pfad');
+        $empty = $isFile ? empty($value) : ($value === null || $value === '');
+        if ($empty) {
+            $missing[] = $labels[$key] ?? $key;
+        }
+    }
+
+    if ($missing !== []) {
+        throw new RuntimeException('Bitte alle Pflichtfelder ausfüllen. Es fehlt noch: ' . implode(', ', $missing) . '.');
+    }
 }
 
 /**

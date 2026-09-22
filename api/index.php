@@ -32,10 +32,14 @@ declare(strict_types=1);
  *   GET    /api/members/{id}/documents/{typ}        Dokument laden (typ: ecard, pass, nada, rechte)
  *   POST   /api/members/{id}/documents/{typ}        Dokument hochladen (multipart, Feld "file"; Schreib-Token)
  *   DELETE /api/members/{id}/documents/{typ}        Dokument entfernen (Schreib-Token)
- *   GET    /api/registrations                       Neue, noch nicht zugewiesene Anmeldungen (Recht members.registrations)
+ *   GET    /api/registrations                       Neue, noch nicht zugewiesene Spieler-Anmeldungen (Recht members.registrations)
  *   POST   /api/registrations/{id}/approve           {"target":"kader"|"nicht_im_kader"|"staff"} übernehmen (Schreib-Token)
  *   POST   /api/registrations/{id}/reject            Anmeldung ablehnen und löschen (Schreib-Token)
- *   GET/POST/PUT/PATCH/DELETE /api/registration-links[/{id}]  Registrierungslinks verwalten (Schreib-Token für Änderungen)
+ *   GET    /api/registrations/staff                  Neue, noch nicht freigegebene Staff-Anmeldungen (Recht members.registrations)
+ *   POST   /api/registrations/staff/{id}/approve      Staff-Anmeldung freigeben (Schreib-Token)
+ *   POST   /api/registrations/staff/{id}/reject       Staff-Anmeldung ablehnen und löschen (Schreib-Token)
+ *   GET/POST/PUT/PATCH/DELETE /api/registration-links[/{id}]  Registrierungslinks verwalten (Schreib-Token für Änderungen);
+ *          POST-Body optional mit "link_type":"player"|"staff" (Standard player)
  *   GET/PUT /api/registration-settings               Benachrichtigungs-Adresse (notify_email) lesen/setzen
  */
 
@@ -888,6 +892,40 @@ if (preg_match('#^registrations/(\d+)/(approve|reject)$#', $path, $rgm) === 1 &&
     api_json(200, ['deleted' => $rgId]);
 }
 
+// Ausstehende Staff-Anmeldungen (eigener Staff-Einladungslink): GET Liste, approve/reject
+if ($path === 'registrations/staff' && $method === 'GET' || preg_match('#^registrations/staff/(\d+)/(approve|reject)$#', $path, $rsgm) === 1) {
+    require_once __DIR__ . '/../includes/staff.php';
+    require_once __DIR__ . '/../includes/registration.php';
+    $apiRegStaff = static function (array $row): array {
+        $out = ['id' => (int) $row['id']];
+        foreach (STAFF_IO_COLUMNS as $key => [$label, $type]) {
+            $value = $row[$key] ?? null;
+            $out[$key] = $type === 'bool' ? (int) $value === 1 : ($value === '' ? null : $value);
+        }
+        $out['name_vorname'] = trim((string) ($row['nachname'] ?? '') . ' ' . (string) ($row['vorname'] ?? ''));
+        $out['created_at'] = $row['created_at'] ?? null;
+        return $out;
+    };
+
+    if ($path === 'registrations/staff') {
+        api_json(200, ['data' => array_map($apiRegStaff, staff_registration_pending())]);
+    }
+
+    $requireWrite();
+    $rsgId = (int) $rsgm[1];
+    if ($rsgm[2] === 'approve') {
+        if (!staff_registration_approve($rsgId)) {
+            api_error(404, 'Anmeldung nicht gefunden oder bereits bearbeitet.');
+        }
+        $rsgRow = staff_find_by_id($rsgId);
+        api_json(200, $rsgRow !== false ? $apiRegStaff($rsgRow) : ['id' => $rsgId]);
+    }
+    if (!staff_registration_reject($rsgId)) {
+        api_error(404, 'Anmeldung nicht gefunden oder bereits bearbeitet.');
+    }
+    api_json(200, ['deleted' => $rsgId]);
+}
+
 // Registrierungslinks: GET Liste, POST anlegen, PUT/PATCH aktivieren/deaktivieren, DELETE löschen
 if (preg_match('#^registration-links(?:/(\d+))?$#', $path, $rlm) === 1) {
     require_once __DIR__ . '/../includes/registration.php';
@@ -898,6 +936,7 @@ if (preg_match('#^registration-links(?:/(\d+))?$#', $path, $rlm) === 1) {
             'token' => (string) $row['token'],
             'url' => registration_build_url((string) $row['token']),
             'label' => $row['label'],
+            'link_type' => ($row['link_type'] ?? 'player') === 'staff' ? 'staff' : 'player',
             'active' => (int) $row['active'] === 1,
             'created_by' => $row['created_by'],
             'created_at' => $row['created_at'],
@@ -915,7 +954,8 @@ if (preg_match('#^registration-links(?:/(\d+))?$#', $path, $rlm) === 1) {
         $rlBody = json_decode((string) api_body(), true);
         $rlLabel = is_array($rlBody) ? trim((string) ($rlBody['label'] ?? '')) : '';
         $rlExpires = is_array($rlBody) && !empty($rlBody['expires_at']) ? (string) $rlBody['expires_at'] . ' 23:59:59' : null;
-        $created = registration_link_create($rlLabel, $apiUser['username'] ?? $auth['name'], $rlExpires);
+        $rlType = is_array($rlBody) && ($rlBody['link_type'] ?? '') === 'staff' ? 'staff' : 'player';
+        $created = registration_link_create($rlLabel, $apiUser['username'] ?? $auth['name'], $rlExpires, $rlType);
         $newLinks = array_values(array_filter(registration_links_all(), static fn (array $r) => (int) $r['id'] === $created['id']));
         api_json(201, $newLinks !== [] ? $apiLink($newLinks[0]) : ['id' => $created['id'], 'token' => $created['token']]);
     }
