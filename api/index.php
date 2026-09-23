@@ -447,6 +447,32 @@ if (str_starts_with($path, 'manage/')) {
             }
         }
 
+        // API-Zugänge (Token für PC-Anwendungen, siehe admin/api.php)
+        if (preg_match('#^manage/api-tokens(?:/(\d+))?$#', $path, $tm) === 1) {
+            if (!$apiCan('api.manage')) {
+                $denied('api.manage');
+            }
+            require_once __DIR__ . '/../includes/api_tokens.php';
+            $tokenId = isset($tm[1]) ? (int) $tm[1] : 0;
+            if ($method === 'GET' && $tokenId === 0) {
+                api_json(200, ['tokens' => api_token_list()]);
+            }
+            if ($method === 'POST' && $tokenId === 0 && is_array($manageBody)) {
+                $tName = trim((string) ($manageBody['name'] ?? ''));
+                if ($tName === '' || mb_strlen($tName) > 100) {
+                    api_error(422, 'Bitte eine Bezeichnung angeben (max. 100 Zeichen).');
+                }
+                $tNewToken = api_token_create($tName, !empty($manageBody['can_write']), (int) $apiUser['id']);
+                app_log('api_token.create', 'API-Zugang erstellt (Desktop-App)', ['name' => $tName, 'write' => !empty($manageBody['can_write'])]);
+                api_json(201, ['token' => $tNewToken, 'tokens' => api_token_list()]);
+            }
+            if ($method === 'DELETE' && $tokenId > 0) {
+                api_token_delete($tokenId);
+                app_log('api_token.delete', 'API-Zugang widerrufen (Desktop-App)', ['target_type' => 'api_token', 'target_id' => $tokenId], 'warning');
+                api_json(200, ['tokens' => api_token_list()]);
+            }
+        }
+
         // Protokoll
         if ($path === 'manage/logs' && $method === 'GET') {
             if (!$apiCan('logs.view')) {
