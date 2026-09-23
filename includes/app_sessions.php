@@ -159,11 +159,17 @@ function api_required_permission(string $method, string $path): ?string
     if (preg_match('#^members/\d+/link$#', $path) === 1 || $path === 'members/verification/reset' || $path === 'members/send-links') {
         return 'members.links';
     }
+    if ($path === 'members/camp-assign') {
+        return 'members.edit';
+    }
     if ($path === 'registrations' || preg_match('#^registrations/\d+/(approve|reject)$#', $path) === 1
         || preg_match('#^registration-links(/\d+)?$#', $path) === 1 || $path === 'registration-settings') {
         return 'members.registrations';
     }
     if (preg_match('#^staff/\d+/link$#', $path) === 1 || $path === 'staff/verification/reset' || $path === 'staff/send-links') {
+        return 'staff.edit';
+    }
+    if ($path === 'staff/camp-assign') {
         return 'staff.edit';
     }
     if ($path === '' || $path === 'ping' || $path === 'license/validate' || str_starts_with($path, 'auth/')) {

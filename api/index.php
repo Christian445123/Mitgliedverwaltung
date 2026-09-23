@@ -27,6 +27,7 @@ declare(strict_types=1);
  *   GET/POST/DELETE     /api/staff/{id}/documents/rechte  Staff: unterschriebenes Dokument Rechte & Pflichten
  *   GET/POST /api/members|staff/{id}/link          Zugangslink (POST: regenerate_link, regenerate_password, send_email, reset_verification)
  *   POST /api/members|staff/verification/reset    Bestätigung zurücksetzen {ids:[..]};  POST /api/members|staff/send-links  Massenmail {ids:[..≤10]}
+ *   POST /api/members|staff/camp-assign            Camp-Massenzuweisung {ids:[..], camp:"camp_1"|"c12", action:"add"|"remove"} (Schreib-Token + members.edit/staff.edit)
  *   POST/PUT            /api/members/{id}/document-flags     "Fehlt"-Markierung {nada, pass, ecard, rechte: true/false}
  *   GET    /api/roster.pdf|xlsx                     Alphabetischer Roster;  /api/roster-ifaf.pdf|xlsx?competition=&game=&team= IFAF-Roster
  *   GET    /api/members/{id}/documents/{typ}        Dokument laden (typ: ecard, pass, nada, rechte)
@@ -306,10 +307,11 @@ if ($path === 'auth/password' && $method === 'POST') {
     }
 }
 
-// Camps zum Ankreuzen im Mitgliedsformular (lesen)
+// Camps zum Ankreuzen im Mitgliedsformular (lesen); "options" = vollständige Auswahlliste (fest + weitere)
+// für Filter/Massenzuweisung, Wert => Beschriftung (siehe camps_options()).
 if ($path === 'camps' && $method === 'GET') {
     require_once __DIR__ . '/../includes/camps.php';
-    api_json(200, ['camps' => camps_all(), 'fixed' => CAMPS_FIXED_NAMES]);
+    api_json(200, ['camps' => camps_all(), 'fixed' => CAMPS_FIXED_NAMES, 'options' => camps_options()]);
 }
 
 // Persönlicher Zugangslink: GET = ansehen, POST {action: regenerate_link|regenerate_password|send_email|reset_verification}
@@ -366,6 +368,24 @@ if (preg_match('#^(members|staff)/(verification/reset|send-links)$#', $path, $vm
     } catch (RuntimeException $e) {
         api_error(422, $e->getMessage());
     }
+}
+
+// Camp-Massenzuweisung: POST {ids:[..], camp:"camp_1"|"c12", action:"add"|"remove"} -> {changed: n}
+if (preg_match('#^(members|staff)/camp-assign$#', $path, $cam) === 1 && $method === 'POST') {
+    if (!$canWrite) {
+        api_error(403, 'Dieser Zugang hat nur Leserechte.');
+    }
+    require_once __DIR__ . '/../includes/camps.php';
+    $caBody = json_decode((string) api_body(), true);
+    $caIds = is_array($caBody) && is_array($caBody['ids'] ?? null) ? array_values(array_unique(array_filter(array_map('intval', $caBody['ids']), static fn (int $i) => $i > 0))) : [];
+    $caCamp = is_array($caBody) ? (string) ($caBody['camp'] ?? '') : '';
+    $caAdd = !is_array($caBody) || ($caBody['action'] ?? 'add') !== 'remove';
+    if ($caIds === [] || !array_key_exists($caCamp, camps_options())) {
+        api_error(422, '"ids" (nicht leer) und ein gültiges "camp" werden benötigt.');
+    }
+    $changed = camp_bulk_assign($cam[1], $caIds, $caCamp, $caAdd);
+    app_log(($cam[1] === 'staff' ? 'staff' : 'member') . '.camp_bulk', 'Camp-Massenzuweisung (Desktop-App): ' . $changed . ' ' . ($caAdd ? 'zugewiesen' : 'entfernt'), ['entity' => $cam[1], 'camp' => $caCamp, 'add' => $caAdd, 'count' => $changed]);
+    api_json(200, ['changed' => $changed]);
 }
 
 if (str_starts_with($path, 'manage/')) {
