@@ -28,6 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['run'])) {
     $mode = (string) ($_POST['mode'] ?? '');
     $doReset = !empty($_POST['do_reset']);
     $doMail = !empty($_POST['do_mail']);
+    $note = trim((string) ($_POST['note'] ?? ''));
 
     if (!in_array($mode, ['selected', 'pending', 'all'], true)) {
         $error = 'Bitte einen Umfang wählen.';
@@ -42,10 +43,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['run'])) {
                 $resetCount = verif_reset($entity, $ids);
             }
             if ($doMail) {
-                $results = verif_send_many($entity, $ids);
+                $results = verif_send_many($entity, $ids, $note !== '' ? $note : null);
             }
         }
     }
+} else {
+    $note = '';
 }
 
 $allIds = verif_ids($entity, 'all');
@@ -131,6 +134,10 @@ und/oder sendet allen Link und einen neuen Zugangscode per E-Mail (Massenmail). 
         <label style="font-weight:400;display:block;">
             <input type="checkbox" name="do_mail" value="1" <?= (!empty($_POST['run']) ? !empty($_POST['do_mail']) : true) ? 'checked' : '' ?>>
             Link &amp; neuen Zugangscode per E-Mail senden (Massenmail)
+        </label>
+        <label style="font-weight:400;display:block;margin-top:10px;">
+            Anmerkung (optional, wird zusätzlich in die E-Mail eingefügt):<br>
+            <textarea name="note" rows="3" style="width:100%;max-width:480px;margin-top:4px;" placeholder="z. B. Hinweis zum Trainingslager oder zur Frist"><?= h($note) ?></textarea>
         </label>
     </fieldset>
 

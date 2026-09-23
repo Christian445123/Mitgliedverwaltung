@@ -359,7 +359,8 @@ if (preg_match('#^(members|staff)/(verification/reset|send-links)$#', $path, $vm
             if (count($vIds) > 10) {
                 api_error(422, 'Höchstens 10 Empfänger pro Aufruf.');
             }
-            api_json(200, ['results' => verif_send_many($vm[1], $vIds)]);
+            $vNote = is_array($vBody) && is_string($vBody['note'] ?? null) ? trim($vBody['note']) : '';
+            api_json(200, ['results' => verif_send_many($vm[1], $vIds, $vNote !== '' ? $vNote : null)]);
         }
         api_json(200, ['reset' => verif_reset($vm[1], $vIds)]);
     } catch (RuntimeException $e) {

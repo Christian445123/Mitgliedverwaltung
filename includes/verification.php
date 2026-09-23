@@ -140,9 +140,10 @@ function verif_reset(string $entity, ?array $ids): int
 /**
  * Sendet Link und einen neuen Zugangscode per E-Mail (der alte Code wird ungültig).
  *
+ * @param string|null $note Optionale persönliche Anmerkung des Vereins, die zusätzlich in die Mail kommt.
  * @return array{id: int, name: string, status: string, message: string} status: sent | no_email | error
  */
-function verif_send_link(string $entity, int $id): array
+function verif_send_link(string $entity, int $id, ?string $note = null): array
 {
     $entity = verif_entity($entity);
     if ($entity === 'staff') {
@@ -177,6 +178,9 @@ function verif_send_link(string $entity, int $id): array
         . '<p>Zum Öffnen benötigst du zusätzlich deine E-Mail-Adresse und folgenden Zugangscode:</p>'
         . '<p style="font-size:1.2em;font-weight:bold;letter-spacing:1px;">' . h($code) . '</p>'
         . '<p>Beim ersten Öffnen bittet dich der Verein, der <a href="' . h(APP_BASE_URL . '/datenschutz.php') . '">Datenschutzerklärung</a> zuzustimmen (bei Minderjährigen: durch die Erziehungsberechtigten). Bitte prüfe danach deine Angaben und speichere sie. Falls du diesen Link nicht erwartest, wende dich bitte an den Verein.</p>';
+    if ($note !== null && trim($note) !== '') {
+        $html .= '<p style="margin-top:1.2em;padding:0.8em 1em;background:#f3f4f8;border-left:3px solid #f97316;">' . nl2br(h(trim($note))) . '</p>';
+    }
 
     try {
         (new Mailer())->send((string) $person['email'], $name, 'Bitte prüfe deine Daten – AFBÖ U19', $html);
@@ -204,14 +208,15 @@ function verif_regenerate_password(string $entity, int $id): string
  * Massenmail: sendet an mehrere Personen nacheinander (Ausführungszeit unbegrenzt, da SMTP je Mail dauert).
  *
  * @param array<int, int> $ids
+ * @param string|null $note Optionale persönliche Anmerkung des Vereins, die zusätzlich in jede Mail kommt.
  * @return array<int, array{id: int, name: string, status: string, message: string}>
  */
-function verif_send_many(string $entity, array $ids): array
+function verif_send_many(string $entity, array $ids, ?string $note = null): array
 {
     @set_time_limit(0);
     $results = [];
     foreach (array_values(array_unique(array_filter(array_map('intval', $ids), static fn (int $i) => $i > 0))) as $id) {
-        $results[] = verif_send_link($entity, $id);
+        $results[] = verif_send_link($entity, $id, $note);
     }
     $sent = count(array_filter($results, static fn (array $r) => $r['status'] === 'sent'));
     app_log('verification.mass_mail', 'Massenmail zur Datenprüfung (' . (verif_entity($entity) === 'staff' ? 'Staff' : 'Spieler') . '): ' . $sent . ' von ' . count($results) . ' gesendet', ['entity' => verif_entity($entity), 'sent' => $sent, 'total' => count($results)]);
