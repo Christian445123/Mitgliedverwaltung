@@ -65,10 +65,6 @@ $reqMark = static fn (string $key): string => $reqOf($key) !== '' ? ' *' : '';
 <fieldset>
     <legend>Sozialversicherung &amp; E-Card</legend>
     <div class="form-group">
-        <label for="sozialversicherungsnummer">Sozial Ver. Nr.<?= $reqMark('sozialversicherungsnummer') ?></label>
-        <input type="text" id="sozialversicherungsnummer" name="sozialversicherungsnummer" value="<?= $v('sozialversicherungsnummer') ?>" maxlength="20"<?= $reqOf('sozialversicherungsnummer') ?>>
-    </div>
-    <div class="form-group">
         <label for="ecard_dokument">E-Card (Foto)<?= $reqMark('ecard_foto_pfad') ?></label>
         <input type="file" id="ecard_dokument" name="ecard_dokument" accept=".jpg,.jpeg,.png,.pdf"<?= $reqOf('ecard_foto_pfad') ?>>
     </div>
@@ -105,6 +101,24 @@ $reqMark = static fn (string $key): string => $reqOf($key) !== '' ? ' *' : '';
 </fieldset>
 
 <fieldset>
+    <legend>Sonstige Angaben</legend>
+    <div class="form-row">
+        <div class="form-group">
+            <label for="geburtsort">Geburtsort<?= $reqMark('geburtsort') ?></label>
+            <input type="text" id="geburtsort" name="geburtsort" value="<?= $v('geburtsort') ?>" maxlength="100"<?= $reqOf('geburtsort') ?>>
+        </div>
+        <div class="form-group">
+            <label for="sozialversicherungsnummer">SVNR<?= $reqMark('sozialversicherungsnummer') ?></label>
+            <input type="text" id="sozialversicherungsnummer" name="sozialversicherungsnummer" value="<?= $v('sozialversicherungsnummer') ?>" maxlength="20"<?= $reqOf('sozialversicherungsnummer') ?>>
+        </div>
+        <div class="form-group">
+            <label for="iban">Bankverbindung (IBAN)<?= $reqMark('iban') ?></label>
+            <input type="text" id="iban" name="iban" value="<?= $v('iban') ?>" maxlength="42"<?= $reqOf('iban') ?>>
+        </div>
+    </div>
+</fieldset>
+
+<fieldset>
     <legend>Adresse</legend>
     <div class="form-row">
         <div class="form-group form-group-small">
@@ -118,24 +132,6 @@ $reqMark = static fn (string $key): string => $reqOf($key) !== '' ? ' *' : '';
         <div class="form-group">
             <label for="strasse">Straße<?= $reqMark('strasse') ?></label>
             <input type="text" id="strasse" name="strasse" value="<?= $v('strasse') ?>" maxlength="150"<?= $reqOf('strasse') ?>>
-        </div>
-    </div>
-</fieldset>
-
-<fieldset>
-    <legend>Kontodaten</legend>
-    <div class="form-group">
-        <label for="kontoinhaber">Kontoinhaber<?= $reqMark('kontoinhaber') ?></label>
-        <input type="text" id="kontoinhaber" name="kontoinhaber" value="<?= $v('kontoinhaber') ?>" maxlength="150"<?= $reqOf('kontoinhaber') ?>>
-    </div>
-    <div class="form-row">
-        <div class="form-group">
-            <label for="iban">IBAN<?= $reqMark('iban') ?></label>
-            <input type="text" id="iban" name="iban" value="<?= $v('iban') ?>" maxlength="42"<?= $reqOf('iban') ?>>
-        </div>
-        <div class="form-group">
-            <label for="bic">BIC<?= $reqMark('bic') ?></label>
-            <input type="text" id="bic" name="bic" value="<?= $v('bic') ?>" maxlength="15"<?= $reqOf('bic') ?>>
         </div>
     </div>
 </fieldset>
@@ -172,6 +168,10 @@ $reqMark = static fn (string $key): string => $reqOf($key) !== '' ? ' *' : '';
         <div class="form-group">
             <label for="coaching_hosen_lang_groesse">Coaching Hosen (lang) Größe<?= $reqMark('coaching_hosen_lang_groesse') ?></label>
             <input type="text" id="coaching_hosen_lang_groesse" name="coaching_hosen_lang_groesse" value="<?= $v('coaching_hosen_lang_groesse') ?>" maxlength="10"<?= $reqOf('coaching_hosen_lang_groesse') ?>>
+        </div>
+        <div class="form-group">
+            <label for="coaching_hosen_lang_anzahl">Coaching Hosen (lang) besitzt du?<?= $reqMark('coaching_hosen_lang_anzahl') ?></label>
+            <input type="text" id="coaching_hosen_lang_anzahl" name="coaching_hosen_lang_anzahl" value="<?= $v('coaching_hosen_lang_anzahl') ?>" maxlength="20"<?= $reqOf('coaching_hosen_lang_anzahl') ?>>
         </div>
     </div>
 </fieldset>

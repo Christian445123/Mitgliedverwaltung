@@ -72,7 +72,7 @@ const MEMBER_IO_MAXLEN = [
     'tshirt_polo_groesse' => 10, 'hoodie_groesse' => 10, 'mesh_shorts_groesse' => 10, 'socken_groesse' => 10,
     'zimmer_nr' => 20, 'pract_jersey_nr' => 10, 'pract_hose_groesse' => 10,
     'nada' => 100, 'telefon_angehoeriger' => 50, 'jacken_groesse' => 10, 'short_groesse' => 10,
-    'shorts_anzahl' => 20, 'coaching_hosen_lang_groesse' => 10,
+    'shorts_anzahl' => 20, 'coaching_hosen_lang_groesse' => 10, 'coaching_hosen_lang_anzahl' => 20,
     'kontoinhaber' => 150, 'iban' => 42, 'bic' => 15,
 ];
 

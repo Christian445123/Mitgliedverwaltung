@@ -24,7 +24,6 @@ const STAFF_IO_COLUMNS = [
     'telefon' => ['Telefon', 'str'],
     'email' => ['Mail', 'str'],
     'telefon_angehoeriger' => ['Telefonnummer Angehörige', 'str'],
-    'sozialversicherungsnummer' => ['Sozial Ver. Nr.', 'str'],
     'reisepass_nr' => ['Reisepass Nr', 'str'],
     'reisepass_ausgestellt_am' => ['Reisepass ausgestellt am', 'date'],
     'reisepass_gueltig_bis' => ['Reisepass gültig bis', 'date'],
@@ -33,9 +32,6 @@ const STAFF_IO_COLUMNS = [
     'plz' => ['PLZ', 'str'],
     'ort' => ['Ort', 'str'],
     'strasse' => ['Straße', 'str'],
-    'kontoinhaber' => ['Kontoinhaber', 'str'],
-    'iban' => ['IBAN', 'str'],
-    'bic' => ['BIC', 'str'],
     'essen' => ['Essen', 'str'],
     'tshirt_polo_groesse' => ['T-Shirt / Polo Größe', 'str'],
     'hoodie_groesse' => ['Hoodie Größe', 'str'],
@@ -43,6 +39,10 @@ const STAFF_IO_COLUMNS = [
     'short_groesse' => ['Short Größe', 'str'],
     'shorts_anzahl' => ['Wie viele Shorts besitzt du?', 'str'],
     'coaching_hosen_lang_groesse' => ['Coaching Hosen (lang) Größe', 'str'],
+    'coaching_hosen_lang_anzahl' => ['Coaching Hosen (lang) besitzt du?', 'str'],
+    'geburtsort' => ['Geburtsort', 'str'],
+    'sozialversicherungsnummer' => ['SVNR', 'str'],
+    'iban' => ['Bankverbindung (IBAN)', 'str'],
     'status' => ['Status', 'status'],
 ];
 
@@ -50,12 +50,11 @@ const STAFF_IO_COLUMNS = [
 const STAFF_FORM_GROUPS = [
     'Person' => ['nachname', 'vorname', 'position', 'nada', 'geburtsdatum'],
     'Kontakt' => ['telefon', 'email', 'telefon_angehoeriger'],
-    'Sozialversicherung' => ['sozialversicherungsnummer'],
     'Reisepass' => ['reisepass_nr', 'reisepass_ausgestellt_am', 'reisepass_gueltig_bis', 'geburtsland', 'ausstellungsbehoerde'],
     'Adresse' => ['plz', 'ort', 'strasse'],
-    'Kontodaten' => ['kontoinhaber', 'iban', 'bic'],
     'Essen' => ['essen'],
-    'Ausrüstungsgrößen' => ['tshirt_polo_groesse', 'hoodie_groesse', 'jacken_groesse', 'short_groesse', 'shorts_anzahl', 'coaching_hosen_lang_groesse'],
+    'Ausrüstungsgrößen' => ['tshirt_polo_groesse', 'hoodie_groesse', 'jacken_groesse', 'short_groesse', 'shorts_anzahl', 'coaching_hosen_lang_groesse', 'coaching_hosen_lang_anzahl'],
+    'Sonstige Angaben' => ['geburtsort', 'sozialversicherungsnummer', 'iban'],
 ];
 
 /** Feldschlüssel der Tabelle (ohne id/Zeitstempel). */
@@ -83,10 +82,18 @@ function staff_ensure_table(PDO $pdo): void
         if ($pdo->query("SHOW COLUMNS FROM staff LIKE 'sozialversicherungsnummer'")->fetchColumn() === false) {
             $pdo->exec('ALTER TABLE staff ADD COLUMN sozialversicherungsnummer VARCHAR(20) DEFAULT NULL');
         }
+        // kontoinhaber/bic werden nicht mehr im Formular abgefragt (ersetzt durch "Bankverbindung (IBAN)" = iban),
+        // die Spalten bleiben aber bestehen, falls schon Daten drinstehen.
         foreach (['kontoinhaber' => 'VARCHAR(150)', 'iban' => 'VARCHAR(42)', 'bic' => 'VARCHAR(15)'] as $col => $def) {
             if ($pdo->query("SHOW COLUMNS FROM staff LIKE '{$col}'")->fetchColumn() === false) {
                 $pdo->exec("ALTER TABLE staff ADD COLUMN {$col} {$def} DEFAULT NULL");
             }
+        }
+        if ($pdo->query("SHOW COLUMNS FROM staff LIKE 'geburtsort'")->fetchColumn() === false) {
+            $pdo->exec('ALTER TABLE staff ADD COLUMN geburtsort VARCHAR(100) DEFAULT NULL AFTER geburtsland');
+        }
+        if ($pdo->query("SHOW COLUMNS FROM staff LIKE 'coaching_hosen_lang_anzahl'")->fetchColumn() === false) {
+            $pdo->exec('ALTER TABLE staff ADD COLUMN coaching_hosen_lang_anzahl VARCHAR(20) DEFAULT NULL AFTER coaching_hosen_lang_groesse');
         }
         // Nada ist jetzt Ja/Nein: bisherige Texte auf 1 (Ja) bzw. 0 (Nein) umstellen (läuft nur, solange es andere Werte gibt)
         $pdo->exec("UPDATE staff SET nada = CASE WHEN nada IS NULL OR TRIM(nada) = '' OR LOWER(TRIM(nada)) IN ('nein', 'no', 'n', '0', 'false', '-') THEN '0' ELSE '1' END WHERE nada IS NULL OR nada NOT IN ('0', '1')");
@@ -114,6 +121,7 @@ function staff_ensure_table(PDO $pdo): void
             reisepass_ausgestellt_am DATE DEFAULT NULL,
             reisepass_gueltig_bis DATE DEFAULT NULL,
             geburtsland VARCHAR(100) DEFAULT NULL,
+            geburtsort VARCHAR(100) DEFAULT NULL,
             ausstellungsbehoerde VARCHAR(150) DEFAULT NULL,
             plz VARCHAR(10) DEFAULT NULL,
             ort VARCHAR(100) DEFAULT NULL,
@@ -128,6 +136,7 @@ function staff_ensure_table(PDO $pdo): void
             short_groesse VARCHAR(10) DEFAULT NULL,
             shorts_anzahl VARCHAR(20) DEFAULT NULL,
             coaching_hosen_lang_groesse VARCHAR(10) DEFAULT NULL,
+            coaching_hosen_lang_anzahl VARCHAR(20) DEFAULT NULL,
             rechte_dokument_pfad VARCHAR(255) DEFAULT NULL,
             pass_foto_pfad VARCHAR(255) DEFAULT NULL,
             ecard_foto_pfad VARCHAR(255) DEFAULT NULL,

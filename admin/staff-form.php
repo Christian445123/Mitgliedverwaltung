@@ -72,11 +72,10 @@ $v = static fn (string $key): string => h((string) ($values[$key] ?? ''));
     $staffTabs = [
         'Stammdaten' => ['groups' => ['Person'], 'docs' => [], 'status' => true],
         'Kontakt & Adresse' => ['groups' => ['Kontakt', 'Adresse'], 'docs' => [], 'status' => false],
-        'Sozialversicherung' => ['groups' => ['Sozialversicherung'], 'docs' => ['ecard'], 'status' => false],
         'Reisepass' => ['groups' => ['Reisepass'], 'docs' => ['pass'], 'status' => false],
-        'Dokumente' => ['groups' => [], 'docs' => ['rechte'], 'status' => false],
-        'Kontodaten' => ['groups' => ['Kontodaten'], 'docs' => [], 'status' => false],
+        'Dokumente' => ['groups' => [], 'docs' => ['rechte', 'ecard'], 'status' => false],
         'Ausrüstung & Essen' => ['groups' => ['Essen', 'Ausrüstungsgrößen'], 'docs' => [], 'status' => false],
+        'Sonstige Angaben' => ['groups' => ['Sonstige Angaben'], 'docs' => [], 'status' => false],
     ];
     $renderDoc = static function (string $docType) use ($values, $isNew, $id, $mayChange): void {
         $docDef = STAFF_DOCUMENT_TYPES[$docType];

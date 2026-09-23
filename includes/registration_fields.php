@@ -61,7 +61,6 @@ function registration_staff_field_registry(): array
         'telefon_angehoeriger' => ['Telefonnummer Angehörige', 'telefon_angehoeriger'],
         'position' => ['Position', 'position'],
         'geburtsdatum' => ['Geburtsdatum', 'geburtsdatum'],
-        'sozialversicherungsnummer' => ['Sozial Ver. Nr.', 'sozialversicherungsnummer'],
         'ecard_foto_pfad' => ['E-Card (Dokument)', 'ecard_dokument'],
         'pass_foto_pfad' => ['Reisepass (Foto, Dokument)', 'pass_dokument'],
         'reisepass_nr' => ['Reisepass Nr', 'reisepass_nr'],
@@ -72,9 +71,6 @@ function registration_staff_field_registry(): array
         'plz' => ['PLZ', 'plz'],
         'ort' => ['Ort', 'ort'],
         'strasse' => ['Straße', 'strasse'],
-        'kontoinhaber' => ['Kontoinhaber', 'kontoinhaber'],
-        'iban' => ['IBAN', 'iban'],
-        'bic' => ['BIC', 'bic'],
         'essen' => ['Essen', 'essen'],
         'tshirt_polo_groesse' => ['T-Shirt / Polo Größe', 'tshirt_polo_groesse'],
         'hoodie_groesse' => ['Hoodie Größe', 'hoodie_groesse'],
@@ -82,6 +78,10 @@ function registration_staff_field_registry(): array
         'short_groesse' => ['Short Größe', 'short_groesse'],
         'shorts_anzahl' => ['Wie viele Shorts besitzt du?', 'shorts_anzahl'],
         'coaching_hosen_lang_groesse' => ['Coaching Hosen (lang) Größe', 'coaching_hosen_lang_groesse'],
+        'coaching_hosen_lang_anzahl' => ['Coaching Hosen (lang) besitzt du?', 'coaching_hosen_lang_anzahl'],
+        'geburtsort' => ['Geburtsort', 'geburtsort'],
+        'sozialversicherungsnummer' => ['SVNR', 'sozialversicherungsnummer'],
+        'iban' => ['Bankverbindung (IBAN)', 'iban'],
         'rechte_dokument_pfad' => ['Rechte & Pflichten (Dokument)', 'rechte_dokument'],
     ];
 }
