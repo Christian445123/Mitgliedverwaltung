@@ -54,6 +54,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $m = $existing ?: [];
 $showAdminFields = true;
+$groupTabs = true; // Felder in Reitern wie beim Staff-Formular (admin/staff-form.php)
 $isNew = $id === null;
 
 $pageTitle = $isNew ? 'Neues Mitglied' : 'Mitglied bearbeiten';
@@ -72,9 +73,7 @@ $info = flash_get('info');
 <form method="post" action="member-form.php<?= $id !== null ? '?id=' . (int) $id : '' ?>" class="member-form" enctype="multipart/form-data" novalidate>
     <?= csrf_field() ?>
 
-    <fieldset class="form-locked" style="border:0;padding:0;margin:0;background:none;" <?= $mayChange ? '' : 'disabled' ?>>
     <?php require __DIR__ . '/../includes/member_fields.php'; ?>
-    </fieldset>
 
     <?php if (!$mayChange): ?><p class="alert alert-warning">Sie dürfen dieses Mitglied ansehen, aber nicht ändern.</p><?php endif; ?>
 

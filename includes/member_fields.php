@@ -25,6 +25,10 @@ if (!isset($m) || !is_array($m)) {
 $showAdminFields = $showAdminFields ?? false;
 $isRegistration = $isRegistration ?? false;
 $requiredKeys = $requiredKeys ?? [];
+// $groupTabs: true = Felder wie beim Staff-Formular in Reiter gruppieren (nur admin/member-form.php).
+// Selbstbestätigung (mitglied-formular.php) und öffentliche Anmeldung (registrieren.php) bleiben unverändert flach.
+$groupTabs = $groupTabs ?? false;
+$memberTabTitles = ['Stammdaten', 'Kontakt & Familie', 'Rechte & Dokumente', 'Adresse & Ausrüstung', 'Verwaltung'];
 $reqOf = static fn (string $key): string => in_array($key, $requiredKeys, true) ? ' required' : '';
 $reqMark = static fn (string $key): string => $reqOf($key) !== '' ? ' *' : '';
 
@@ -58,6 +62,15 @@ require_once __DIR__ . '/field_access.php';
 $faAudience = $showAdminFields ? field_access_admin_audience() : 'player';
 ob_start(); // Formular puffern, damit gesperrte Felder (Feld-Rechte) am Ende entfernt werden können
 ?>
+<?php if ($groupTabs): ?>
+<div class="tabs" role="tablist" data-tabs>
+    <?php foreach ($memberTabTitles as $mti => $mtTitle): ?>
+    <button type="button" class="tab <?= $mti === 0 ? 'active' : '' ?>" role="tab" data-tab-target="member-tab-<?= $mti ?>"><?= h($mtTitle) ?></button>
+    <?php endforeach; ?>
+</div>
+<fieldset class="form-locked" style="border:0;padding:0;margin:0;background:none;" <?= ($mayChange ?? true) ? '' : 'disabled' ?>>
+<div class="tab-panel active" id="member-tab-0">
+<?php endif; ?>
 <?php if (!$isRegistration): ?>
 <fieldset>
     <legend>Nummer &amp; Camps</legend>
@@ -167,6 +180,10 @@ ob_start(); // Formular puffern, damit gesperrte Felder (Feld-Rechte) am Ende en
     </div>
 </fieldset>
 
+<?php if ($groupTabs): ?>
+</div>
+<div class="tab-panel" id="member-tab-1">
+<?php endif; ?>
 <fieldset>
     <legend>Kontakt</legend>
 
@@ -239,6 +256,10 @@ ob_start(); // Formular puffern, damit gesperrte Felder (Feld-Rechte) am Ende en
 </script>
 <?php endif; ?>
 
+<?php if ($groupTabs): ?>
+</div>
+<div class="tab-panel" id="member-tab-2">
+<?php endif; ?>
 <fieldset>
     <legend>Rechte &amp; Pflicht</legend>
     <?php if (rechte_template_exists()): ?>
@@ -339,6 +360,10 @@ ob_start(); // Formular puffern, damit gesperrte Felder (Feld-Rechte) am Ende en
     </div>
 </fieldset>
 
+<?php if ($groupTabs): ?>
+</div>
+<div class="tab-panel" id="member-tab-3">
+<?php endif; ?>
 <fieldset>
     <legend>Adresse</legend>
 
@@ -416,6 +441,10 @@ ob_start(); // Formular puffern, damit gesperrte Felder (Feld-Rechte) am Ende en
 </fieldset>
 <?php endif; ?>
 
+<?php if ($groupTabs): ?>
+</div>
+<div class="tab-panel" id="member-tab-4">
+<?php endif; ?>
 <?php if ($showAdminFields): ?>
 <fieldset>
     <legend>Verwaltung (nur Admin)</legend>
@@ -454,6 +483,10 @@ ob_start(); // Formular puffern, damit gesperrte Felder (Feld-Rechte) am Ende en
             <input type="text" id="pract_hose_groesse" name="pract_hose_groesse" value="<?= $v('pract_hose_groesse') ?>" maxlength="10">
         </div>
     </div>
+</fieldset>
+<?php endif; ?>
+<?php if ($groupTabs): ?>
+</div>
 </fieldset>
 <?php endif; ?>
 
