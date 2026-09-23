@@ -473,6 +473,21 @@ if (str_starts_with($path, 'manage/')) {
             }
         }
 
+        // Pflichtfelder bei der Selbstanmeldung (Spieler/Staff), siehe admin/registration-fields.php
+        if ($path === 'manage/registration-fields' && in_array($method, ['GET', 'PUT'], true)) {
+            if (!$apiCan('members.registrations')) {
+                $denied('members.registrations');
+            }
+            require_once __DIR__ . '/../includes/registration_fields.php';
+            if ($method === 'PUT' && is_array($manageBody)) {
+                $rfType = ($manageBody['type'] ?? '') === 'staff' ? 'staff' : 'player';
+                $rfKeys = is_array($manageBody['required'] ?? null) ? array_values(array_filter(array_map('strval', $manageBody['required']))) : [];
+                registration_required_keys_set($rfType, $rfKeys);
+            }
+            $rfBuild = static fn (string $type): array => ['registry' => registration_field_labels($type), 'required' => registration_required_keys($type)];
+            api_json(200, ['player' => $rfBuild('player'), 'staff' => $rfBuild('staff')]);
+        }
+
         // Protokoll
         if ($path === 'manage/logs' && $method === 'GET') {
             if (!$apiCan('logs.view')) {
